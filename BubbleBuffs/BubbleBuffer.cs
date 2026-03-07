@@ -1020,6 +1020,36 @@ namespace BubbleBuffs {
                 if (b != null) { b.UsePotions = val; if (b.SavedState != null) b.SavedState.UsePotions = val; state.Save(); }
             });
 
+            // Per-buff source priority override
+            string[] priorityKeys = {
+                "priority.spells-scrolls-potions",
+                "priority.spells-potions-scrolls",
+                "priority.scrolls-spells-potions",
+                "priority.scrolls-potions-spells",
+                "priority.potions-spells-scrolls",
+                "priority.potions-scrolls-spells"
+            };
+
+            string GetPriorityText(int overrideVal) {
+                if (overrideVal < 0) return "priority.useglobal".i8();
+                return priorityKeys[overrideVal].i8();
+            }
+
+            var prioOverrideLabel = MakeSpellLabel($"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}");
+            var prioOverrideText = prioOverrideLabel.GetComponentInChildren<TextMeshProUGUI>();
+
+            var prioOverrideCycleButton = MakeButton(">", spellPopout.transform);
+            prioOverrideCycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                var b = view.Selected;
+                if (b == null) return;
+                // Cycle: -1 -> 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> -1
+                b.SourcePriorityOverride = b.SourcePriorityOverride >= 5 ? -1 : b.SourcePriorityOverride + 1;
+                if (b.SavedState != null) b.SavedState.SourcePriorityOverride = b.SourcePriorityOverride;
+                prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(b.SourcePriorityOverride)}";
+                b.SortProviders();
+                state.Save();
+            });
+
             List<(ToggleWorkaround toggle, TextMeshProUGUI text)> ignoreEffectToggles = new();
 
             MakeSpellLabel("Ignore effects when checking overwrite:");
@@ -1387,6 +1417,8 @@ namespace BubbleBuffs {
                 usePotionsToggle.toggle.gameObject.SetActive(hasPotionProviders);
                 if (hasPotionProviders)
                     usePotionsToggle.toggle.isOn = buff.SavedState?.UsePotions ?? true;
+
+                prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
                 if (SelectedCaster.Value >= 0 && casterPopout.activeSelf) {
                     var who = buff.CasterQueue[SelectedCaster.value];
