@@ -1001,54 +1001,6 @@ namespace BubbleBuffs {
                 return (toggleObj.GetComponentInChildren<ToggleWorkaround>(), label);
             }
 
-            // Source type toggles
-            var useSpellsToggle = MakeSpellPopoutToggle("use.spells".i8());
-            var useScrollsToggle = MakeSpellPopoutToggle("use.scrolls".i8());
-            var usePotionsToggle = MakeSpellPopoutToggle("use.potions".i8());
-
-            useSpellsToggle.toggle.onValueChanged.AddListener(val => {
-                var b = view.Selected;
-                if (b != null) { b.UseSpells = val; if (b.SavedState != null) b.SavedState.UseSpells = val; state.Save(); }
-            });
-            useScrollsToggle.toggle.onValueChanged.AddListener(val => {
-                var b = view.Selected;
-                if (b != null) { b.UseScrolls = val; if (b.SavedState != null) b.SavedState.UseScrolls = val; state.Save(); }
-            });
-            usePotionsToggle.toggle.onValueChanged.AddListener(val => {
-                var b = view.Selected;
-                if (b != null) { b.UsePotions = val; if (b.SavedState != null) b.SavedState.UsePotions = val; state.Save(); }
-            });
-
-            // Per-buff source priority override
-            string[] priorityKeys = {
-                "priority.spells-scrolls-potions",
-                "priority.spells-potions-scrolls",
-                "priority.scrolls-spells-potions",
-                "priority.scrolls-potions-spells",
-                "priority.potions-spells-scrolls",
-                "priority.potions-scrolls-spells"
-            };
-
-            string GetPriorityText(int overrideVal) {
-                if (overrideVal < 0) return "priority.useglobal".i8();
-                return priorityKeys[overrideVal].i8();
-            }
-
-            var prioOverrideLabel = MakeSpellLabel($"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}");
-            var prioOverrideText = prioOverrideLabel.GetComponentInChildren<TextMeshProUGUI>();
-
-            var prioOverrideCycleButton = MakeButton(">", spellPopout.transform);
-            prioOverrideCycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
-                var b = view.Selected;
-                if (b == null) return;
-                // Cycle: -1 -> 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> -1
-                b.SourcePriorityOverride = b.SourcePriorityOverride >= 5 ? -1 : b.SourcePriorityOverride + 1;
-                if (b.SavedState != null) b.SavedState.SourcePriorityOverride = b.SourcePriorityOverride;
-                prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(b.SourcePriorityOverride)}";
-                b.SortProviders();
-                state.Save();
-            });
-
             List<(ToggleWorkaround toggle, TextMeshProUGUI text)> ignoreEffectToggles = new();
 
             MakeSpellLabel("Ignore effects when checking overwrite:");
@@ -1303,6 +1255,86 @@ namespace BubbleBuffs {
                 }
             });
 
+            // Inline source controls above caster portraits
+            var (sourceControlObj, sourceControlRect) = UIHelpers.Create("source-controls", detailsRect);
+            sourceControlRect.anchorMin = new Vector2(0.05f, 0.6f);
+            sourceControlRect.anchorMax = new Vector2(0.95f, 0.75f);
+            sourceControlRect.offsetMin = Vector2.zero;
+            sourceControlRect.offsetMax = Vector2.zero;
+            var sourceControlLayout = sourceControlObj.AddComponent<HorizontalLayoutGroup>();
+            sourceControlLayout.childForceExpandWidth = false;
+            sourceControlLayout.childControlWidth = false;
+            sourceControlLayout.spacing = 8;
+            sourceControlLayout.childAlignment = TextAnchor.MiddleLeft;
+            sourceControlObj.SetActive(false); // hidden until buff selected
+
+            (ToggleWorkaround toggle, TextMeshProUGUI text) MakeInlineToggle(string label) {
+                var toggleObj = GameObject.Instantiate(togglePrefab, sourceControlObj.transform);
+                toggleObj.SetActive(true);
+                toggleObj.Rect().localPosition = Vector3.zero;
+                toggleObj.GetComponent<HorizontalLayoutGroup>().childControlWidth = true;
+                var txt = toggleObj.GetComponentInChildren<TextMeshProUGUI>();
+                txt.text = label;
+                txt.fontSize = 13;
+                return (toggleObj.GetComponentInChildren<ToggleWorkaround>(), txt);
+            }
+
+            var useSpellsToggle = MakeInlineToggle("use.spells".i8());
+            var useScrollsToggle = MakeInlineToggle("use.scrolls".i8());
+            var usePotionsToggle = MakeInlineToggle("use.potions".i8());
+            var useEquipmentToggle = MakeInlineToggle("use.equipment".i8());
+
+            useSpellsToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.UseSpells = val; if (b.SavedState != null) b.SavedState.UseSpells = val; state.Save(); }
+            });
+            useScrollsToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.UseScrolls = val; if (b.SavedState != null) b.SavedState.UseScrolls = val; state.Save(); }
+            });
+            usePotionsToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.UsePotions = val; if (b.SavedState != null) b.SavedState.UsePotions = val; state.Save(); }
+            });
+            useEquipmentToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.UseEquipment = val; if (b.SavedState != null) b.SavedState.UseEquipment = val; state.Save(); }
+            });
+
+            // Per-buff source priority override
+            string[] priorityKeys = {
+                "priority.spells-scrolls-potions",
+                "priority.spells-potions-scrolls",
+                "priority.scrolls-spells-potions",
+                "priority.scrolls-potions-spells",
+                "priority.potions-spells-scrolls",
+                "priority.potions-scrolls-spells"
+            };
+
+            string GetPriorityText(int overrideVal) {
+                if (overrideVal < 0) return "priority.useglobal".i8();
+                return priorityKeys[overrideVal].i8();
+            }
+
+            var prioLabelObj = new GameObject("prio-label", typeof(RectTransform));
+            prioLabelObj.transform.SetParent(sourceControlObj.transform, false);
+            var prioOverrideText = prioLabelObj.AddComponent<TextMeshProUGUI>();
+            prioOverrideText.text = $"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}";
+            prioOverrideText.fontSize = 13;
+            prioOverrideText.color = Color.white;
+            prioLabelObj.SetActive(true);
+
+            var prioCycleBtn = MakeButton(">", sourceControlObj.transform);
+            prioCycleBtn.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                var b = view.Selected;
+                if (b == null) return;
+                b.SourcePriorityOverride = b.SourcePriorityOverride >= 5 ? -1 : b.SourcePriorityOverride + 1;
+                if (b.SavedState != null) b.SavedState.SourcePriorityOverride = b.SourcePriorityOverride;
+                prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(b.SourcePriorityOverride)}";
+                b.SortProviders();
+                state.Save();
+            });
+
             const float groupHeight = 90f;
             var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", detailsRect);
             castersHolder = groupHolder;
@@ -1383,8 +1415,10 @@ namespace BubbleBuffs {
                     UpdateSpellPopout();
                 }
 
-                if (!hasBuff)
+                if (!hasBuff) {
+                    sourceControlObj.SetActive(false);
                     return;
+                }
 
                 buffGroup.Selected.Value = buff.InGroup;
                 hideSpellToggle.isOn = buff.HideBecause(HideReason.Blacklisted);
@@ -1404,6 +1438,7 @@ namespace BubbleBuffs {
                 bool hasSpellProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Spell);
                 bool hasScrollProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Scroll);
                 bool hasPotionProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Potion);
+                bool hasEquipmentProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Equipment);
 
                 useSpellsToggle.toggle.gameObject.SetActive(hasSpellProviders);
                 if (hasSpellProviders)
@@ -1416,6 +1451,13 @@ namespace BubbleBuffs {
                 usePotionsToggle.toggle.gameObject.SetActive(hasPotionProviders);
                 if (hasPotionProviders)
                     usePotionsToggle.toggle.isOn = buff.SavedState?.UsePotions ?? true;
+
+                useEquipmentToggle.toggle.gameObject.SetActive(hasEquipmentProviders);
+                if (hasEquipmentProviders)
+                    useEquipmentToggle.toggle.isOn = buff.SavedState?.UseEquipment ?? true;
+
+                bool hasMultipleSources = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0) > 0;
+                sourceControlObj.SetActive(hasMultipleSources);
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
