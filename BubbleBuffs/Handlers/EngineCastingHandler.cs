@@ -118,8 +118,10 @@ namespace BubbleBuffs.Handlers {
                     }
                     ResetSpellResistance();
 
-                    // Consume item for scroll/potion casts
-                    if (_castTask.SourceType != BuffSourceType.Spell && _castTask.SourceItem != null) {
+                    // Consume item for scroll/potion casts.
+                    // Equipment (wands, rods, etc.) has charges consumed automatically by the game engine,
+                    // so only remove items from inventory for Scroll and Potion sources.
+                    if ((_castTask.SourceType == BuffSourceType.Scroll || _castTask.SourceType == BuffSourceType.Potion) && _castTask.SourceItem != null) {
                         try {
                             Game.Instance.Player.Inventory.Remove(_castTask.SourceItem, 1);
                         } catch (Exception itemEx) {

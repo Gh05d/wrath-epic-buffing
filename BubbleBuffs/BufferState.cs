@@ -253,6 +253,48 @@ namespace BubbleBuffs {
                 Main.Error(ex, "finding scrolls/potions");
             }
 
+            try {
+                // Scan quickslot items for activatable equipment buffs (wands, rods, etc.)
+                for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
+                    UnitEntityData dude = Group[characterIndex];
+
+                    foreach (var slot in dude.Body.QuickSlots) {
+                        if (!slot.HasItem) continue;
+                        if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) continue;
+
+                        // Skip scrolls and potions - they're handled above
+                        if (usableBp.Type == UsableItemType.Scroll || usableBp.Type == UsableItemType.Potion) continue;
+
+                        var spellBlueprint = usableBp.Ability;
+                        if (spellBlueprint == null) continue;
+
+                        var itemEntity = slot.Item;
+                        int charges = itemEntity.Charges;
+                        if (charges <= 0) continue;
+
+                        var credits = new ReactiveProperty<int>(charges);
+                        var abilityData = new AbilityData(spellBlueprint, dude);
+
+                        Main.Verbose($"      Adding equipment buff: {spellBlueprint.Name} from {usableBp.Name} for {dude.CharacterName}", "state");
+
+                        AddBuff(dude: dude,
+                                book: null,
+                                spell: abilityData,
+                                baseSpell: null,
+                                credits: credits,
+                                newCredit: true,
+                                creditClamp: int.MaxValue,
+                                charIndex: characterIndex,
+                                archmageArmor: false,
+                                category: Category.Equipment,
+                                sourceType: BuffSourceType.Equipment,
+                                sourceItem: itemEntity);
+                    }
+                }
+            } catch (Exception ex) {
+                Main.Error(ex, "finding equipment buffs");
+            }
+
             //foreach (var rejectKey in SpellsWithBeneficialBuffs.Where(kv => kv.Value.EmptyIfNull().Empty()).Select(kv => kv.Key)) {
             //    var name = SpellNames[rejectKey];
             //    Main.Verbose($"Rejected spell: {name}", "spell-rejection");
