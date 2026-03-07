@@ -53,7 +53,7 @@ namespace BubbleBuffs.Config {
         public static string i8(this BuffGroup buffGroup) {
             return buffGroup switch {
                 BuffGroup.Long => "group.normal.log".i8(),
-                BuffGroup.Short => "group.short.log".i8(),
+                BuffGroup.Quick => "group.short.log".i8(),
                 BuffGroup.Important => "group.important.log".i8(),
                 _ => "<unknown>"
             };

@@ -1353,7 +1353,7 @@ namespace BubbleBuffs {
 
             buffGroup.Add(BuffGroup.Long, "group.normal".i8());
             buffGroup.Add(BuffGroup.Important, "group.important".i8());
-            buffGroup.Add(BuffGroup.Short, "group.short".i8());
+            buffGroup.Add(BuffGroup.Quick, "group.short".i8());
 
             castersRect.SetAsLastSibling();
 
@@ -1931,7 +1931,7 @@ namespace BubbleBuffs {
 
                 AddButton("group.normal.tooltip.header".i8(), "group.normal.tooltip.desc".i8(), applyBuffsSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Long));
                 AddButton("group.important.tooltip.header".i8(), "group.important.tooltip.desc".i8(), applyBuffsImportantSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Important));
-                AddButton("group.short.tooltip.header".i8(), "group.short.tooltip.desc".i8(), applyBuffsShortSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Short));
+                AddButton("group.short.tooltip.header".i8(), "group.short.tooltip.desc".i8(), applyBuffsShortSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Quick));
                 if (DungeonController.IsDungeonCampaign) {
                     DungeonShowMap showMap = new();
                     AddButton("showmap.tooltip.header".i8(), "showmap.tooltip.desc".i8(), showMapSprites, () => showMap.RunAction());
@@ -2057,7 +2057,7 @@ namespace BubbleBuffs {
 
     public enum BuffGroup {
         Long,
-        Short,
+        Quick,
         Important,
     }
 

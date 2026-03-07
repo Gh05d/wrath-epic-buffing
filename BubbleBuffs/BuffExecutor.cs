@@ -58,7 +58,7 @@ namespace BubbleBuffs {
         private Dictionary<BuffGroup, float> lastExecutedForGroup = new() {
             { BuffGroup.Long, -1 },
             { BuffGroup.Important, -1 },
-            { BuffGroup.Short, -1 },
+            { BuffGroup.Quick, -1 },
         };
 
         public void Execute(BuffGroup buffGroup) {
