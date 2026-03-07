@@ -579,7 +579,7 @@ namespace BubbleBuffs {
             panel.DestroyComponents<GridLayoutGroup>();
             panel.SetActive(false);
             panel.Rect().SetAnchor(0, 1);
-            panel.Rect().sizeDelta = new Vector2(100, 100);
+            panel.Rect().sizeDelta = new Vector2(100, 200);
             panel.Rect().pivot = new Vector2(1, 0);
             panel.Rect().anchoredPosition = Vector3.zero;
             panel.Rect().anchoredPosition = new Vector2(-3, 3);
@@ -619,6 +619,114 @@ namespace BubbleBuffs {
                 toggle.isOn = state.VerboseCasting;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.VerboseCasting = enabled;
+                });
+            }
+
+            // === Scroll/Potion Settings ===
+
+            {
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-scrolls-enabled".i8());
+                toggle.isOn = state.SavedState.ScrollsEnabled;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.SavedState.ScrollsEnabled = enabled;
+                    state.InputDirty = true;
+                    state.Save(true);
+                });
+            }
+
+            {
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-potions-enabled".i8());
+                toggle.isOn = state.SavedState.PotionsEnabled;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.SavedState.PotionsEnabled = enabled;
+                    state.InputDirty = true;
+                    state.Save(true);
+                });
+            }
+
+            // UMD Retries (label + buttons)
+            {
+                var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
+                labelObj.DestroyComponents<ToggleWorkaround>();
+                labelObj.DestroyChildren("Background");
+                labelObj.SetActive(true);
+                var label = labelObj.GetComponentInChildren<TextMeshProUGUI>();
+                label.text = $"{"setting-umd-retries".i8()}: {state.SavedState.UmdRetries}";
+
+                var buttonHolder = new GameObject("umd-retries-buttons", typeof(RectTransform));
+                buttonHolder.transform.SetParent(panel.transform);
+                var hlg = buttonHolder.AddComponent<HorizontalLayoutGroup>();
+                hlg.childForceExpandWidth = false;
+                hlg.spacing = 5;
+
+                var downButton = MakeButton("-", buttonHolder.transform);
+                downButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                    if (state.SavedState.UmdRetries > 1) {
+                        state.SavedState.UmdRetries--;
+                        label.text = $"{"setting-umd-retries".i8()}: {state.SavedState.UmdRetries}";
+                        state.Save(true);
+                    }
+                });
+
+                var upButton = MakeButton("+", buttonHolder.transform);
+                upButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                    if (state.SavedState.UmdRetries < 20) {
+                        state.SavedState.UmdRetries++;
+                        label.text = $"{"setting-umd-retries".i8()}: {state.SavedState.UmdRetries}";
+                        state.Save(true);
+                    }
+                });
+            }
+
+            // UMD Mode cycle button
+            {
+                string GetUmdModeText() => state.SavedState.UmdMode switch {
+                    UmdMode.SafeOnly => "umd.safeonly".i8(),
+                    UmdMode.AllowIfPossible => "umd.allowifpossible".i8(),
+                    UmdMode.AlwaysTry => "umd.alwaystry".i8(),
+                    _ => "?"
+                };
+
+                var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
+                labelObj.DestroyComponents<ToggleWorkaround>();
+                labelObj.DestroyChildren("Background");
+                labelObj.SetActive(true);
+                var umdText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
+                umdText.text = $"{"setting-umd-mode".i8()}: {GetUmdModeText()}";
+
+                var cycleButton = MakeButton(">", panel.transform);
+                cycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                    state.SavedState.UmdMode = (UmdMode)(((int)state.SavedState.UmdMode + 1) % 3);
+                    umdText.text = $"{"setting-umd-mode".i8()}: {GetUmdModeText()}";
+                    state.InputDirty = true;
+                    state.Save(true);
+                });
+            }
+
+            // Source Priority cycle button
+            {
+                string[] priorityKeys = {
+                    "priority.spells-scrolls-potions",
+                    "priority.spells-potions-scrolls",
+                    "priority.scrolls-spells-potions",
+                    "priority.scrolls-potions-spells",
+                    "priority.potions-spells-scrolls",
+                    "priority.potions-scrolls-spells"
+                };
+
+                var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
+                labelObj.DestroyComponents<ToggleWorkaround>();
+                labelObj.DestroyChildren("Background");
+                labelObj.SetActive(true);
+                var prioText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
+                prioText.text = $"{"setting-source-priority".i8()}: {priorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
+
+                var prioCycleButton = MakeButton(">", panel.transform);
+                prioCycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                    state.SavedState.GlobalSourcePriority = (SourcePriority)(((int)state.SavedState.GlobalSourcePriority + 1) % 6);
+                    prioText.text = $"{"setting-source-priority".i8()}: {priorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
+                    state.InputDirty = true;
+                    state.Save(true);
                 });
             }
 
