@@ -1002,6 +1002,24 @@ namespace BubbleBuffs {
                 return (toggleObj.GetComponentInChildren<ToggleWorkaround>(), label);
             }
 
+            // Source type toggles
+            var useSpellsToggle = MakeSpellPopoutToggle("use.spells".i8());
+            var useScrollsToggle = MakeSpellPopoutToggle("use.scrolls".i8());
+            var usePotionsToggle = MakeSpellPopoutToggle("use.potions".i8());
+
+            useSpellsToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null && b.SavedState != null) { b.SavedState.UseSpells = val; state.Save(); }
+            });
+            useScrollsToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null && b.SavedState != null) { b.SavedState.UseScrolls = val; state.Save(); }
+            });
+            usePotionsToggle.toggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null && b.SavedState != null) { b.SavedState.UsePotions = val; state.Save(); }
+            });
+
             List<(ToggleWorkaround toggle, TextMeshProUGUI text)> ignoreEffectToggles = new();
 
             MakeSpellLabel("Ignore effects when checking overwrite:");
@@ -1353,6 +1371,22 @@ namespace BubbleBuffs {
                         ignoreEffectToggles[i].toggle.gameObject.SetActive(false);
                     }
                 }
+
+                bool hasSpellProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Spell);
+                bool hasScrollProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Scroll);
+                bool hasPotionProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Potion);
+
+                useSpellsToggle.toggle.gameObject.SetActive(hasSpellProviders);
+                if (hasSpellProviders)
+                    useSpellsToggle.toggle.isOn = buff.SavedState?.UseSpells ?? true;
+
+                useScrollsToggle.toggle.gameObject.SetActive(hasScrollProviders);
+                if (hasScrollProviders)
+                    useScrollsToggle.toggle.isOn = buff.SavedState?.UseScrolls ?? true;
+
+                usePotionsToggle.toggle.gameObject.SetActive(hasPotionProviders);
+                if (hasPotionProviders)
+                    usePotionsToggle.toggle.isOn = buff.SavedState?.UsePotions ?? true;
 
                 if (SelectedCaster.Value >= 0 && casterPopout.activeSelf) {
                     var who = buff.CasterQueue[SelectedCaster.value];
@@ -2428,10 +2462,15 @@ namespace BubbleBuffs {
                     var who = buff.CasterQueue[i];
                     casterPortraits[i].Image.sprite = targets[who.CharacterIndex].Image.sprite;
                     var bookName = who.book?.Blueprint.Name ?? "";
+                    string sourceLabel = who.SourceType switch {
+                        BuffSourceType.Scroll => $" [{"source.scroll".i8()}]",
+                        BuffSourceType.Potion => $" [{"source.potion".i8()}]",
+                        _ => ""
+                    };
                     if (who.AvailableCredits < 100)
-                        casterPortraits[i].Text.text = $"{who.spent}+{who.AvailableCredits}\n<i>{bookName}</i>";
+                        casterPortraits[i].Text.text = $"{who.spent}+{who.AvailableCredits}\n<i>{bookName}</i>{sourceLabel}";
                     else
-                        casterPortraits[i].Text.text = $"{"available.atwill".i8()}\n<i>{bookName}</i>";
+                        casterPortraits[i].Text.text = $"{"available.atwill".i8()}\n<i>{bookName}</i>{sourceLabel}";
                     casterPortraits[i].Text.fontSize = 12;
                     casterPortraits[i].Text.outlineWidth = 0;
                     casterPortraits[i].Image.color = who.Banned ? Color.red : Color.white;
