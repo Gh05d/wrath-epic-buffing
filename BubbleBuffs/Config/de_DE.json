@@ -77,5 +77,8 @@
   "log.umd-retries-exhausted": "UMD-Versuche erschöpft",
   "log.last-item-consumed": "Letztes Item verbraucht",
   "log.equipment-no-charges": "hat keine Ladungen mehr",
-  "log.equipment-unavailable": "nicht mehr verfugbar"
+  "log.equipment-unavailable": "nicht mehr verfugbar",
+  "setting-equipment-enabled": "Ausrustungsnutzung aktivieren",
+  "log.no-scroll-available": "Keine Schriftrolle von {0} im Inventar",
+  "log.no-potion-available": "Kein Trank von {0} im Inventar"
 }

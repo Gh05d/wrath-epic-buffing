@@ -40,6 +40,8 @@ namespace BubbleBuffs {
         [JsonProperty]
         public bool PotionsEnabled = true;
         [JsonProperty]
+        public bool EquipmentEnabled = true;
+        [JsonProperty]
         public int Version;
     }
 

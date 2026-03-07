@@ -108,6 +108,27 @@ namespace BubbleBuffs {
                             continue;
                         }
 
+                        // Check if source item is available
+                        if (caster.SourceType != BuffSourceType.Spell && caster.AvailableCredits <= 0) {
+                            string logKey = caster.SourceType switch {
+                                BuffSourceType.Scroll => "log.no-scroll-available",
+                                BuffSourceType.Potion => "log.no-potion-available",
+                                BuffSourceType.Equipment => "log.equipment-no-charges",
+                                _ => null
+                            };
+                            if (logKey != null) {
+                                string itemName = caster.SourceItem?.Name ?? buff.Name;
+                                string msg = caster.SourceType == BuffSourceType.Equipment
+                                    ? $"{itemName} {"log.equipment-no-charges".i8()}"
+                                    : string.Format(logKey.i8(), buff.Name);
+                                Main.Log(msg);
+                                if (badResult == null) badResult = tooltip.AddBad(buff);
+                                badResult.messages.Add($"  {msg}");
+                            }
+                            thisBuffBad++;
+                            continue;
+                        }
+
                         attemptedCasts++;
 
                         AbilityData spellToCast;

@@ -254,41 +254,43 @@ namespace BubbleBuffs {
             }
 
             try {
-                // Scan quickslot items for activatable equipment buffs (wands, rods, etc.)
-                for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                    UnitEntityData dude = Group[characterIndex];
+                if (SavedState.EquipmentEnabled) {
+                    // Scan quickslot items for activatable equipment buffs (wands, rods, etc.)
+                    for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
+                        UnitEntityData dude = Group[characterIndex];
 
-                    foreach (var slot in dude.Body.QuickSlots) {
-                        if (!slot.HasItem) continue;
-                        if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) continue;
+                        foreach (var slot in dude.Body.QuickSlots) {
+                            if (!slot.HasItem) continue;
+                            if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) continue;
 
-                        // Skip scrolls and potions - they're handled above
-                        if (usableBp.Type == UsableItemType.Scroll || usableBp.Type == UsableItemType.Potion) continue;
+                            // Skip scrolls and potions - they're handled above
+                            if (usableBp.Type == UsableItemType.Scroll || usableBp.Type == UsableItemType.Potion) continue;
 
-                        var spellBlueprint = usableBp.Ability;
-                        if (spellBlueprint == null) continue;
+                            var spellBlueprint = usableBp.Ability;
+                            if (spellBlueprint == null) continue;
 
-                        var itemEntity = slot.Item;
-                        int charges = itemEntity.Charges;
-                        if (charges <= 0) continue;
+                            var itemEntity = slot.Item;
+                            int charges = itemEntity.Charges;
+                            if (charges <= 0) continue;
 
-                        var credits = new ReactiveProperty<int>(charges);
-                        var abilityData = new AbilityData(spellBlueprint, dude);
+                            var credits = new ReactiveProperty<int>(charges);
+                            var abilityData = new AbilityData(spellBlueprint, dude);
 
-                        Main.Verbose($"      Adding equipment buff: {spellBlueprint.Name} from {usableBp.Name} for {dude.CharacterName}", "state");
+                            Main.Verbose($"      Adding equipment buff: {spellBlueprint.Name} from {usableBp.Name} for {dude.CharacterName}", "state");
 
-                        AddBuff(dude: dude,
-                                book: null,
-                                spell: abilityData,
-                                baseSpell: null,
-                                credits: credits,
-                                newCredit: true,
-                                creditClamp: int.MaxValue,
-                                charIndex: characterIndex,
-                                archmageArmor: false,
-                                category: Category.Equipment,
-                                sourceType: BuffSourceType.Equipment,
-                                sourceItem: itemEntity);
+                            AddBuff(dude: dude,
+                                    book: null,
+                                    spell: abilityData,
+                                    baseSpell: null,
+                                    credits: credits,
+                                    newCredit: true,
+                                    creditClamp: int.MaxValue,
+                                    charIndex: characterIndex,
+                                    archmageArmor: false,
+                                    category: Category.Equipment,
+                                    sourceType: BuffSourceType.Equipment,
+                                    sourceItem: itemEntity);
+                        }
                     }
                 }
             } catch (Exception ex) {

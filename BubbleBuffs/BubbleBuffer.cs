@@ -653,6 +653,16 @@ namespace BubbleBuffs {
                 });
             }
 
+            {
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-equipment-enabled".i8());
+                toggle.isOn = state.SavedState.EquipmentEnabled;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.SavedState.EquipmentEnabled = enabled;
+                    state.InputDirty = true;
+                    state.Save(true);
+                });
+            }
+
             // UMD Retries (label + buttons)
             {
                 var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);

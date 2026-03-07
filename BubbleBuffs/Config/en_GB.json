@@ -85,6 +85,9 @@
   "log.umd-retries-exhausted": "UMD retries exhausted",
   "log.last-item-consumed": "Last item consumed",
   "log.equipment-no-charges": "is out of charges",
-  "log.equipment-unavailable": "no longer available"
+  "log.equipment-unavailable": "no longer available",
+  "setting-equipment-enabled": "Enable equipment usage",
+  "log.no-scroll-available": "No scroll of {0} in inventory",
+  "log.no-potion-available": "No potion of {0} in inventory"
 
 }
