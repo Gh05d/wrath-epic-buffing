@@ -495,7 +495,7 @@ namespace BubbleBuffs {
         public bool TryUmdCheck() {
             if (!RequiresUmdCheck) return true;
             var umdBonus = who.Stats.SkillUseMagicDevice.ModifiedValue;
-            var roll = Random.Range(1, 21);
+            var roll = UnityEngine.Random.Range(1, 21);
             var total = roll + umdBonus;
             Main.Verbose($"UMD Check: {who.CharacterName} rolled {roll} + {umdBonus} = {total} vs DC {ScrollDC}");
             return total >= ScrollDC;
