@@ -80,8 +80,6 @@
   "use.potions": "Use Potions",
   "log.umd-failed": "UMD check failed",
   "log.umd-retries-exhausted": "UMD retries exhausted",
-  "log.last-item-consumed": "Last item consumed",
-  "limitscrolls": "Limit scrolls to",
-  "limitpotions": "Limit potions to"
+  "log.last-item-consumed": "Last item consumed"
 
 }

@@ -138,8 +138,6 @@ namespace BubbleBuffs {
         internal Category Category = Category.Spell;
         internal SavedBuffState SavedState;
         public int SourcePriorityOverride = -1; // -1 = use global
-        public int ScrollCap = -1;  // -1 = no limit
-        public int PotionCap = -1;  // -1 = no limit
         public bool UseSpells = true;
         public bool UseScrolls = true;
         public bool UsePotions = true;
@@ -196,8 +194,6 @@ namespace BubbleBuffs {
             if (state.IgnoreForOverwriteCheck != null) {
                 IgnoreForOverwriteCheck = state.IgnoreForOverwriteCheck.Select(gstr => Guid.Parse(gstr)).ToHashSet();
             }
-            ScrollCap = state.ScrollCap;
-            PotionCap = state.PotionCap;
             UseSpells = state.UseSpells;
             UseScrolls = state.UseScrolls;
             UsePotions = state.UsePotions;

@@ -80,10 +80,6 @@ namespace BubbleBuffs {
         [JsonProperty]
         public int SourcePriorityOverride = -1; // -1 = use global default
         [JsonProperty]
-        public int ScrollCap = -1; // -1 = no limit
-        [JsonProperty]
-        public int PotionCap = -1; // -1 = no limit
-        [JsonProperty]
         public bool UseSpells = true;
         [JsonProperty]
         public bool UseScrolls = true;

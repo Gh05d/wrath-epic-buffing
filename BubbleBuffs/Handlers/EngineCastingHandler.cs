@@ -117,6 +117,15 @@ namespace BubbleBuffs.Handlers {
                         RestoreCasterLevel();
                     }
                     ResetSpellResistance();
+
+                    // Consume item for scroll/potion casts
+                    if (_castTask.SourceType != BuffSourceType.Spell && _castTask.SourceItem != null) {
+                        try {
+                            Game.Instance.Player.Inventory.Remove(_castTask.SourceItem, 1);
+                        } catch (Exception itemEx) {
+                            Main.Error(itemEx, "Consuming item after cast");
+                        }
+                    }
                 } catch (Exception ex) {
                     Main.Error(ex, "Casting: HandleExecutionProcessEnd");
                 } finally {

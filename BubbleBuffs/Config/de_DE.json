@@ -72,7 +72,5 @@
   "use.potions": "Tränke verwenden",
   "log.umd-failed": "UMD-Probe fehlgeschlagen",
   "log.umd-retries-exhausted": "UMD-Versuche erschöpft",
-  "log.last-item-consumed": "Letztes Item verbraucht",
-  "limitscrolls": "Schriftrollen begrenzen auf",
-  "limitpotions": "Tränke begrenzen auf"
+  "log.last-item-consumed": "Letztes Item verbraucht"
 }
