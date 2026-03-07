@@ -30,6 +30,16 @@ namespace BubbleBuffs {
         [JsonProperty]
         public bool OverwriteBuff;
         [JsonProperty]
+        public SourcePriority GlobalSourcePriority = SourcePriority.SpellsScrollsPotions;
+        [JsonProperty]
+        public int UmdRetries = 3;
+        [JsonProperty]
+        public UmdMode UmdMode = UmdMode.AllowIfPossible;
+        [JsonProperty]
+        public bool ScrollsEnabled = true;
+        [JsonProperty]
+        public bool PotionsEnabled = true;
+        [JsonProperty]
         public int Version;
     }
 
@@ -67,6 +77,18 @@ namespace BubbleBuffs {
         public Dictionary<CasterKey, SavedCasterState> Casters = new();
         [JsonProperty]
         public Guid BaseSpell;
+        [JsonProperty]
+        public int SourcePriorityOverride = -1; // -1 = use global default
+        [JsonProperty]
+        public int ScrollCap = -1; // -1 = no limit
+        [JsonProperty]
+        public int PotionCap = -1; // -1 = no limit
+        [JsonProperty]
+        public bool UseSpells = true;
+        [JsonProperty]
+        public bool UseScrolls = true;
+        [JsonProperty]
+        public bool UsePotions = true;
     }
 
 

@@ -341,6 +341,8 @@ namespace BubbleBuffs {
         public int clamp;
         public AbilityData spell;
         public int CharacterIndex;
+        public BuffSourceType SourceType = BuffSourceType.Spell;
+        public Kingmaker.Items.ItemEntity SourceItem;
 
         public void InstallDebugListeners() {
             credits.Subscribe<int>(c => {

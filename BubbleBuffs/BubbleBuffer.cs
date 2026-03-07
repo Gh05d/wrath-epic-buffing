@@ -1885,6 +1885,27 @@ namespace BubbleBuffs {
         Important,
     }
 
+    public enum BuffSourceType {
+        Spell,
+        Scroll,
+        Potion
+    }
+
+    public enum UmdMode {
+        SafeOnly,
+        AllowIfPossible,
+        AlwaysTry
+    }
+
+    public enum SourcePriority {
+        SpellsScrollsPotions = 0,
+        SpellsPotionsScrolls = 1,
+        ScrollsSpellsPotions = 2,
+        ScrollsPotionsSpells = 3,
+        PotionsSpellsScrolls = 4,
+        PotionsScrollsSpells = 5,
+    }
+
 
     class ButtonSprites {
         public Sprite normal;
