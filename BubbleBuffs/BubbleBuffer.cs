@@ -1027,8 +1027,8 @@ namespace BubbleBuffs {
 
             detailsRect.localPosition = Vector2.zero;
             detailsRect.sizeDelta = Vector2.zero;
-            detailsRect.anchorMin = new Vector2(0.25f, 0.225f);
-            detailsRect.anchorMax = new Vector2(0.75f, 0.475f);
+            detailsRect.anchorMin = new Vector2(0f, 0f);
+            detailsRect.anchorMax = new Vector2(1f, 1f);
 
             currentSpellView = view.widgetCache.Get(detailsRect);
             Main.VerboseNotNull(() => currentSpellView);
@@ -1038,7 +1038,7 @@ namespace BubbleBuffs {
             currentSpellView.SetActive(false);
             var currentSpellRect = currentSpellView.transform as RectTransform;
             Main.VerboseNotNull(() => currentSpellRect);
-            currentSpellRect.SetAnchor(.5, .8);
+            currentSpellRect.SetAnchor(.5, .93);
 
 
             ReactiveProperty<int> SelectedCaster = new ReactiveProperty<int>(-1);
@@ -1115,12 +1115,12 @@ namespace BubbleBuffs {
 
             var expandSpellPopout = GameObject.Instantiate(expandButtonPrefab, detailsRect);
             expandSpellPopout.Rect().pivot = new Vector2(0.5f, 0.5f);
-            expandSpellPopout.Rect().SetAnchor(0.9, 1);
-            expandSpellPopout.Rect().anchoredPosition = new Vector2(-20, -20);
+            expandSpellPopout.Rect().SetAnchor(0.9, 0.96);
+            expandSpellPopout.Rect().anchoredPosition = new Vector2(-20, -10);
             expandSpellPopout.GetComponent<OwlcatButton>().Interactable = true;
             expandSpellPopout.SetActive(true);
             bool isExpanded = false;
-            spellPopout.Rect().SetAnchor(0.9, 1);
+            spellPopout.Rect().SetAnchor(0.9, 0.96);
             spellPopout.Rect().anchoredPosition = new Vector2(-20, 0);
             UpdateSpellPopout();
 
@@ -1185,7 +1185,7 @@ namespace BubbleBuffs {
                 return labelRoot;
             }
 
-            var hideSpell = MakeToggle(togglePrefab, detailsRect.transform, 0.03f, 0.8f, "hideability".i8(), "hide-spell");
+            var hideSpell = MakeToggle(togglePrefab, detailsRect.transform, 0.03f, 0.93f, "hideability".i8(), "hide-spell");
             hideSpell.transform.SetSiblingIndex(0);
             hideSpell.SetActive(false);
             hideSpell.Rect().pivot = new Vector2(0, 0.5f);
@@ -1197,13 +1197,13 @@ namespace BubbleBuffs {
             addToAllRect.localPosition = Vector3.zero;
             addToAllRect.anchoredPosition = Vector3.zero;
             addToAllRect.pivot = new Vector2(0, 0);
-            addToAllRect.sizeDelta = new Vector2(180, 50);
-            addToAllRect.SetAnchor(0.03f, 0.1f);
+            addToAllRect.sizeDelta = new Vector2(140, 40);
+            addToAllRect.SetAnchor(0.03f, 0.04f);
 
             view.removeFromAll = GameObject.Instantiate(view.addToAll, detailsRect);
             view.removeFromAll.GetComponentInChildren<TextMeshProUGUI>().text = "remove-all".i8();
             var removeFromAllRect = view.removeFromAll.transform as RectTransform;
-            removeFromAllRect.SetAnchor(0.03f, 0.3f);
+            removeFromAllRect.SetAnchor(0.03f, 0.10f);
 
             view.addToAll.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                 var buff = view.Selected;
@@ -1344,8 +1344,8 @@ namespace BubbleBuffs {
             // Inline source controls above caster portraits — 2x2 toggle grid + priority row
             // Uses absolute anchor positioning (like MakeToggle) to avoid layout group conflicts
             var (sourceControlObj, sourceControlRect) = UIHelpers.Create("source-controls", detailsRect);
-            sourceControlRect.anchorMin = new Vector2(0.02f, 0.48f);
-            sourceControlRect.anchorMax = new Vector2(0.78f, 0.78f);
+            sourceControlRect.anchorMin = new Vector2(0.02f, 0.74f);
+            sourceControlRect.anchorMax = new Vector2(0.78f, 0.90f);
             sourceControlRect.offsetMin = Vector2.zero;
             sourceControlRect.offsetMax = Vector2.zero;
             sourceControlObj.SetActive(false); // hidden until buff selected
@@ -1437,7 +1437,7 @@ namespace BubbleBuffs {
                 state.Save();
             });
 
-            const float groupHeight = 90f;
+            const float groupHeight = 70f;
             var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", detailsRect);
             castersHolder = groupHolder;
             groupHolder.MakeComponent<ContentSizeFitter>(f => {
@@ -1445,7 +1445,7 @@ namespace BubbleBuffs {
             });
             castersRect.anchorMin = new Vector2(0.5f, 0.22f);
             castersRect.anchorMax = new Vector2(0.5f, 0.57f);
-            castersRect.SetAnchor(0.5f, 0.2f);
+            castersRect.SetAnchor(0.5f, 0.45f);
             castersRect.sizeDelta = new Vector2(300, groupHeight);
             castersRect.pivot = new Vector2(0.5f, 0);
 
@@ -1479,9 +1479,9 @@ namespace BubbleBuffs {
 
             var groupRect = MakeVerticalRect("buff-group", detailsRect);
             groupRect.gameObject.SetActive(false);
-            groupRect.SetAnchor(0.9f, 0.6f);
-            groupRect.anchoredPosition = new Vector2(-20, 0);
-            groupRect.sizeDelta = new Vector2(140, 100);
+            groupRect.SetAnchor(0.75f, 0.04f);
+            groupRect.anchoredPosition = new Vector2(0, 0);
+            groupRect.sizeDelta = new Vector2(140, 80);
 
             var buffGroup = new ButtonGroup<BuffGroup>(groupRect);
 
