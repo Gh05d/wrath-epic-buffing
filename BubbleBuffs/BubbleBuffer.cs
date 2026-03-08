@@ -77,7 +77,8 @@ namespace BubbleBuffs {
 
     public class BubbleBuffSpellbookController : MonoBehaviour {
         private GameObject ToggleButton;
-        internal bool Buffing => PartyView.m_Hide;
+        internal bool IsReady => PartyView != null && MainContainer != null;
+        internal bool Buffing => PartyView != null && PartyView.m_Hide;
         private GameObject MainContainer;
         private GameObject NoSpellbooksContainer;
         public RectTransform TooltipRoot;
@@ -93,6 +94,9 @@ namespace BubbleBuffs {
         private GameObject Root;
 
         private bool WindowCreated = false;
+
+        private Transform leftPanel;
+        private Transform rightPanel;
 
         public static Dictionary<string, TooltipBaseTemplate> AbilityTooltips = new();
 
@@ -273,7 +277,23 @@ namespace BubbleBuffs {
             }
         }
 
+        internal void EnsurePartyViewHidden() {
+            if (PartyView != null && !PartyView.m_Hide) {
+                PartyView.HideAnimation(true);
+            }
+        }
+
         public void ToggleBuffMode() {
+            if (PartyView == null) {
+                // Re-acquire PartyView if it was lost (e.g. UI hierarchy was rebuilt)
+                var partyViewGO = UIHelpers.StaticRoot.Find("NestedCanvas2/PartyPCView");
+                if (partyViewGO != null)
+                    PartyView = partyViewGO.gameObject.GetComponent<PartyPCView>();
+                if (PartyView == null) {
+                    Main.Log("BubbleBuffs: PartyView is null, cannot toggle buff mode");
+                    return;
+                }
+            }
             PartyView.HideAnimation(!Buffing);
 
             if (Buffing) {
@@ -466,16 +486,33 @@ namespace BubbleBuffs {
             view.content = content;
             Main.Verbose("set view prefabs");
 
+            // Create left/right panel containers for vertical split layout
+            var (leftPanelObj, leftPanelRect) = UIHelpers.Create("left-panel", content);
+            leftPanelRect.anchorMin = new Vector2(0.05f, 0.05f);
+            leftPanelRect.anchorMax = new Vector2(0.38f, 0.89f);
+            leftPanelRect.offsetMin = Vector2.zero;
+            leftPanelRect.offsetMax = Vector2.zero;
+            leftPanel = leftPanelObj.transform;
+
+            var (rightPanelObj, rightPanelRect) = UIHelpers.Create("right-panel", content);
+            rightPanelRect.anchorMin = new Vector2(0.40f, 0.05f);
+            rightPanelRect.anchorMax = new Vector2(0.95f, 0.89f);
+            rightPanelRect.offsetMin = Vector2.zero;
+            rightPanelRect.offsetMax = Vector2.zero;
+            rightPanel = rightPanelObj.transform;
+
+            view.leftPanel = leftPanel;
+
             view.MakeSummary();
 
             view.MakeBuffsList();
 
-            MakeFilters(togglePrefab, content);
+            MakeFilters(togglePrefab, leftPanel);
 
-            MakeGroupHolder(portraitPrefab, expandButtonPrefab, buttonPrefab, content);
+            MakeGroupHolder(portraitPrefab, expandButtonPrefab, buttonPrefab, rightPanel);
             Main.Verbose("made group holder");
 
-            MakeDetailsView(portraitPrefab, framePrefab, nextPrefab, prevPrefab, togglePrefab, expandButtonPrefab, content);
+            MakeDetailsView(portraitPrefab, framePrefab, nextPrefab, prevPrefab, togglePrefab, expandButtonPrefab, rightPanel);
             Main.Verbose("made details view");
 
             var partialOverlay = AssetLoader.Materials["bubbly_overlay"];
@@ -853,8 +890,8 @@ namespace BubbleBuffs {
         private void MakeFilters(GameObject togglePrefab, Transform content) {
             var filterRect = MakeVerticalRect("filters", content);
             //filterToggles.AddComponent<Image>().color = Color.green;
-            filterRect.anchorMin = new Vector2(0.13f, 0.1f);
-            filterRect.anchorMax = new Vector2(0.215f, .4f);
+            filterRect.anchorMin = new Vector2(0f, 0.0f);
+            filterRect.anchorMax = new Vector2(0.55f, 0.17f);
             filterRect.gameObject.EditComponent<VerticalLayoutGroup>(v => {
                 v.childScaleHeight = true;
                 v.childScaleWidth = true;
@@ -878,8 +915,8 @@ namespace BubbleBuffs {
             });
 
             var categoryRect = MakeVerticalRect("categories", content);
-            categoryRect.anchorMin = new Vector2(1 - filterRect.anchorMax.x, 0.1f);
-            categoryRect.anchorMax = new Vector2(1 - filterRect.anchorMin.x, 0.4f);
+            categoryRect.anchorMin = new Vector2(0.57f, 0.0f);
+            categoryRect.anchorMax = new Vector2(1f, 0.17f);
 
             CurrentCategory = new ButtonGroup<Category>(categoryRect);
             CurrentCategory.Selected.Subscribe<Category>(_ => RefreshFiltering());
@@ -1304,48 +1341,53 @@ namespace BubbleBuffs {
                 }
             });
 
-            // Inline source controls above caster portraits
+            // Inline source controls above caster portraits — 2x2 toggle grid + priority row
+            // Uses absolute anchor positioning (like MakeToggle) to avoid layout group conflicts
             var (sourceControlObj, sourceControlRect) = UIHelpers.Create("source-controls", detailsRect);
-            sourceControlRect.anchorMin = new Vector2(0.05f, 0.6f);
-            sourceControlRect.anchorMax = new Vector2(0.95f, 0.75f);
+            sourceControlRect.anchorMin = new Vector2(0.02f, 0.48f);
+            sourceControlRect.anchorMax = new Vector2(0.78f, 0.78f);
             sourceControlRect.offsetMin = Vector2.zero;
             sourceControlRect.offsetMax = Vector2.zero;
-            var sourceControlLayout = sourceControlObj.AddComponent<HorizontalLayoutGroup>();
-            sourceControlLayout.childForceExpandWidth = false;
-            sourceControlLayout.childControlWidth = false;
-            sourceControlLayout.spacing = 8;
-            sourceControlLayout.childAlignment = TextAnchor.MiddleLeft;
             sourceControlObj.SetActive(false); // hidden until buff selected
 
-            (ToggleWorkaround toggle, TextMeshProUGUI text) MakeInlineToggle(string label) {
+            float srcToggleScale = 0.7f;
+            GameObject MakeSourceToggle(string label, float x, float y) {
                 var toggleObj = GameObject.Instantiate(togglePrefab, sourceControlObj.transform);
                 toggleObj.SetActive(true);
-                toggleObj.Rect().localPosition = Vector3.zero;
-                toggleObj.GetComponent<HorizontalLayoutGroup>().childControlWidth = true;
-                var txt = toggleObj.GetComponentInChildren<TextMeshProUGUI>();
-                txt.text = label;
-                txt.fontSize = 13;
-                return (toggleObj.GetComponentInChildren<ToggleWorkaround>(), txt);
+                var toggleRect = toggleObj.transform as RectTransform;
+                toggleRect.localPosition = Vector2.zero;
+                toggleRect.anchoredPosition = Vector2.zero;
+                toggleRect.anchorMin = new Vector2(x, y);
+                toggleRect.anchorMax = new Vector2(x, y);
+                toggleRect.pivot = new Vector2(0, 0.5f);
+                toggleRect.localScale = new Vector3(srcToggleScale, srcToggleScale, srcToggleScale);
+                toggleObj.GetComponentInChildren<TextMeshProUGUI>().text = label;
+                return toggleObj;
             }
 
-            var useSpellsToggle = MakeInlineToggle("use.spells".i8());
-            var useScrollsToggle = MakeInlineToggle("use.scrolls".i8());
-            var usePotionsToggle = MakeInlineToggle("use.potions".i8());
-            var useEquipmentToggle = MakeInlineToggle("use.equipment".i8());
+            var useSpellsObj = MakeSourceToggle("use.spells".i8(), 0f, 0.85f);
+            var useScrollsObj = MakeSourceToggle("use.scrolls".i8(), 0.5f, 0.85f);
+            var usePotionsObj = MakeSourceToggle("use.potions".i8(), 0f, 0.55f);
+            var useEquipmentObj = MakeSourceToggle("use.equipment".i8(), 0.5f, 0.55f);
 
-            useSpellsToggle.toggle.onValueChanged.AddListener(val => {
+            var useSpellsToggle = useSpellsObj.GetComponentInChildren<ToggleWorkaround>();
+            var useScrollsToggle = useScrollsObj.GetComponentInChildren<ToggleWorkaround>();
+            var usePotionsToggle = usePotionsObj.GetComponentInChildren<ToggleWorkaround>();
+            var useEquipmentToggle = useEquipmentObj.GetComponentInChildren<ToggleWorkaround>();
+
+            useSpellsToggle.onValueChanged.AddListener(val => {
                 var b = view.Selected;
                 if (b != null) { b.UseSpells = val; if (b.SavedState != null) b.SavedState.UseSpells = val; state.Save(); }
             });
-            useScrollsToggle.toggle.onValueChanged.AddListener(val => {
+            useScrollsToggle.onValueChanged.AddListener(val => {
                 var b = view.Selected;
                 if (b != null) { b.UseScrolls = val; if (b.SavedState != null) b.SavedState.UseScrolls = val; state.Save(); }
             });
-            usePotionsToggle.toggle.onValueChanged.AddListener(val => {
+            usePotionsToggle.onValueChanged.AddListener(val => {
                 var b = view.Selected;
                 if (b != null) { b.UsePotions = val; if (b.SavedState != null) b.SavedState.UsePotions = val; state.Save(); }
             });
-            useEquipmentToggle.toggle.onValueChanged.AddListener(val => {
+            useEquipmentToggle.onValueChanged.AddListener(val => {
                 var b = view.Selected;
                 if (b != null) { b.UseEquipment = val; if (b.SavedState != null) b.SavedState.UseEquipment = val; state.Save(); }
             });
@@ -1365,15 +1407,26 @@ namespace BubbleBuffs {
                 return priorityKeys[overrideVal].i8();
             }
 
+            // Priority label + cycle button at bottom of source controls
             var prioLabelObj = new GameObject("prio-label", typeof(RectTransform));
             prioLabelObj.transform.SetParent(sourceControlObj.transform, false);
+            var prioLabelRect = prioLabelObj.transform as RectTransform;
+            prioLabelRect.anchorMin = new Vector2(0f, 0.05f);
+            prioLabelRect.anchorMax = new Vector2(0.82f, 0.35f);
+            prioLabelRect.offsetMin = Vector2.zero;
+            prioLabelRect.offsetMax = Vector2.zero;
             var prioOverrideText = prioLabelObj.AddComponent<TextMeshProUGUI>();
             prioOverrideText.text = $"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}";
-            prioOverrideText.fontSize = 13;
+            prioOverrideText.fontSize = 11;
             prioOverrideText.color = Color.white;
+            prioOverrideText.alignment = TextAlignmentOptions.Left;
             prioLabelObj.SetActive(true);
 
             var prioCycleBtn = MakeButton(">", sourceControlObj.transform);
+            var prioBtnRect = prioCycleBtn.transform as RectTransform;
+            prioBtnRect.anchorMin = new Vector2(0.85f, 0.1f);
+            prioBtnRect.anchorMax = new Vector2(0.85f, 0.3f);
+            prioBtnRect.localScale = new Vector3(0.7f, 0.7f, 0.7f);
             prioCycleBtn.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                 var b = view.Selected;
                 if (b == null) return;
@@ -1489,21 +1542,21 @@ namespace BubbleBuffs {
                 bool hasPotionProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Potion);
                 bool hasEquipmentProviders = buff.CasterQueue.Any(c => c.SourceType == BuffSourceType.Equipment);
 
-                useSpellsToggle.toggle.gameObject.SetActive(hasSpellProviders);
+                useSpellsObj.SetActive(hasSpellProviders);
                 if (hasSpellProviders)
-                    useSpellsToggle.toggle.isOn = buff.SavedState?.UseSpells ?? true;
+                    useSpellsToggle.isOn = buff.SavedState?.UseSpells ?? true;
 
-                useScrollsToggle.toggle.gameObject.SetActive(hasScrollProviders);
+                useScrollsObj.SetActive(hasScrollProviders);
                 if (hasScrollProviders)
-                    useScrollsToggle.toggle.isOn = buff.SavedState?.UseScrolls ?? true;
+                    useScrollsToggle.isOn = buff.SavedState?.UseScrolls ?? true;
 
-                usePotionsToggle.toggle.gameObject.SetActive(hasPotionProviders);
+                usePotionsObj.SetActive(hasPotionProviders);
                 if (hasPotionProviders)
-                    usePotionsToggle.toggle.isOn = buff.SavedState?.UsePotions ?? true;
+                    usePotionsToggle.isOn = buff.SavedState?.UsePotions ?? true;
 
-                useEquipmentToggle.toggle.gameObject.SetActive(hasEquipmentProviders);
+                useEquipmentObj.SetActive(hasEquipmentProviders);
                 if (hasEquipmentProviders)
-                    useEquipmentToggle.toggle.isOn = buff.SavedState?.UseEquipment ?? true;
+                    useEquipmentToggle.isOn = buff.SavedState?.UseEquipment ?? true;
 
                 bool hasMultipleSources = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0) > 0;
                 sourceControlObj.SetActive(hasMultipleSources);
@@ -1759,6 +1812,7 @@ namespace BubbleBuffs {
             public BubbleBuff buff;
             public List<string> messages;
             public int count;
+            public Dictionary<BuffSourceType, int> sourceCounts = new();
             public BuffResult(BubbleBuff buff) {
                 this.buff = buff;
             }
@@ -1813,7 +1867,22 @@ namespace BubbleBuffs {
                 elements.Add(new TooltipBrickTitle(title));
                 elements.Add(new TooltipBrickSeparator());
                 foreach (var r in result) {
-                    elements.Add(new TooltipBrickIconAndName(r.buff.Spell.Icon, $"<b>{r.buff.NameMeta}</b> x{r.count}", TooltipBrickElementType.Small));
+                    string label = $"<b>{r.buff.NameMeta}</b> x{r.count}";
+                    if (r.sourceCounts.Count > 1) {
+                        var parts = new List<string>();
+                        foreach (var kv in r.sourceCounts) {
+                            string sourceLabel = kv.Key switch {
+                                BuffSourceType.Spell => "source.spell".i8(),
+                                BuffSourceType.Scroll => "source.scroll".i8(),
+                                BuffSourceType.Potion => "source.potion".i8(),
+                                BuffSourceType.Equipment => "source.equipment".i8(),
+                                _ => kv.Key.ToString()
+                            };
+                            parts.Add($"{sourceLabel}: {kv.Value}");
+                        }
+                        label += $" ({string.Join(", ", parts)})";
+                    }
+                    elements.Add(new TooltipBrickIconAndName(r.buff.Spell.Icon, label, TooltipBrickElementType.Small));
                 }
             }
         }
@@ -1858,6 +1927,10 @@ namespace BubbleBuffs {
 
     class GlobalBubbleBuffer {
         public BubbleBuffSpellbookController SpellbookController;
+        internal bool PendingOpenBuffMode;
+        internal int pendingFrameCount;
+        internal int pendingPhase; // 0 = waiting for ready, 1 = monitoring party view
+        internal int pendingHideFrames;
         private ButtonSprites applyBuffsSprites;
         private ButtonSprites applyBuffsShortSprites;
         private ButtonSprites showMapSprites;
@@ -2086,22 +2159,34 @@ namespace BubbleBuffs {
 
                 // Add Open Buffs quick button
                 AddButton("openbuffs.tooltip.header".i8(), "openbuffs.tooltip.desc".i8(), openBuffsSprites, () => {
-                    var spellScreen = UIHelpers.SpellbookScreen?.gameObject;
-                    if (spellScreen == null) return;
+                    try {
+                        // If already in buff mode, do nothing
+                        if (SpellbookController != null && SpellbookController.IsReady && SpellbookController.Buffing)
+                            return;
 
-                    var serviceWindow = spellScreen.transform.parent;
-                    bool spellbookOpen = serviceWindow != null && serviceWindow.gameObject.activeSelf;
+                        // Check if the spellbook screen is truly visible
+                        var serviceWindow = UIHelpers.ServiceWindow;
+                        var spellScreen = serviceWindow != null ? serviceWindow.Find(UIHelpers.WidgetPaths.SpellScreen) : null;
+                        bool spellbookVisible = spellScreen != null && spellScreen.gameObject.activeInHierarchy;
 
-                    if (!spellbookOpen) {
-                        // Find and click the real spellbook button in the ingame menu
-                        var spellbookButton = Game.Instance.UI.Canvas.transform
-                            .Find("NestedCanvas1/IngameMenuView/ButtonsPart/Container/SpellbookButton")
-                            ?.GetComponentInChildren<OwlcatButton>();
-                        spellbookButton?.OnLeftClick?.Invoke();
-                    }
-
-                    if (SpellbookController != null && !SpellbookController.Buffing) {
-                        SpellbookController.ToggleBuffMode();
+                        if (spellbookVisible && SpellbookController != null && SpellbookController.IsReady) {
+                            // Spellbook is open and ready — toggle buff mode directly
+                            SpellbookController.ToggleBuffMode();
+                        } else {
+                            // Open the spellbook first, then toggle via pending flag
+                            var staticRoot = Game.Instance.UI.Canvas.transform;
+                            var spellbookButton = staticRoot.Find("NestedCanvas1/IngameMenuView/ButtonsPart/Container/SpellBookButton")
+                                ?.GetComponentInChildren<OwlcatButton>();
+                            if (spellbookButton != null) {
+                                PendingOpenBuffMode = true;
+                                pendingFrameCount = 0;
+                                spellbookButton.OnLeftClick.Invoke();
+                            } else {
+                                Main.Log("BubbleBuffs: Could not find SpellBookButton in IngameMenuView");
+                            }
+                        }
+                    } catch (Exception ex) {
+                        Main.Error(ex, "Open Buffs button");
                     }
                 });
 
@@ -2443,6 +2528,7 @@ namespace BubbleBuffs {
 
         public GameObject listPrefab;
         public Transform content;
+        public Transform leftPanel;
 
         public WidgetCache widgetCache;
 
@@ -2469,29 +2555,30 @@ namespace BubbleBuffs {
 
             widgetCache.Return(buffWidgets.Values);
             Main.Verbose("returned widget cache");
-            GameObject.Destroy(content.Find("AvailableBuffList")?.gameObject);
+            var oldList = content.Find("AvailableBuffList") ?? leftPanel?.Find("AvailableBuffList");
+            GameObject.Destroy(oldList?.gameObject);
             Main.Verbose("destroyed old buff list");
             buffWidgets.Clear();
             DisplayOrder.Clear();
             Main.Verbose("cleared widgets");
 
-            var availableBuffs = GameObject.Instantiate(listPrefab.gameObject, content);
+            var availableBuffs = GameObject.Instantiate(listPrefab.gameObject, leftPanel ?? content);
             availableBuffs.transform.SetAsFirstSibling();
             Main.Verbose("made new buff list");
             availableBuffs.name = "AvailableBuffList";
-            availableBuffs.GetComponentInChildren<GridLayoutGroupWorkaround>().constraintCount = 5;
+            availableBuffs.GetComponentInChildren<GridLayoutGroupWorkaround>().constraintCount = 3;
             Main.Verbose("set constraint count");
             var listRect = availableBuffs.transform as RectTransform;
             listRect.localPosition = Vector2.zero;
             listRect.sizeDelta = Vector2.zero;
-            listRect.anchorMin = new Vector2(0.125f, 0.47f);
-            listRect.anchorMax = new Vector2(0.875f, 0.87f);
+            listRect.anchorMin = new Vector2(0f, 0.18f);
+            listRect.anchorMax = new Vector2(1f, 1f);
             GameObject.Destroy(listRect.Find("Toggle")?.gameObject);
             GameObject.Destroy(listRect.Find("TogglePossibleSpells")?.gameObject);
             GameObject.Destroy(listRect.Find("ToggleAllSpells")?.gameObject);
             GameObject.Destroy(listRect.Find("ToggleMetamagic")?.gameObject);
             var scrollContent = availableBuffs.transform.Find("StandardScrollView/Viewport/Content");
-            scrollContent.localScale = new Vector3(0.8f, 0.8f, 0.8f);
+            scrollContent.localScale = new Vector3(0.75f, 0.75f, 0.75f);
             Main.Verbose("got scroll content");
             Main.Verbose($"destroying old stuff: {scrollContent.childCount}");
             int toDestroy = scrollContent.childCount;
@@ -2729,7 +2816,7 @@ namespace BubbleBuffs {
                 l.SetActive(true);
                 groupSummaryLabels[group] = label;
             }
-            rect.Rect().SetAnchor(0.15, 0.85, 0.88, 0.93);
+            rect.Rect().SetAnchor(0.05, 0.95, 0.90, 0.97);
 
         }
 
