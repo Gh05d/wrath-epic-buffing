@@ -4,10 +4,12 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 GamePath.props
 *Undefined*GamePath.props
+deploy.sh
 GameInstall/
 GameDlls/
 .claude/CLAUDE.local.md
 .config/
+docs/
 
 # User-specific files
 *.rsuser

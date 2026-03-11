@@ -97,7 +97,7 @@ namespace BubbleBuffs {
 
         private Transform leftPanel;
         private Transform rightPanel;
-        private RectTransform detailsRectRef;
+        private Transform _targetsSection;
 
         public static Dictionary<string, TooltipBaseTemplate> AbilityTooltips = new();
 
@@ -510,17 +510,17 @@ namespace BubbleBuffs {
 
             MakeFilters(togglePrefab, leftPanel);
 
-            MakeGroupHolder(portraitPrefab, expandButtonPrefab, buttonPrefab, rightPanel);
-            Main.Verbose("made group holder");
+            // Calculate totalCasters upfront (needed by MakeDetailsView)
+            totalCasters = 0;
+            for (int i = 0; i < Group.Count; i++) {
+                totalCasters += Group[i].Spellbooks?.Count() ?? 0;
+            }
 
             MakeDetailsView(portraitPrefab, framePrefab, nextPrefab, prevPrefab, togglePrefab, expandButtonPrefab, rightPanel);
             Main.Verbose("made details view");
 
-            // Reparent target portraits into detailsRect so they're not behind the frame background
-            var targetHolder = rightPanel.Find("GroupHolder");
-            if (targetHolder != null && detailsRectRef != null) {
-                targetHolder.SetParent(detailsRectRef, false);
-            }
+            MakeGroupHolder(portraitPrefab, expandButtonPrefab, buttonPrefab, _targetsSection);
+            Main.Verbose("made group holder");
 
             var partialOverlay = AssetLoader.Materials["bubbly_overlay"];
             partialOverlay.SetFloat("_Speed", 0.3f);
@@ -889,8 +889,12 @@ namespace BubbleBuffs {
             var obj = new GameObject(name, typeof(RectTransform));
             obj.AddComponent<VerticalLayoutGroup>().childForceExpandHeight = false;
             var rect = obj.Rect();
-            rect.SetParent(parent);
-            rect.anchoredPosition3D = Vector3.zero;
+            rect.SetParent(parent, false);
+            rect.localPosition = Vector3.zero;
+            rect.localScale = Vector3.one;
+            rect.anchoredPosition = Vector2.zero;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
             return rect;
         }
 
@@ -898,7 +902,7 @@ namespace BubbleBuffs {
             var filterRect = MakeVerticalRect("filters", content);
             //filterToggles.AddComponent<Image>().color = Color.green;
             filterRect.anchorMin = new Vector2(0f, 0.0f);
-            filterRect.anchorMax = new Vector2(0.55f, 0.17f);
+            filterRect.anchorMax = new Vector2(0.55f, 0.30f);
             filterRect.gameObject.EditComponent<VerticalLayoutGroup>(v => {
                 v.childScaleHeight = true;
                 v.childScaleWidth = true;
@@ -908,7 +912,7 @@ namespace BubbleBuffs {
 
             search = new SearchBar(filterRect, "...", false, "bubble-search-buff");
             var searchRect = search.RootGameObject.transform as RectTransform;
-            searchRect.sizeDelta = new Vector2(280, 100);
+            searchRect.sizeDelta = new Vector2(280, 50);
 
             const float scale = 0.8f;
             GameObject showHidden = MakeToggle(togglePrefab, filterRect, 0.8f, .5f, "showhidden".i8(), "bubble-toggle-show-hidden", scale);
@@ -923,7 +927,7 @@ namespace BubbleBuffs {
 
             var categoryRect = MakeVerticalRect("categories", content);
             categoryRect.anchorMin = new Vector2(0.57f, 0.0f);
-            categoryRect.anchorMax = new Vector2(1f, 0.17f);
+            categoryRect.anchorMax = new Vector2(1f, 0.30f);
 
             CurrentCategory = new ButtonGroup<Category>(categoryRect);
             CurrentCategory.Selected.Subscribe<Category>(_ => RefreshFiltering());
@@ -1029,7 +1033,6 @@ namespace BubbleBuffs {
 
             var detailsHolder = GameObject.Instantiate(framePrefab, content);
             var detailsRect = detailsHolder.GetComponent<RectTransform>();
-            detailsRectRef = detailsRect;
             GameObject.Destroy(detailsHolder.transform.Find("FrameDecor").gameObject);
             Main.Verbose("destroyed FrameDecor");
 
@@ -1043,7 +1046,52 @@ namespace BubbleBuffs {
             if (detailsBgImage != null)
                 detailsBgImage.raycastTarget = false;
 
-            currentSpellView = view.widgetCache.Get(detailsRect);
+            // VLG flow container for automatic vertical stacking
+            var flowObj = new GameObject("details-flow", typeof(RectTransform));
+            var flowRect = flowObj.GetComponent<RectTransform>();
+            flowRect.SetParent(detailsRect, false);
+            flowRect.anchorMin = Vector2.zero;
+            flowRect.anchorMax = Vector2.one;
+            flowRect.offsetMin = Vector2.zero;
+            flowRect.offsetMax = Vector2.zero;
+            var flowVLG = flowObj.AddComponent<VerticalLayoutGroup>();
+            flowVLG.childForceExpandHeight = false;
+            flowVLG.childForceExpandWidth = true;
+            flowVLG.childControlHeight = true;
+            flowVLG.childControlWidth = true;
+            flowVLG.spacing = 2;
+            flowVLG.padding = new RectOffset(8, 8, 20, 8);
+
+            // Section containers — proportional heights via flex weights
+            GameObject MakeSection(string name, float flexWeight, float minH = 30f) {
+                var sectionObj = new GameObject(name, typeof(RectTransform));
+                var sectionRect = sectionObj.GetComponent<RectTransform>();
+                sectionRect.SetParent(flowObj.transform, false);
+                var le = sectionObj.AddComponent<LayoutElement>();
+                le.minHeight = minH;
+                le.preferredHeight = minH;
+                le.flexibleHeight = flexWeight;
+                le.flexibleWidth = 1;
+                le.layoutPriority = 2; // Override inner LayoutGroup calculations
+                return sectionObj;
+            }
+
+            var spellInfoSection = MakeSection("spell-info-section", 1.2f, 40);
+            var sourceControlsSection = MakeSection("source-controls-section", 0f, 50);
+            var castersSection = MakeSection("casters-section", 3f, 60);
+            var targetsSection = MakeSection("targets-section", 3f, 60);
+            _targetsSection = targetsSection.transform;
+            var actionBarSection = MakeSection("action-bar-section", 0f, 46);
+
+            var actionVLG = actionBarSection.AddComponent<VerticalLayoutGroup>();
+            actionVLG.childForceExpandWidth = true;
+            actionVLG.childForceExpandHeight = false;
+            actionVLG.childControlHeight = true;
+            actionVLG.childControlWidth = true;
+            actionVLG.spacing = 4;
+            actionVLG.padding = new RectOffset(8, 8, 4, 4);
+
+            currentSpellView = view.widgetCache.Get(spellInfoSection.transform);
             Main.VerboseNotNull(() => currentSpellView);
 
             currentSpellView.GetComponentInChildren<OwlcatButton>().Interactable = false;
@@ -1051,7 +1099,11 @@ namespace BubbleBuffs {
             currentSpellView.SetActive(false);
             var currentSpellRect = currentSpellView.transform as RectTransform;
             Main.VerboseNotNull(() => currentSpellRect);
-            currentSpellRect.SetAnchor(.5, .93);
+            currentSpellRect.anchorMin = new Vector2(0.25f, 0f);
+            currentSpellRect.anchorMax = new Vector2(0.85f, 1f);
+            currentSpellRect.offsetMin = Vector2.zero;
+            currentSpellRect.offsetMax = Vector2.zero;
+            currentSpellView.AddComponent<LayoutElement>().ignoreLayout = true;
 
 
             ReactiveProperty<int> SelectedCaster = new ReactiveProperty<int>(-1);
@@ -1126,9 +1178,10 @@ namespace BubbleBuffs {
                 ignoreEffectToggles.Add(effectToggle);
             }
 
-            var expandSpellPopout = GameObject.Instantiate(expandButtonPrefab, detailsRect);
+            var expandSpellPopout = GameObject.Instantiate(expandButtonPrefab, spellInfoSection.transform);
             expandSpellPopout.Rect().pivot = new Vector2(0.5f, 0.5f);
-            expandSpellPopout.Rect().SetAnchor(0.9, 0.96);
+            expandSpellPopout.Rect().SetAnchor(0.92, 0.5);
+            expandSpellPopout.AddComponent<LayoutElement>().ignoreLayout = true;
             expandSpellPopout.Rect().anchoredPosition = new Vector2(-20, -10);
             expandSpellPopout.GetComponent<OwlcatButton>().Interactable = true;
             expandSpellPopout.SetActive(true);
@@ -1198,25 +1251,47 @@ namespace BubbleBuffs {
                 return labelRoot;
             }
 
-            var hideSpell = MakeToggle(togglePrefab, detailsRect.transform, 0.03f, 0.93f, "hideability".i8(), "hide-spell");
+            var hideSpell = MakeToggle(togglePrefab, spellInfoSection.transform, 0.03f, 0.5f, "hideability".i8(), "hide-spell");
+            hideSpell.AddComponent<LayoutElement>().ignoreLayout = true;
             hideSpell.transform.SetSiblingIndex(0);
             hideSpell.SetActive(false);
             hideSpell.Rect().pivot = new Vector2(0, 0.5f);
             var hideSpellToggle = hideSpell.GetComponentInChildren<ToggleWorkaround>();
 
-            view.addToAll = GameObject.Instantiate(buttonPrefab, detailsRect);
-            view.addToAll.GetComponentInChildren<TextMeshProUGUI>().text = "add-all".i8();
-            var addToAllRect = view.addToAll.transform as RectTransform;
-            addToAllRect.localPosition = Vector3.zero;
-            addToAllRect.anchoredPosition = Vector3.zero;
-            addToAllRect.pivot = new Vector2(0, 0);
-            addToAllRect.sizeDelta = new Vector2(140, 40);
-            addToAllRect.SetAnchor(0.03f, 0.04f);
+            // Add/Remove row — vertical stack on left side of targets section
+            var addRemoveRow = new GameObject("add-remove-row", typeof(RectTransform));
+            addRemoveRow.GetComponent<RectTransform>().SetParent(targetsSection.transform, false);
+            var addRemoveVLG = addRemoveRow.AddComponent<VerticalLayoutGroup>();
+            addRemoveVLG.childForceExpandWidth = true;
+            addRemoveVLG.childForceExpandHeight = false;
+            addRemoveVLG.childControlWidth = true;
+            addRemoveVLG.childControlHeight = true;
+            addRemoveVLG.spacing = 4;
+            addRemoveVLG.padding = new RectOffset(2, 2, 4, 4);
+            addRemoveVLG.childAlignment = TextAnchor.MiddleCenter;
+            var addRemoveRect = addRemoveRow.GetComponent<RectTransform>();
+            addRemoveRect.anchorMin = new Vector2(0, 0);
+            addRemoveRect.anchorMax = new Vector2(0.25f, 1);
+            addRemoveRect.offsetMin = new Vector2(4, 4);
+            addRemoveRect.offsetMax = new Vector2(-2, -4);
 
-            view.removeFromAll = GameObject.Instantiate(view.addToAll, detailsRect);
+            view.addToAll = GameObject.Instantiate(buttonPrefab, addRemoveRow.transform);
+            view.addToAll.GetComponentInChildren<TextMeshProUGUI>().text = "add-all".i8();
+            var addRect = view.addToAll.Rect();
+            addRect.anchorMin = Vector2.zero;
+            addRect.anchorMax = Vector2.one;
+            addRect.pivot = new Vector2(0.5f, 0.5f);
+            addRect.offsetMin = Vector2.zero;
+            addRect.offsetMax = Vector2.zero;
+
+            view.removeFromAll = GameObject.Instantiate(buttonPrefab, addRemoveRow.transform);
             view.removeFromAll.GetComponentInChildren<TextMeshProUGUI>().text = "remove-all".i8();
-            var removeFromAllRect = view.removeFromAll.transform as RectTransform;
-            removeFromAllRect.SetAnchor(0.03f, 0.10f);
+            var remRect = view.removeFromAll.Rect();
+            remRect.anchorMin = Vector2.zero;
+            remRect.anchorMax = Vector2.one;
+            remRect.pivot = new Vector2(0.5f, 0.5f);
+            remRect.offsetMin = Vector2.zero;
+            remRect.offsetMax = Vector2.zero;
 
             view.addToAll.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                 var buff = view.Selected;
@@ -1354,34 +1429,44 @@ namespace BubbleBuffs {
                 }
             });
 
-            // Inline source controls above caster portraits — 2x2 toggle grid + priority row
-            // Uses absolute anchor positioning (like MakeToggle) to avoid layout group conflicts
-            var (sourceControlObj, sourceControlRect) = UIHelpers.Create("source-controls", detailsRect);
-            sourceControlRect.anchorMin = new Vector2(0.02f, 0.72f);
-            sourceControlRect.anchorMax = new Vector2(0.78f, 0.87f);
-            sourceControlRect.offsetMin = Vector2.zero;
-            sourceControlRect.offsetMax = Vector2.zero;
+            // Source controls — anchor-based split: priority left, toggles right
+            var sourceControlObj = sourceControlsSection;
             sourceControlObj.SetActive(false); // hidden until buff selected
 
+            // Left side — priority (left 55%)
+            var (prioSideObj, prioSideRect) = UIHelpers.Create("prio-side", sourceControlObj.transform);
+            prioSideRect.anchorMin = new Vector2(0, 0);
+            prioSideRect.anchorMax = new Vector2(0.55f, 1);
+            prioSideRect.offsetMin = new Vector2(20, 2);
+            prioSideRect.offsetMax = new Vector2(0, -2);
+
+            // Right side — toggles (right 45%)
+            var (toggleSideObj, toggleSideRect) = UIHelpers.Create("toggle-side", sourceControlObj.transform);
+            toggleSideRect.anchorMin = new Vector2(0.55f, 0);
+            toggleSideRect.anchorMax = new Vector2(1, 1);
+            toggleSideRect.offsetMin = new Vector2(0, 2);
+            toggleSideRect.offsetMax = new Vector2(-4, -2);
+            var toggleVLG = toggleSideObj.AddComponent<VerticalLayoutGroup>();
+            toggleVLG.childForceExpandHeight = false;
+            toggleVLG.childForceExpandWidth = true;
+            toggleVLG.childControlHeight = false;
+            toggleVLG.childControlWidth = true;
+            toggleVLG.spacing = 2;
+            toggleVLG.childAlignment = TextAnchor.UpperRight;
+
             float srcToggleScale = 0.7f;
-            GameObject MakeSourceToggle(string label, float x, float y) {
-                var toggleObj = GameObject.Instantiate(togglePrefab, sourceControlObj.transform);
+            GameObject MakeSourceToggle(string label) {
+                var toggleObj = GameObject.Instantiate(togglePrefab, toggleSideObj.transform);
                 toggleObj.SetActive(true);
-                var toggleRect = toggleObj.transform as RectTransform;
-                toggleRect.localPosition = Vector2.zero;
-                toggleRect.anchoredPosition = Vector2.zero;
-                toggleRect.anchorMin = new Vector2(x, y);
-                toggleRect.anchorMax = new Vector2(x, y);
-                toggleRect.pivot = new Vector2(0, 0.5f);
-                toggleRect.localScale = new Vector3(srcToggleScale, srcToggleScale, srcToggleScale);
+                toggleObj.transform.localScale = new Vector3(srcToggleScale, srcToggleScale, srcToggleScale);
                 toggleObj.GetComponentInChildren<TextMeshProUGUI>().text = label;
                 return toggleObj;
             }
 
-            var useSpellsObj = MakeSourceToggle("use.spells".i8(), 0f, 0.85f);
-            var useScrollsObj = MakeSourceToggle("use.scrolls".i8(), 0.5f, 0.85f);
-            var usePotionsObj = MakeSourceToggle("use.potions".i8(), 0f, 0.55f);
-            var useEquipmentObj = MakeSourceToggle("use.equipment".i8(), 0.5f, 0.55f);
+            var useSpellsObj = MakeSourceToggle("use.spells".i8());
+            var useScrollsObj = MakeSourceToggle("use.scrolls".i8());
+            var usePotionsObj = MakeSourceToggle("use.potions".i8());
+            var useEquipmentObj = MakeSourceToggle("use.equipment".i8());
 
             var useSpellsToggle = useSpellsObj.GetComponentInChildren<ToggleWorkaround>();
             var useScrollsToggle = useScrollsObj.GetComponentInChildren<ToggleWorkaround>();
@@ -1420,27 +1505,26 @@ namespace BubbleBuffs {
                 return priorityKeys[overrideVal].i8();
             }
 
-            // Priority label + cycle button at bottom of source controls
+            // Priority row — clickable text that cycles through priority options
             var prioLabelObj = new GameObject("prio-label", typeof(RectTransform));
-            prioLabelObj.transform.SetParent(sourceControlObj.transform, false);
-            var prioLabelRect = prioLabelObj.transform as RectTransform;
-            prioLabelRect.anchorMin = new Vector2(0f, 0.05f);
-            prioLabelRect.anchorMax = new Vector2(0.82f, 0.35f);
+            var prioLabelRect = prioLabelObj.GetComponent<RectTransform>();
+            prioLabelRect.SetParent(prioSideObj.transform, false);
+            prioLabelRect.anchorMin = Vector2.zero;
+            prioLabelRect.anchorMax = Vector2.one;
             prioLabelRect.offsetMin = Vector2.zero;
             prioLabelRect.offsetMax = Vector2.zero;
             var prioOverrideText = prioLabelObj.AddComponent<TextMeshProUGUI>();
             prioOverrideText.text = $"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}";
-            prioOverrideText.fontSize = 11;
-            prioOverrideText.color = Color.white;
+            prioOverrideText.fontSize = 16;
+            prioOverrideText.color = new Color(0.2f, 0.15f, 0.1f, 1f);
             prioOverrideText.alignment = TextAlignmentOptions.Left;
-            prioLabelObj.SetActive(true);
-
-            var prioCycleBtn = MakeButton(">", sourceControlObj.transform);
-            var prioBtnRect = prioCycleBtn.transform as RectTransform;
-            prioBtnRect.anchorMin = new Vector2(0.85f, 0.1f);
-            prioBtnRect.anchorMax = new Vector2(0.85f, 0.3f);
-            prioBtnRect.localScale = new Vector3(0.7f, 0.7f, 0.7f);
-            prioCycleBtn.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+            prioOverrideText.fontStyle = FontStyles.Underline;
+            prioOverrideText.enableWordWrapping = true;
+            prioOverrideText.overflowMode = TextOverflowModes.Truncate;
+            prioOverrideText.raycastTarget = true;
+            var prioButton = prioLabelObj.AddComponent<Button>();
+            prioButton.transition = Selectable.Transition.None;
+            prioButton.onClick.AddListener(() => {
                 var b = view.Selected;
                 if (b == null) return;
                 b.SourcePriorityOverride = b.SourcePriorityOverride >= 5 ? -1 : b.SourcePriorityOverride + 1;
@@ -1450,20 +1534,24 @@ namespace BubbleBuffs {
                 state.Save();
             });
 
-            const float groupHeight = 70f;
-            var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", detailsRect);
+            const float groupHeight = 90f;
+            var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", castersSection.transform);
             castersHolder = groupHolder;
+            castersRect.SetParent(castersSection.transform, false);
             groupHolder.MakeComponent<ContentSizeFitter>(f => {
                 f.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             });
-            castersRect.SetAnchor(0.5f, 0.45f);
-            castersRect.sizeDelta = new Vector2(300, groupHeight);
-            castersRect.pivot = new Vector2(0.5f, 0);
+            castersRect.anchorMin = new Vector2(0.5f, 0f);
+            castersRect.anchorMax = new Vector2(0.5f, 1f);
+            castersRect.pivot = new Vector2(0.5f, 0.5f);
+            castersRect.offsetMin = new Vector2(0, 4);
+            castersRect.offsetMax = new Vector2(0, -4);
 
             var horizontalGroup = groupHolder.AddComponent<HorizontalLayoutGroup>();
             horizontalGroup.spacing = 6;
             horizontalGroup.childControlHeight = true;
-            horizontalGroup.childForceExpandHeight = true;
+            horizontalGroup.childForceExpandHeight = false;
+            horizontalGroup.childAlignment = TextAnchor.MiddleCenter;
 
             for (int i = 0; i < totalCasters; i++) {
                 var portrait = CreatePortrait(groupHeight, castersRect, true, true, view.casterPortraits, casterPopout);
@@ -1488,19 +1576,42 @@ namespace BubbleBuffs {
                 });
             }
 
-            var groupRect = MakeVerticalRect("buff-group", detailsRect);
-            groupRect.gameObject.SetActive(false);
-            groupRect.SetAnchor(0.75f, 0.04f);
-            groupRect.anchoredPosition = new Vector2(0, 0);
-            groupRect.sizeDelta = new Vector2(140, 80);
+            var groupObj = new GameObject("buff-group", typeof(RectTransform));
+            var groupRect = groupObj.GetComponent<RectTransform>();
+            groupRect.SetParent(actionBarSection.transform, false);
+            var buffGroupHLG = groupObj.AddComponent<HorizontalLayoutGroup>();
+            buffGroupHLG.childForceExpandWidth = true;
+            buffGroupHLG.childForceExpandHeight = true;
+            buffGroupHLG.childControlWidth = true;
+            buffGroupHLG.childControlHeight = true;
+            buffGroupHLG.spacing = 8;
+            buffGroupHLG.padding = new RectOffset(8, 8, 0, 0);
+            var groupLE = groupObj.AddComponent<LayoutElement>();
+            groupLE.flexibleWidth = 1;
+            groupLE.preferredHeight = 38;
+            groupLE.flexibleHeight = 0;
+            groupLE.layoutPriority = 3;
+            groupObj.SetActive(false);
 
             var buffGroup = new ButtonGroup<BuffGroup>(groupRect);
 
-            buffGroup.Add(BuffGroup.Long, "N", GlobalBubbleBuffer.groupNormalIcon);
-            buffGroup.Add(BuffGroup.Important, "I", GlobalBubbleBuffer.groupImportantIcon);
-            buffGroup.Add(BuffGroup.Quick, "Q", GlobalBubbleBuffer.groupQuickIcon);
+            buffGroup.Add(BuffGroup.Long, "group.normal.btn".i8());
+            buffGroup.Add(BuffGroup.Important, "group.important.btn".i8());
+            buffGroup.Add(BuffGroup.Quick, "group.short.btn".i8());
 
-            castersRect.SetAsLastSibling();
+            // Fix button anchors for HLG compatibility (MakeButton sets point-anchors)
+            foreach (Transform child in groupRect) {
+                var childRect = child as RectTransform;
+                if (childRect != null) {
+                    childRect.anchorMin = Vector2.zero;
+                    childRect.anchorMax = Vector2.one;
+                    childRect.pivot = new Vector2(0.5f, 0.5f);
+                    childRect.offsetMin = Vector2.zero;
+                    childRect.offsetMax = Vector2.zero;
+                    var btnLE = child.gameObject.AddComponent<LayoutElement>();
+                    btnLE.flexibleWidth = 1;
+                }
+            }
 
             buffGroup.Selected.Subscribe<BuffGroup>(g => {
                 if (view.Get(out var buff)) {
@@ -1569,8 +1680,9 @@ namespace BubbleBuffs {
                 if (hasEquipmentProviders)
                     useEquipmentToggle.isOn = buff.SavedState?.UseEquipment ?? true;
 
-                bool hasMultipleSources = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0) > 0;
-                sourceControlObj.SetActive(hasMultipleSources);
+                bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
+                int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
+                sourceControlObj.SetActive(!isEquipmentCategory && sourceCount > 1);
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
@@ -1624,22 +1736,22 @@ namespace BubbleBuffs {
             var groupHolder = new GameObject("GroupHolder", typeof(RectTransform));
             var groupRect = groupHolder.GetComponent<RectTransform>();
             groupRect.AddTo(content);
-            groupHolder.MakeComponent<ContentSizeFitter>(f => {
-                f.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
-            });
 
-            float requiredWidthHalf = Group.Count * 0.033f;
+            const float groupHeight = 100f;
 
-            const float groupHeight = 60f;
-
-            groupRect.SetAnchor(0.5f, 0.22f);
-            groupRect.sizeDelta = new Vector2(300, groupHeight);
-            groupRect.pivot = new Vector2(0.5f, 0);
+            groupRect.anchorMin = new Vector2(0.25f, 0f);
+            groupRect.anchorMax = new Vector2(1f, 1f);
+            groupRect.pivot = new Vector2(0.5f, 0.5f);
+            groupRect.offsetMin = new Vector2(2, 4);
+            groupRect.offsetMax = new Vector2(-4, -4);
 
             var horizontalGroup = groupHolder.AddComponent<HorizontalLayoutGroup>();
             horizontalGroup.spacing = 6;
             horizontalGroup.childControlHeight = true;
-            horizontalGroup.childForceExpandHeight = true;
+            horizontalGroup.childForceExpandHeight = false;
+            horizontalGroup.childControlWidth = true;
+            horizontalGroup.childForceExpandWidth = true;
+            horizontalGroup.childAlignment = TextAnchor.MiddleCenter;
 
             view.targets = new Portrait[Group.Count];
 
@@ -1678,8 +1790,6 @@ namespace BubbleBuffs {
 
                 });
                 view.targets[i] = portrait;
-
-                totalCasters += Group[i].Spellbooks?.Count() ?? 0;
             }
         }
 
@@ -1879,7 +1989,7 @@ namespace BubbleBuffs {
                 elements.Add(new TooltipBrickSeparator());
                 foreach (var r in result) {
                     string label = $"<b>{r.buff.NameMeta}</b> x{r.count}";
-                    if (r.sourceCounts.Count > 1) {
+                    if (r.sourceCounts.Count >= 1) {
                         var parts = new List<string>();
                         foreach (var kv in r.sourceCounts) {
                             string sourceLabel = kv.Key switch {
@@ -2588,12 +2698,12 @@ namespace BubbleBuffs {
             availableBuffs.transform.SetAsFirstSibling();
             Main.Verbose("made new buff list");
             availableBuffs.name = "AvailableBuffList";
-            availableBuffs.GetComponentInChildren<GridLayoutGroupWorkaround>().constraintCount = 3;
+            availableBuffs.GetComponentInChildren<GridLayoutGroupWorkaround>().constraintCount = 2;
             Main.Verbose("set constraint count");
             var listRect = availableBuffs.transform as RectTransform;
             listRect.localPosition = Vector2.zero;
             listRect.sizeDelta = Vector2.zero;
-            listRect.anchorMin = new Vector2(0f, 0.18f);
+            listRect.anchorMin = new Vector2(0f, 0.31f);
             listRect.anchorMax = new Vector2(1f, 1f);
             GameObject.Destroy(listRect.Find("Toggle")?.gameObject);
             GameObject.Destroy(listRect.Find("TogglePossibleSpells")?.gameObject);

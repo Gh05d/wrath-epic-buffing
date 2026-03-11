@@ -9,8 +9,10 @@ BubbleBuffs is a Unity mod for **Pathfinder: Wrath of the Righteous** that adds 
 ## Build
 
 ```bash
-dotnet build BubbleBuffs/BubbleBuffs.csproj -p:SolutionDir=$(pwd)/
+~/.dotnet/dotnet build BubbleBuffs/BubbleBuffs.csproj -p:SolutionDir=$(pwd)/
 ```
+
+> **Note:** `dotnet` is not on PATH — always use `~/.dotnet/dotnet`.
 
 **Setup:** The build requires the game's managed DLLs. The csproj references them via `$(WrathInstallDir)/Wrath_Data/Managed/`. This is resolved in order:
 1. `GamePath.props` in repo root (auto-generated or manual)
@@ -104,9 +106,31 @@ JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resourc
 - **Game blueprints**: `Resources.GetBlueprint<T>(guid)` loads game data (spells, items, features)
 - **Asset bundles**: `AssetLoader.AddBundle("bundlename")` loads Unity asset bundles from mod directory
 
+### Item Types (Equipment Scan)
+
+- **`UsableItemType.Wand`**: In player inventory (not QuickSlots). Has `Charges` property. Use UMD logic like scrolls (class list check + UMD fallback). DC = 20 + CasterLevel.
+- **`UsableItemType.Scroll/Potion`**: In player inventory. Stack count = credits. Consumed via `Inventory.Remove()`.
+- **QuickSlot items** (`dude.Body.QuickSlots`): Equipment like rods, special items. Many have `Ability = null` (metamagic rods). Charges consumed via `SourceItem.Charges--`.
+- **Equipped item abilities** (`dude.Abilities.RawFacts` with `SourceItem != null`): Staves and worn items. Filtered by `!(Blueprint is BlueprintItemEquipmentUsable)` to avoid double-counting QuickSlot items.
+
 ### Save System
 
 Per-save JSON at `{ModPath}UserSettings/bubblebuff-{GameId}.json`. Contains buff assignments, caster priorities, source preferences, and global settings. Serialized via Newtonsoft.Json.
+
+## Credit System (Buff Availability)
+
+- **`BubbleBuff.Validate()`** builds `ActualCastQueue` AND consumes credits via `ChargeCredits()`. By the time `BuffExecutor.Execute()` runs, `credits.Value` is already decremented. Do NOT re-check `AvailableCredits` in Execute — it will always be 0 for single-charge items.
+- **`AddBuff()` merges providers by `BuffKey`**: If the same spell exists from multiple sources (spellbook + wand + scroll), they share one `BubbleBuff` entry. The `Category` is set only on first creation — later providers inherit the existing category. Wand spells that already exist as regular buffs won't appear in the Equipment tab.
+
+## Unity UI Layout Patterns
+
+- **`MakeButton()` breaks layout groups**: Sets point-anchors `(0.5, 0.5)` → zero size in HLG/VLG. Always reset anchors to stretch `(0,0)→(1,1)` after calling `MakeButton()`.
+- **`childControlHeight=true` + `childForceExpandHeight=false`**: Correct combo for LayoutElement-driven sizing. `childControl=false` ignores LayoutElement entirely (children collapse to RectTransform default = 0). `childForceExpand=true` stretches beyond preferred size.
+- **`buttonPrefab` is designed for full-width text buttons**: Has internal Image/decoration layers that look broken at small sizes (<60px). Don't use as icon buttons.
+- **`buttonPrefab` minimum height ~38px**: Below this threshold, internal decoration layers become invisible/transparent. Always set `preferredHeight >= 38` on rows containing buttonPrefab instances.
+- **`layoutPriority` on LayoutElement**: Higher priority means the parent LayoutGroup uses THIS element's preferred/flexible values instead of calculating from children. Use `layoutPriority = 3` on row LayoutElements to override buttonPrefab's internal preferred sizes.
+- **Anchor-based children inside VLG sections**: VLG with `childControlWidth/Height = true` controls the section's RectTransform. Anchor-based grandchildren position relative to the section rect — this works correctly. But inner LayoutGroups can fight with anchors; prefer one approach per container.
+- **`UIHelpers.Create()` / `AddTo()`**: Uses `SetParent(parent)` without `false` — can cause positioning bugs. Use `SetParent(parent, false)` when positioning matters.
 
 ## Code Style
 

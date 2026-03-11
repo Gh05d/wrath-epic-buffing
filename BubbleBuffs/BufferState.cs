@@ -155,6 +155,26 @@ namespace BubbleBuffs {
                                     charIndex: characterIndex,
                                     archmageArmor: false,
                                     category: Category.Ability);
+                        } else if (SavedState.EquipmentEnabled
+                                   && !(sourceItem.Blueprint is BlueprintItemEquipmentUsable)) {
+                            // Equipped item abilities (staves, etc.) — not quickslot items
+                            // which are handled by the equipment scan below
+                            int charges = sourceItem.Charges;
+                            if (charges <= 0) continue;
+                            var credits = new ReactiveProperty<int>(charges);
+                            Main.Verbose($"      Adding equipped item buff: {ability.Name} from {sourceItem.Name} for {dude.CharacterName}", "state");
+                            AddBuff(dude: dude,
+                                    book: null,
+                                    spell: ability.Data,
+                                    baseSpell: null,
+                                    credits: credits,
+                                    newCredit: true,
+                                    creditClamp: int.MaxValue,
+                                    charIndex: characterIndex,
+                                    archmageArmor: false,
+                                    category: Category.Equipment,
+                                    sourceType: BuffSourceType.Equipment,
+                                    sourceItem: sourceItem);
                         }
                     }
                 }
@@ -163,11 +183,23 @@ namespace BubbleBuffs {
             }
 
             try {
-                if (SavedState.ScrollsEnabled || SavedState.PotionsEnabled) {
+                if (SavedState.ScrollsEnabled || SavedState.PotionsEnabled || SavedState.EquipmentEnabled) {
+                    // Diagnostic: log all wand-type items in inventory
+                    var wandCount = Game.Instance.Player.Inventory
+                        .Count(item => item.Blueprint is BlueprintItemEquipmentUsable u && u.Type == UsableItemType.Wand);
+                    Main.Log($"[Wand] Total wand items in inventory: {wandCount}");
+                    foreach (var item in Game.Instance.Player.Inventory) {
+                        if (item.Blueprint is BlueprintItemEquipmentUsable u2 && u2.Type == UsableItemType.Wand) {
+                            Main.Log($"[Wand] Found: {item.Name}, Ability={u2.Ability?.Name ?? "null"}, Charges={item.Charges}");
+                        }
+                    }
+
                     // Group usable items by blueprint to share credits across stacks
                     var usableItems = Game.Instance.Player.Inventory
                         .Where(item => item.Blueprint is BlueprintItemEquipmentUsable usable
-                            && (usable.Type == UsableItemType.Scroll || usable.Type == UsableItemType.Potion))
+                            && (usable.Type == UsableItemType.Scroll
+                                || usable.Type == UsableItemType.Potion
+                                || usable.Type == UsableItemType.Wand))
                         .GroupBy(item => item.Blueprint)
                         .ToList();
 
@@ -178,9 +210,11 @@ namespace BubbleBuffs {
 
                         var isScroll = blueprint.Type == UsableItemType.Scroll;
                         var isPotion = blueprint.Type == UsableItemType.Potion;
+                        var isWand = blueprint.Type == UsableItemType.Wand;
 
                         if (isScroll && !SavedState.ScrollsEnabled) continue;
                         if (isPotion && !SavedState.PotionsEnabled) continue;
+                        if (isWand && !SavedState.EquipmentEnabled) continue;
 
                         int totalCount = itemGroup.Sum(item => item.Count);
                         var sharedCredits = new ReactiveProperty<int>(totalCount);
@@ -246,6 +280,54 @@ namespace BubbleBuffs {
                                         sourceType: BuffSourceType.Scroll,
                                         sourceItem: itemGroup.First());
                             }
+                        } else if (isWand) {
+                            int wandCasterLevel = blueprint.CasterLevel;
+                            int wandDC = 20 + wandCasterLevel;
+                            Main.Log($"[Wand] Processing {spellBlueprint.Name}: CL={wandCasterLevel}, DC={wandDC}, UmdMode={SavedState.UmdMode}");
+
+                            // Wands use charges, not stack count
+                            int totalCharges = itemGroup.Sum(item => item.Charges);
+                            if (totalCharges <= 0) continue;
+                            var wandCredits = new ReactiveProperty<int>(totalCharges);
+
+                            for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
+                                UnitEntityData dude = Group[characterIndex];
+                                bool canUse = false;
+
+                                bool onClassList = dude.Spellbooks.Any(book =>
+                                    book.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
+                                        level.Spells.Any(s => s == spellBlueprint)) == true);
+
+                                if (onClassList) {
+                                    canUse = true;
+                                } else if (SavedState.UmdMode != UmdMode.SafeOnly) {
+                                    var umdBonus = dude.Stats.SkillUseMagicDevice.ModifiedValue;
+                                    if (SavedState.UmdMode == UmdMode.AlwaysTry) {
+                                        canUse = umdBonus > 0;
+                                    } else {
+                                        canUse = (umdBonus + 20) >= wandDC;
+                                    }
+                                }
+
+                                Main.Log($"[Wand] {dude.CharacterName}: onClassList={onClassList}, canUse={canUse}, UMD={dude.Stats.SkillUseMagicDevice.ModifiedValue}");
+                                if (!canUse) continue;
+
+                                var abilityData = new AbilityData(spellBlueprint, dude);
+                                Main.Verbose($"      Adding wand buff: {spellBlueprint.Name} from {blueprint.Name} for {dude.CharacterName}", "state");
+
+                                AddBuff(dude: dude,
+                                        book: null,
+                                        spell: abilityData,
+                                        baseSpell: null,
+                                        credits: wandCredits,
+                                        newCredit: false,
+                                        creditClamp: int.MaxValue,
+                                        charIndex: characterIndex,
+                                        archmageArmor: false,
+                                        category: Category.Equipment,
+                                        sourceType: BuffSourceType.Equipment,
+                                        sourceItem: itemGroup.First());
+                            }
                         }
                     }
                 }
@@ -258,13 +340,13 @@ namespace BubbleBuffs {
                     // Scan quickslot items for activatable equipment buffs (wands, rods, etc.)
                     for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                         UnitEntityData dude = Group[characterIndex];
-
                         foreach (var slot in dude.Body.QuickSlots) {
                             if (!slot.HasItem) continue;
                             if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) continue;
 
                             // Skip scrolls and potions - they're handled above
                             if (usableBp.Type == UsableItemType.Scroll || usableBp.Type == UsableItemType.Potion) continue;
+                            if (usableBp.Type == UsableItemType.Wand) continue;
 
                             var spellBlueprint = usableBp.Ability;
                             if (spellBlueprint == null) continue;

@@ -36,6 +36,56 @@ namespace BubbleBuffs {
             Instance = this;
         }
 
+        private void Update() {
+            // Handle pending open-buff-mode from the quick open button.
+            // Two-phase approach: Phase 0 waits for spellbook ready, Phase 1 monitors PartyView.
+            // The game's spellbook animation can re-show PartyView after our HideAnimation call,
+            // so we keep checking and re-hiding for a few frames after ToggleBuffMode.
+            var instance = GlobalBubbleBuffer.Instance;
+            if (instance != null && instance.PendingOpenBuffMode) {
+                instance.pendingFrameCount++;
+                if (instance.pendingFrameCount > 120) {
+                    instance.PendingOpenBuffMode = false;
+                    instance.pendingFrameCount = 0;
+                    instance.pendingPhase = 0;
+                    Main.Log("BubbleBuffs: Pending open buff mode timed out");
+                } else if (instance.pendingPhase == 0) {
+                    // Phase 0: Wait for spellbook controller to be ready
+                    try {
+                        if (instance.SpellbookController != null && instance.SpellbookController.IsReady
+                            && !instance.SpellbookController.Buffing) {
+                            instance.SpellbookController.ToggleBuffMode();
+                            instance.pendingPhase = 1;
+                            instance.pendingHideFrames = 0;
+                        }
+                    } catch (Exception ex) {
+                        instance.PendingOpenBuffMode = false;
+                        instance.pendingFrameCount = 0;
+                        instance.pendingPhase = 0;
+                        Main.Error(ex, "Pending open buff mode");
+                    }
+                } else if (instance.pendingPhase == 1) {
+                    // Phase 1: Monitor PartyView — game animation may un-hide it after our call
+                    instance.pendingHideFrames++;
+                    try {
+                        if (instance.SpellbookController != null) {
+                            instance.SpellbookController.EnsurePartyViewHidden();
+                        }
+                        if (instance.pendingHideFrames >= 30) {
+                            instance.PendingOpenBuffMode = false;
+                            instance.pendingFrameCount = 0;
+                            instance.pendingPhase = 0;
+                        }
+                    } catch (Exception ex) {
+                        instance.PendingOpenBuffMode = false;
+                        instance.pendingFrameCount = 0;
+                        instance.pendingPhase = 0;
+                        Main.Error(ex, "Pending hide party view");
+                    }
+                }
+            }
+        }
+
         public void Destroy() {
         }
 
@@ -98,6 +148,7 @@ namespace BubbleBuffs {
                     int thisBuffGood = 0;
                     int thisBuffBad = 0;
                     int thisBuffSkip = 0;
+                    var thisBuffSourceCounts = new Dictionary<BuffSourceType, int>();
                     TooltipTemplateBuffer.BuffResult badResult = null;
 
                     foreach (var (target, caster) in buff.ActualCastQueue) {
@@ -108,26 +159,10 @@ namespace BubbleBuffs {
                             continue;
                         }
 
-                        // Check if source item is available
-                        if (caster.SourceType != BuffSourceType.Spell && caster.AvailableCredits <= 0) {
-                            string logKey = caster.SourceType switch {
-                                BuffSourceType.Scroll => "log.no-scroll-available",
-                                BuffSourceType.Potion => "log.no-potion-available",
-                                BuffSourceType.Equipment => "log.equipment-no-charges",
-                                _ => null
-                            };
-                            if (logKey != null) {
-                                string itemName = caster.SourceItem?.Name ?? buff.Name;
-                                string msg = caster.SourceType == BuffSourceType.Equipment
-                                    ? $"{itemName} {"log.equipment-no-charges".i8()}"
-                                    : string.Format(logKey.i8(), buff.Name);
-                                Main.Log(msg);
-                                if (badResult == null) badResult = tooltip.AddBad(buff);
-                                badResult.messages.Add($"  {msg}");
-                            }
-                            thisBuffBad++;
-                            continue;
-                        }
+                        // Note: credit availability was already validated in BubbleBuff.Validate()
+                        // which built the ActualCastQueue. Do NOT re-check credits here —
+                        // Validate() already consumed them via ChargeCredits(), so the value
+                        // is 0 even though the cast was legitimately planned.
 
                         attemptedCasts++;
 
@@ -244,10 +279,15 @@ namespace BubbleBuffs {
 
                         actuallyCast++;
                         thisBuffGood++;
+                        thisBuffSourceCounts.TryGetValue(caster.SourceType, out var sc);
+                        thisBuffSourceCounts[caster.SourceType] = sc + 1;
                     }
 
-                    if (thisBuffGood > 0)
-                        tooltip.AddGood(buff).count = thisBuffGood;
+                    if (thisBuffGood > 0) {
+                        var goodResult = tooltip.AddGood(buff);
+                        goodResult.count = thisBuffGood;
+                        goodResult.sourceCounts = thisBuffSourceCounts;
+                    }
                     if (thisBuffSkip > 0)
                         tooltip.AddSkip(buff).count = thisBuffSkip;
 
