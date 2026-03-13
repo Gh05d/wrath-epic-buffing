@@ -1878,7 +1878,7 @@ namespace BuffIt2TheLimit {
         internal void Execute(BuffGroup group) {
             UnitBuffPartView.StartSuppression();
             Executor.Execute(group);
-            Invoke("EndBuffPartViewSuppression", 1.0f);
+            BubbleBuffGlobalController.Instance.Invoke(nameof(BubbleBuffGlobalController.EndSuppression), 1.0f);
         }
 
 
@@ -1931,6 +1931,16 @@ namespace BuffIt2TheLimit {
         }
     }
 
+
+    [HarmonyPatch(typeof(Game), nameof(Game.ResetUI))]
+    static class ReinstallUIOnControllerModeChange {
+        [HarmonyPostfix]
+        public static void ResetUI(bool isGameInputChange) {
+            if (!isGameInputChange) return;
+            Main.Log("[ResetUI] Input mode changed — reinstalling BubbleBuffs");
+            GlobalBubbleBuffer.Instance?.TryInstallUI();
+        }
+    }
 
     //[HarmonyPatch(typeof(UnitBuffPartPCView), "DrawBuffs")]
     static class UnitBuffPartView {
@@ -2076,28 +2086,50 @@ namespace BuffIt2TheLimit {
     class SyncBubbleHud : MonoBehaviour {
         private GameObject bubbleHud => GlobalBubbleBuffer.Instance.bubbleHud;
         private CanvasGroup src;
+        // When re-enabled after controller mode, alpha may still be 0 from a prior fade-out.
+        // Suppress alpha-based hiding until alpha has recovered to > 0.9 at least once.
+        private bool waitingForAlpha = false;
+        private float lastAlphaLogged = -1f;
+
         private void Awake() {
             src = GetComponent<CanvasGroup>();
-            if (src == null)
-                Main.Log("src canvas group is null");
+            Main.Log($"[SyncBubbleHud] Awake on '{gameObject.name}', src={(src == null ? "NULL" : "ok")}");
         }
 
         private void Update() {
             if (bubbleHud == null) return;
 
-            if (src.alpha < 0.1)
-                bubbleHud.SetActive(false);
-            else if (src.alpha > 0.9)
+            float alpha = src != null ? src.alpha : -1f;
+            if (Mathf.Abs(alpha - lastAlphaLogged) > 0.05f) {
+                Main.Log($"[SyncBubbleHud] alpha={alpha:F2}, bubbleHud.activeSelf={bubbleHud.activeSelf}, waitingForAlpha={waitingForAlpha}");
+                lastAlphaLogged = alpha;
+            }
+
+            if (src.alpha < 0.1) {
+                if (!waitingForAlpha)
+                    bubbleHud.SetActive(false);
+            } else if (src.alpha > 0.9) {
+                waitingForAlpha = false;
                 bubbleHud.SetActive(true);
+            }
         }
 
         private void OnEnable() {
+            Main.Log($"[SyncBubbleHud] OnEnable, bubbleHud={(bubbleHud == null ? "NULL" : $"activeSelf={bubbleHud.activeSelf}")}, src.alpha={src?.alpha:F2}");
+            waitingForAlpha = true;
             if (bubbleHud != null && !bubbleHud.activeSelf)
                 bubbleHud.SetActive(true);
         }
+
         private void OnDisable() {
+            Main.Log($"[SyncBubbleHud] OnDisable, bubbleHud={(bubbleHud == null ? "NULL" : $"activeSelf={bubbleHud.activeSelf}")}");
+            waitingForAlpha = false;
             if (bubbleHud != null && bubbleHud.activeSelf)
-            bubbleHud?.SetActive(false);
+                bubbleHud?.SetActive(false);
+        }
+
+        private void OnDestroy() {
+            Main.Log($"[SyncBubbleHud] OnDestroy — component was destroyed on '{gameObject.name}'");
         }
 
         public void Destroy() { }
@@ -2152,6 +2184,16 @@ namespace BuffIt2TheLimit {
         }
 
         internal void TryInstallUI() {
+            var canvas = Game.Instance.UI.Canvas?.gameObject;
+            if (canvas != null && canvas.GetComponent<BubbleBuffGlobalController>() == null) {
+                Main.Log("[TryInstallUI] Installing BubbleBuffGlobalController on persistent canvas");
+                canvas.AddComponent<BubbleBuffGlobalController>();
+            }
+
+            if (Game.Instance.IsControllerGamepad) {
+                Main.Log("[TryInstallUI] Skipping PC HUD install — controller mode is Gamepad");
+                return;
+            }
 
             //var u = Game.Instance.Player.ActiveCompanions.First(c => c.CharacterName == "Ember");
             //Main.Log("Got character: " + u.CharacterName);
@@ -2174,11 +2216,6 @@ namespace BuffIt2TheLimit {
 #if DEBUG
                 RemoveOldController(spellScreen);
 #endif
-
-                if (spellScreen.transform.root.GetComponent<BubbleBuffGlobalController>() == null) {
-                    Main.Verbose("Creating new global controller");
-                    spellScreen.transform.root.gameObject.AddComponent<BubbleBuffGlobalController>();
-                }
 
                 if (spellScreen.GetComponent<BubbleBuffSpellbookController>() == null) {
                     Main.Verbose("Creating new controller");
@@ -2391,9 +2428,12 @@ namespace BuffIt2TheLimit {
 #if debug
                 RemoveOldController<SyncBubbleHud>(hudLayout.ChildObject("IngameMenuView"));
 #endif
-                if (hudLayout.ChildObject("IngameMenuView").GetComponent<SyncBubbleHud>() == null) {
-                    hudLayout.ChildObject("IngameMenuView").AddComponent<SyncBubbleHud>();
-                    Main.Verbose("installed hud sync");
+                var ingameMenuView = hudLayout.ChildObject("IngameMenuView");
+                var existingSync = ingameMenuView.GetComponent<SyncBubbleHud>();
+                Main.Log($"[TryInstallUI] IngameMenuView='{ingameMenuView.name}', existingSyncBubbleHud={existingSync != null}, activeSelf={ingameMenuView.activeSelf}, activeInHierarchy={ingameMenuView.activeInHierarchy}");
+                if (existingSync == null) {
+                    ingameMenuView.AddComponent<SyncBubbleHud>();
+                    Main.Log("[TryInstallUI] installed new SyncBubbleHud");
                 }
 
 

@@ -109,6 +109,8 @@ namespace BuffIt2TheLimit {
         public void Destroy() {
         }
 
+        public void EndSuppression() { UnitBuffPartView.EndSuppresion(); }
+
         public void CastSpells(List<CastTask> tasks) {
             var castingCoroutine = Engine.CreateSpellCastRoutine(tasks);
             StartCoroutine(castingCoroutine);
