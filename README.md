@@ -1,10 +1,10 @@
-# BubbleBuffs (Fork)
+# Buff It 2 The Limit
 
-A fork of [factubsio's BubbleBuffs](https://github.com/factubsio/BubbleBuffs) — the buff automation mod for **Pathfinder: Wrath of the Righteous**.
+A fork of [factubsio's BubbleBuffs](https://github.com/factubsio/BubbleBuffs) — the buff automation mod for **Pathfinder: Wrath of the Righteous**, now continued as **Buff It 2 The Limit**.
 
 ## What's Different
 
-This fork continues development of BubbleBuffs with new features:
+This fork continues development with new features:
 
 - **Unified buff sources** — Spells, scrolls, and potions merged into a single "Buffs" tab. One entry per buff regardless of source, with inline source-type controls (checkboxes + priority).
 - **Equipment support** — Activatable quickslot items (staves, rods) and wands from inventory as buff sources in a dedicated "Equipment" tab. Wands use the same UMD logic as scrolls.
@@ -16,7 +16,7 @@ This fork continues development of BubbleBuffs with new features:
 
 ## About
 
-BubbleBuffs adds an in-game option to spellbooks to create buff routines. Configure which buffs to cast on which party members, then execute entire buff sequences with a single click.
+Buff It 2 The Limit adds an in-game option to spellbooks to create buff routines. Configure which buffs to cast on which party members, then execute entire buff sequences with a single click.
 
 Original mod by [factubsio](https://github.com/factubsio/BubbleBuffs) — download the original from [Nexus Mods](https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195).
 
@@ -28,9 +28,9 @@ Original mod by [factubsio](https://github.com/factubsio/BubbleBuffs) — downlo
    - Create `GamePath.props` in the repo root (see [CLAUDE.md](CLAUDE.md) for format)
 3. Build:
    ```bash
-   dotnet build BubbleBuffs/BubbleBuffs.csproj
+   dotnet build BuffIt2TheLimit/BuffIt2TheLimit.csproj
    ```
-4. Output goes to `BubbleBuffs/bin/Debug/` — copy contents to `{GameDir}/Mods/BubbleBuffs/`
+4. Output goes to `BuffIt2TheLimit/bin/Debug/` — copy contents to `{GameDir}/Mods/BuffIt2TheLimit/`
 
 ### Debugging
 

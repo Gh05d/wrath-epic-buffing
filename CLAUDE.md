@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-BubbleBuffs is a Unity mod for **Pathfinder: Wrath of the Righteous** that adds automated buff casting routines to the spellbook UI. Players configure which buffs to cast on which party members, then execute them with HUD buttons. Built with C#/.NET Framework 4.81, Harmony patches, and Unity UI. Distributed via [Nexus Mods](https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195).
+Buff It 2 The Limit (formerly BubbleBuffs) is a Unity mod for **Pathfinder: Wrath of the Righteous** that adds automated buff casting routines to the spellbook UI. Players configure which buffs to cast on which party members, then execute them with HUD buttons. Built with C#/.NET Framework 4.81, Harmony patches, and Unity UI. Distributed via [Nexus Mods](https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195).
 
 ## Build
 
 ```bash
-~/.dotnet/dotnet build BubbleBuffs/BubbleBuffs.csproj -p:SolutionDir=$(pwd)/
+~/.dotnet/dotnet build BuffIt2TheLimit/BuffIt2TheLimit.csproj -p:SolutionDir=$(pwd)/
 ```
 
 > **Note:** `dotnet` is not on PATH — always use `~/.dotnet/dotnet`.
@@ -29,7 +29,7 @@ For Linux dev, create `GamePath.props` manually or symlink game DLLs:
 
 The build uses `BepInEx.AssemblyPublicizer.MSBuild` to access private/internal game fields (marked with `Publicize="true"` in csproj). Publicized DLLs go to `obj/Debug/publicized/`.
 
-Output: `BubbleBuffs/bin/Debug/BubbleBuffs.dll` + assets copied to output dir. The build target also creates a zip for distribution.
+Output: `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` + assets copied to output dir. The build target also creates a zip for distribution.
 
 ## Deploy
 
@@ -37,7 +37,7 @@ Output: `BubbleBuffs/bin/Debug/BubbleBuffs.dll` + assets copied to output dir. T
 ./deploy.sh
 ```
 
-Builds and SCPs `BubbleBuffs.dll` to Steam Deck mod directory. Requires `deck-direct` SSH alias.
+Builds and SCPs `BuffIt2TheLimit.dll` to Steam Deck mod directory. Requires `deck-direct` SSH alias.
 
 ## Gotchas
 
@@ -126,7 +126,7 @@ JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resourc
 
 ### Save System
 
-Per-save JSON at `{ModPath}UserSettings/bubblebuff-{GameId}.json`. Contains buff assignments, caster priorities, source preferences, and global settings. Serialized via Newtonsoft.Json.
+Per-save JSON at `{ModPath}UserSettings/bi2tl-{GameId}.json`. Contains buff assignments, caster priorities, source preferences, and global settings. Serialized via Newtonsoft.Json.
 
 ## Credit System (Buff Availability)
 
