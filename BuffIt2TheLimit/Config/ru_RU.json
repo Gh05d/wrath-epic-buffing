@@ -59,5 +59,11 @@
   "openbuffs.tooltip.header": "Открыть меню бафов",
   "openbuffs.tooltip.desc": "Открыть меню настройки BubbleBuffs напрямую",
   "use.extendrod": "Использовать жезл Продления",
-  "log.extend-rod-applied": "Жезл Продления"
+  "log.extend-rod-applied": "Жезл Продления",
+
+  "shortcut.long": "Normal shortcut:",
+  "shortcut.quick": "Quick shortcut:",
+  "shortcut.important": "Important shortcut:",
+  "shortcut.none": "(none)",
+  "shortcut.press": "(press any key)"
 }

@@ -616,6 +616,45 @@ namespace BuffIt2TheLimit {
             WindowCreated = true;
         }
 
+        private void MakeKeybindRow(Transform parent, string labelText, BuffGroup group) {
+            var row = new GameObject($"keybind-{group}", typeof(RectTransform));
+            row.transform.SetParent(parent, false);
+            var hg = row.AddComponent<HorizontalLayoutGroup>();
+            hg.childControlHeight = true;
+            hg.childControlWidth = true;
+            hg.childForceExpandWidth = false;
+            hg.spacing = 8;
+
+            var labelObj = new GameObject("label", typeof(RectTransform));
+            labelObj.transform.SetParent(row.transform, false);
+            var labelLE = labelObj.AddComponent<LayoutElement>();
+            labelLE.flexibleWidth = 1;
+            var lText = labelObj.AddComponent<TextMeshProUGUI>();
+            lText.text = labelText;
+            lText.fontSize = 14;
+            lText.color = Color.white;
+            lText.alignment = TextAlignmentOptions.MidlineLeft;
+
+            var btnObj = UnityEngine.Object.Instantiate(buttonPrefab, row.transform);
+            var btnLE = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();
+            btnLE.preferredWidth = 120;
+            btnLE.flexibleWidth = 0;
+            var btnText = btnObj.GetComponentInChildren<TextMeshProUGUI>();
+            KeyCode currentKey = state.GetShortcut(group);
+            btnText.text = currentKey == KeyCode.None ? "shortcut.none".i8() : currentKey.ToString();
+
+            var btn = btnObj.GetComponent<OwlcatButton>();
+            btn.OnLeftClick.AddListener(() => {
+                if (BubbleBuffGlobalController.CapturingFor.HasValue) return;
+                btnText.text = "shortcut.press".i8();
+                BubbleBuffGlobalController.CapturingFor = group;
+                BubbleBuffGlobalController.OnShortcutCaptured = (g, kc) => {
+                    state.SetShortcut(g, kc);
+                    btnText.text = kc == KeyCode.None ? "shortcut.none".i8() : kc.ToString();
+                };
+            });
+        }
+
         private static (ToggleWorkaround, TextMeshProUGUI) MakeSettingsToggle(GameObject prefab, Transform content, string text) {
             var toggleObj = GameObject.Instantiate(prefab, content);
             toggleObj.SetActive(true);
@@ -794,6 +833,13 @@ namespace BuffIt2TheLimit {
                     state.InputDirty = true;
                     state.Save(true);
                 });
+            }
+
+            // Keyboard shortcut per group
+            foreach (BuffGroup group in Enum.GetValues(typeof(BuffGroup))) {
+                var groupCopy = group;
+                var key = $"shortcut.{group.ToString().ToLower()}";
+                MakeKeybindRow(panel.transform, key.i8(), groupCopy);
             }
 
             var b = toggleSettings.GetComponent<OwlcatButton>();

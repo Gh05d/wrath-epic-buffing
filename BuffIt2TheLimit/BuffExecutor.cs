@@ -32,6 +32,10 @@ namespace BuffIt2TheLimit {
         public const int BATCH_SIZE = 8;
         public const float DELAY = 0.05f;
 
+        // Shortcut capture state
+        public static BuffGroup? CapturingFor = null;
+        public static Action<BuffGroup, KeyCode> OnShortcutCaptured = null;
+
         private void Awake() {
             Instance = this;
         }
@@ -73,6 +77,30 @@ namespace BuffIt2TheLimit {
                     } catch (Exception ex) {
                         instance.ResetPendingState();
                         Main.Error(ex, "Pending hide party view");
+                    }
+                }
+            }
+
+            // Handle keyboard shortcut capture and execution
+            var state = GlobalBubbleBuffer.Instance?.SpellbookController?.state;
+            if (state != null) {
+                if (CapturingFor.HasValue) {
+                    foreach (KeyCode kc in Enum.GetValues(typeof(KeyCode))) {
+                        if (kc >= KeyCode.Mouse0) break;
+                        if (Input.GetKeyDown(kc)) {
+                            var captured = kc == KeyCode.Escape ? KeyCode.None : kc;
+                            OnShortcutCaptured?.Invoke(CapturingFor.Value, captured);
+                            CapturingFor = null;
+                            OnShortcutCaptured = null;
+                            break;
+                        }
+                    }
+                } else {
+                    foreach (BuffGroup group in Enum.GetValues(typeof(BuffGroup))) {
+                        var kc = state.GetShortcut(group);
+                        if (kc != KeyCode.None && Input.GetKeyDown(kc)) {
+                            GlobalBubbleBuffer.Execute(group);
+                        }
                     }
                 }
             }

@@ -55,6 +55,11 @@
   "openbuffs.tooltip.header": "Ouvrir le menu de buffs",
   "openbuffs.tooltip.desc": "Ouvrir directement le menu de configuration BubbleBuffs",
   "use.extendrod": "Utiliser Baguette d'Extension",
-  "log.extend-rod-applied": "Baguette d'Extension"
+  "log.extend-rod-applied": "Baguette d'Extension",
 
+  "shortcut.long": "Normal shortcut:",
+  "shortcut.quick": "Quick shortcut:",
+  "shortcut.important": "Important shortcut:",
+  "shortcut.none": "(none)",
+  "shortcut.press": "(press any key)"
 }
