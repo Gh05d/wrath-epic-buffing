@@ -31,6 +31,14 @@ The build uses `BepInEx.AssemblyPublicizer.MSBuild` to access private/internal g
 
 Output: `BubbleBuffs/bin/Debug/BubbleBuffs.dll` + assets copied to output dir. The build target also creates a zip for distribution.
 
+## Deploy
+
+```bash
+./deploy.sh
+```
+
+Builds and SCPs `BubbleBuffs.dll` to Steam Deck mod directory. Requires `deck-direct` SSH alias.
+
 ## Gotchas
 
 - **`-p:SolutionDir` required on Linux**: Without it, `GamePath.props` import fails silently and all 1400+ DLL references break. Always pass it.
@@ -38,6 +46,7 @@ Output: `BubbleBuffs/bin/Debug/BubbleBuffs.dll` + assets copied to output dir. T
 - **WidgetPaths version selection**: `Main.Load()` selects a `WidgetPaths` class based on `gameVersion.Major/Minor`. If the game updates, UI element paths may break. Check `UIHelpers.cs` for the hierarchy.
 - **EnhancedInventory interop**: Mod loads after `EnhancedInventory` (see `Info.json`). `TryFixEILayout()` adjusts UI positioning when EI is present.
 - **Publicizer scope**: Only DLLs with `Publicize="true"` in csproj have private fields accessible. If you get CS0122 on a game field, check whether the source DLL is publicized.
+- **`Main.Log()` vs `Main.Verbose()`**: `Main.Log()` fires unconditionally, `Main.Verbose()` respects debug flags. Use `Verbose` for per-item scan output. `Log` for important one-time messages only. Diagnostic logging with `Main.Log` in hot paths (RecalculateAvailableBuffs) causes unnecessary inventory iterations every recalculation.
 
 ## Debug Keybinds (DEBUG builds only)
 
@@ -83,7 +92,7 @@ EngineCastingHandler  →  handles the actual spell casting via game's ability s
 
 ### UI Structure
 
-`BubbleBuffer.cs` (~2800 lines) contains most UI code. Key patterns:
+`BubbleBuffer.cs` (~3000 lines) contains most UI code. Key patterns:
 
 - **HUD buttons**: Created in `TryInstallUI()` via local `AddButton()` function. Uses `ButtonSprites.Load("name", size)` which loads `Assets/icons/{name}_normal.png`, `_hover.png`, `_down.png`.
 - **Buff window**: Created by `BubbleBuffSpellbookController.CreateWindow()`. Uses `ButtonGroup<T>` for tab groups, `Portrait` class for caster portraits.
@@ -95,6 +104,7 @@ EngineCastingHandler  →  handles the actual spell casting via game's ability s
 - **`BuffGroup`**: `Long`, `Important`, `Quick` — the three buff categories users assign buffs to
 - **`Category`**: `Buff`, `Ability`, `Equipment` — tab filter categories
 - **`BuffSourceType`**: `Spell`, `Scroll`, `Potion`, `Equipment` — how a buff can be provided
+- **`SourcePriority`**: Only permutes Spell/Scroll/Potion order. Equipment always sorts last in `GetSourceOrder()` (intentional — equipment items are valuable, used as fallback).
 
 ### Localization
 
@@ -108,7 +118,8 @@ JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resourc
 
 ### Item Types (Equipment Scan)
 
-- **`UsableItemType.Wand`**: In player inventory (not QuickSlots). Has `Charges` property. Use UMD logic like scrolls (class list check + UMD fallback). DC = 20 + CasterLevel.
+- **`UsableItemType.Wand`**: In player inventory (not QuickSlots). Has `Charges` property. Uses `CanUseItemWithUmd()` shared helper (class list check + UMD fallback). DC = 20 + CasterLevel.
+- **`CanUseItemWithUmd(dude, spell, dc)`**: Shared method in `BufferState.cs` for scroll/wand eligibility. Checks class spell list first, then UMD based on `SavedState.UmdMode`. Reuse for any new item types needing UMD.
 - **`UsableItemType.Scroll/Potion`**: In player inventory. Stack count = credits. Consumed via `Inventory.Remove()`.
 - **QuickSlot items** (`dude.Body.QuickSlots`): Equipment like rods, special items. Many have `Ability = null` (metamagic rods). Charges consumed via `SourceItem.Charges--`.
 - **Equipped item abilities** (`dude.Abilities.RawFacts` with `SourceItem != null`): Staves and worn items. Filtered by `!(Blueprint is BlueprintItemEquipmentUsable)` to avoid double-counting QuickSlot items.

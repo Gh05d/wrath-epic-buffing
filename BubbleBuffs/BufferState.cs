@@ -140,6 +140,8 @@ namespace BubbleBuffs {
                     UnitEntityData dude = Group[characterIndex];
                     foreach (Ability ability in dude.Abilities.RawFacts) {
                         ItemEntity sourceItem = ability.SourceItem;
+                        if (sourceItem != null) {
+                        }
                         if (sourceItem == null || !sourceItem.IsSpendCharges) {
                             var credits = new ReactiveProperty<int>(500);
                             if (ability.Data.Resource != null) {
@@ -184,16 +186,6 @@ namespace BubbleBuffs {
 
             try {
                 if (SavedState.ScrollsEnabled || SavedState.PotionsEnabled || SavedState.EquipmentEnabled) {
-                    // Diagnostic: log all wand-type items in inventory
-                    var wandCount = Game.Instance.Player.Inventory
-                        .Count(item => item.Blueprint is BlueprintItemEquipmentUsable u && u.Type == UsableItemType.Wand);
-                    Main.Log($"[Wand] Total wand items in inventory: {wandCount}");
-                    foreach (var item in Game.Instance.Player.Inventory) {
-                        if (item.Blueprint is BlueprintItemEquipmentUsable u2 && u2.Type == UsableItemType.Wand) {
-                            Main.Log($"[Wand] Found: {item.Name}, Ability={u2.Ability?.Name ?? "null"}, Charges={item.Charges}");
-                        }
-                    }
-
                     // Group usable items by blueprint to share credits across stacks
                     var usableItems = Game.Instance.Player.Inventory
                         .Where(item => item.Blueprint is BlueprintItemEquipmentUsable usable
@@ -216,10 +208,11 @@ namespace BubbleBuffs {
                         if (isPotion && !SavedState.PotionsEnabled) continue;
                         if (isWand && !SavedState.EquipmentEnabled) continue;
 
-                        int totalCount = itemGroup.Sum(item => item.Count);
-                        var sharedCredits = new ReactiveProperty<int>(totalCount);
+                        var firstItem = itemGroup.First();
 
                         if (isPotion) {
+                            int totalCount = itemGroup.Sum(item => item.Count);
+                            var sharedCredits = new ReactiveProperty<int>(totalCount);
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
                                 var abilityData = new AbilityData(spellBlueprint, dude);
@@ -236,33 +229,16 @@ namespace BubbleBuffs {
                                         archmageArmor: false,
                                         category: Category.Buff,
                                         sourceType: BuffSourceType.Potion,
-                                        sourceItem: itemGroup.First());
+                                        sourceItem: firstItem);
                             }
                         } else if (isScroll) {
-                            int scrollCasterLevel = blueprint.CasterLevel;
-                            int scrollDC = 20 + scrollCasterLevel;
+                            int totalCount = itemGroup.Sum(item => item.Count);
+                            var sharedCredits = new ReactiveProperty<int>(totalCount);
+                            int scrollDC = 20 + blueprint.CasterLevel;
 
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
-                                bool canUse = false;
-
-                                bool onClassList = dude.Spellbooks.Any(book =>
-                                    book.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
-                                        level.Spells.Any(s => s == spellBlueprint)) == true);
-
-                                if (onClassList) {
-                                    canUse = true;
-                                } else if (SavedState.UmdMode != UmdMode.SafeOnly) {
-                                    var umdBonus = dude.Stats.SkillUseMagicDevice.ModifiedValue;
-                                    if (SavedState.UmdMode == UmdMode.AlwaysTry) {
-                                        canUse = umdBonus > 0;
-                                    } else {
-                                        // AllowIfPossible: check if guaranteed success is possible (roll + bonus >= DC, worst case roll = 1 excluded, need bonus + 20 >= DC)
-                                        canUse = (umdBonus + 20) >= scrollDC;
-                                    }
-                                }
-
-                                if (!canUse) continue;
+                                if (!CanUseItemWithUmd(dude, spellBlueprint, scrollDC)) continue;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude);
                                 Main.Verbose($"      Adding scroll buff: {spellBlueprint.Name} for {dude.CharacterName}", "state");
@@ -278,39 +254,17 @@ namespace BubbleBuffs {
                                         archmageArmor: false,
                                         category: Category.Buff,
                                         sourceType: BuffSourceType.Scroll,
-                                        sourceItem: itemGroup.First());
+                                        sourceItem: firstItem);
                             }
                         } else if (isWand) {
-                            int wandCasterLevel = blueprint.CasterLevel;
-                            int wandDC = 20 + wandCasterLevel;
-                            Main.Log($"[Wand] Processing {spellBlueprint.Name}: CL={wandCasterLevel}, DC={wandDC}, UmdMode={SavedState.UmdMode}");
-
-                            // Wands use charges, not stack count
                             int totalCharges = itemGroup.Sum(item => item.Charges);
                             if (totalCharges <= 0) continue;
                             var wandCredits = new ReactiveProperty<int>(totalCharges);
+                            int wandDC = 20 + blueprint.CasterLevel;
 
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
-                                bool canUse = false;
-
-                                bool onClassList = dude.Spellbooks.Any(book =>
-                                    book.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
-                                        level.Spells.Any(s => s == spellBlueprint)) == true);
-
-                                if (onClassList) {
-                                    canUse = true;
-                                } else if (SavedState.UmdMode != UmdMode.SafeOnly) {
-                                    var umdBonus = dude.Stats.SkillUseMagicDevice.ModifiedValue;
-                                    if (SavedState.UmdMode == UmdMode.AlwaysTry) {
-                                        canUse = umdBonus > 0;
-                                    } else {
-                                        canUse = (umdBonus + 20) >= wandDC;
-                                    }
-                                }
-
-                                Main.Log($"[Wand] {dude.CharacterName}: onClassList={onClassList}, canUse={canUse}, UMD={dude.Stats.SkillUseMagicDevice.ModifiedValue}");
-                                if (!canUse) continue;
+                                if (!CanUseItemWithUmd(dude, spellBlueprint, wandDC)) continue;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude);
                                 Main.Verbose($"      Adding wand buff: {spellBlueprint.Name} from {blueprint.Name} for {dude.CharacterName}", "state");
@@ -326,7 +280,7 @@ namespace BubbleBuffs {
                                         archmageArmor: false,
                                         category: Category.Equipment,
                                         sourceType: BuffSourceType.Equipment,
-                                        sourceItem: itemGroup.First());
+                                        sourceItem: firstItem);
                             }
                         }
                     }
@@ -342,7 +296,9 @@ namespace BubbleBuffs {
                         UnitEntityData dude = Group[characterIndex];
                         foreach (var slot in dude.Body.QuickSlots) {
                             if (!slot.HasItem) continue;
-                            if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) continue;
+                            if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) {
+                                continue;
+                            }
 
                             // Skip scrolls and potions - they're handled above
                             if (usableBp.Type == UsableItemType.Scroll || usableBp.Type == UsableItemType.Potion) continue;
@@ -594,7 +550,6 @@ namespace BubbleBuffs {
                 if (!SpellsWithBeneficialBuffs.TryGetValue(spell.Blueprint.AssetGuid.m_Guid, out var abilityEffect)) {
                     var beneficial = spell.Blueprint.GetBeneficialBuffs();
                     abilityEffect = new AbilityCombinedEffects(beneficial);
-
                     SpellsWithBeneficialBuffs[spell.Blueprint.AssetGuid.m_Guid] = abilityEffect;
                     SpellNames[spell.Blueprint.AssetGuid.m_Guid] = spell.Name;
                 }
@@ -623,6 +578,19 @@ namespace BubbleBuffs {
             }
         }
 
+
+        private bool CanUseItemWithUmd(UnitEntityData dude, BlueprintAbility spell, int dc) {
+            bool onClassList = dude.Spellbooks.Any(book =>
+                book.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
+                    level.Spells.Any(s => s == spell)) == true);
+            if (onClassList) return true;
+
+            if (SavedState.UmdMode == UmdMode.SafeOnly) return false;
+
+            var umdBonus = dude.Stats.SkillUseMagicDevice.ModifiedValue;
+            if (SavedState.UmdMode == UmdMode.AlwaysTry) return umdBonus > 0;
+            return (umdBonus + 20) >= dc;
+        }
 
         private List<string> lastGroup = new();
         internal bool InputDirty = true;

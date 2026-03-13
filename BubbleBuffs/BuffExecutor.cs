@@ -45,9 +45,7 @@ namespace BubbleBuffs {
             if (instance != null && instance.PendingOpenBuffMode) {
                 instance.pendingFrameCount++;
                 if (instance.pendingFrameCount > 120) {
-                    instance.PendingOpenBuffMode = false;
-                    instance.pendingFrameCount = 0;
-                    instance.pendingPhase = 0;
+                    instance.ResetPendingState();
                     Main.Log("BubbleBuffs: Pending open buff mode timed out");
                 } else if (instance.pendingPhase == 0) {
                     // Phase 0: Wait for spellbook controller to be ready
@@ -59,9 +57,7 @@ namespace BubbleBuffs {
                             instance.pendingHideFrames = 0;
                         }
                     } catch (Exception ex) {
-                        instance.PendingOpenBuffMode = false;
-                        instance.pendingFrameCount = 0;
-                        instance.pendingPhase = 0;
+                        instance.ResetPendingState();
                         Main.Error(ex, "Pending open buff mode");
                     }
                 } else if (instance.pendingPhase == 1) {
@@ -72,14 +68,10 @@ namespace BubbleBuffs {
                             instance.SpellbookController.EnsurePartyViewHidden();
                         }
                         if (instance.pendingHideFrames >= 30) {
-                            instance.PendingOpenBuffMode = false;
-                            instance.pendingFrameCount = 0;
-                            instance.pendingPhase = 0;
+                            instance.ResetPendingState();
                         }
                     } catch (Exception ex) {
-                        instance.PendingOpenBuffMode = false;
-                        instance.pendingFrameCount = 0;
-                        instance.pendingPhase = 0;
+                        instance.ResetPendingState();
                         Main.Error(ex, "Pending hide party view");
                     }
                 }

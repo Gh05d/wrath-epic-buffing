@@ -99,6 +99,15 @@ namespace BubbleBuffs {
         private Transform rightPanel;
         private Transform _targetsSection;
 
+        private static readonly string[] SourcePriorityKeys = {
+            "priority.spells-scrolls-potions",
+            "priority.spells-potions-scrolls",
+            "priority.scrolls-spells-potions",
+            "priority.scrolls-potions-spells",
+            "priority.potions-spells-scrolls",
+            "priority.potions-scrolls-spells"
+        };
+
         public static Dictionary<string, TooltipBaseTemplate> AbilityTooltips = new();
 
         public static TooltipBaseTemplate TooltipForAbility(BlueprintAbility ability) {
@@ -771,26 +780,17 @@ namespace BubbleBuffs {
 
             // Source Priority cycle button
             {
-                string[] priorityKeys = {
-                    "priority.spells-scrolls-potions",
-                    "priority.spells-potions-scrolls",
-                    "priority.scrolls-spells-potions",
-                    "priority.scrolls-potions-spells",
-                    "priority.potions-spells-scrolls",
-                    "priority.potions-scrolls-spells"
-                };
-
                 var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
                 labelObj.DestroyComponents<ToggleWorkaround>();
                 labelObj.DestroyChildren("Background");
                 labelObj.SetActive(true);
                 var prioText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
-                prioText.text = $"{"setting-source-priority".i8()}: {priorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
+                prioText.text = $"{"setting-source-priority".i8()}: {SourcePriorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
 
                 var prioCycleButton = MakeButton(">", panel.transform);
                 prioCycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                     state.SavedState.GlobalSourcePriority = (SourcePriority)(((int)state.SavedState.GlobalSourcePriority + 1) % 6);
-                    prioText.text = $"{"setting-source-priority".i8()}: {priorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
+                    prioText.text = $"{"setting-source-priority".i8()}: {SourcePriorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
                     state.InputDirty = true;
                     state.Save(true);
                 });
@@ -1491,18 +1491,9 @@ namespace BubbleBuffs {
             });
 
             // Per-buff source priority override
-            string[] priorityKeys = {
-                "priority.spells-scrolls-potions",
-                "priority.spells-potions-scrolls",
-                "priority.scrolls-spells-potions",
-                "priority.scrolls-potions-spells",
-                "priority.potions-spells-scrolls",
-                "priority.potions-scrolls-spells"
-            };
-
             string GetPriorityText(int overrideVal) {
                 if (overrideVal < 0) return "priority.useglobal".i8();
-                return priorityKeys[overrideVal].i8();
+                return SourcePriorityKeys[overrideVal].i8();
             }
 
             // Priority row — clickable text that cycles through priority options
@@ -2052,6 +2043,13 @@ namespace BubbleBuffs {
         internal int pendingFrameCount;
         internal int pendingPhase; // 0 = waiting for ready, 1 = monitoring party view
         internal int pendingHideFrames;
+
+        internal void ResetPendingState() {
+            PendingOpenBuffMode = false;
+            pendingFrameCount = 0;
+            pendingPhase = 0;
+            pendingHideFrames = 0;
+        }
         private ButtonSprites applyBuffsSprites;
         private ButtonSprites applyBuffsShortSprites;
         private ButtonSprites showMapSprites;

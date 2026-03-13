@@ -25,6 +25,7 @@ using Kingmaker.UnitLogic.Mechanics.Actions;
 using Kingmaker.Designers.EventConditionActionSystem.Actions;
 using Kingmaker.UnitLogic.Mechanics.Conditions;
 using Kingmaker.UnitLogic.Buffs;
+using Kingmaker.UnitLogic.Buffs.Components;
 using Kingmaker.UnitLogic.Mechanics;
 using Kingmaker.EntitySystem;
 using Kingmaker.UnitLogic.Abilities.Components.AreaEffects;
@@ -145,6 +146,12 @@ namespace BubbleBuffs.Extensions {
                         foreach (var b in (maybe.IfTrue?.Actions).EmptyIfNull().Where(a => a != null).SelectMany(a => a.GetBeneficialBuffs(level + 1)))
                             yield return b;
                     }
+                } else if (action is ContextActionRandomize randomize) {
+                    LogVerbose(level, $"recursing into randomize ({randomize.m_Actions.Length} variants)");
+                    foreach (var wrapper in randomize.m_Actions) {
+                        foreach (var subEffect in wrapper.Action.Actions.Where(a => a != null).SelectMany(a => a.GetBeneficialBuffs(level + 1)))
+                            yield return subEffect;
+                    }
                 } else if (action is ContextActionCastSpell spellCast) {
                     LogVerbose(level, $"recursing into spellCast");
                     foreach (var b in spellCast.Spell.GetBeneficialBuffs(level + 1))
@@ -167,16 +174,63 @@ namespace BubbleBuffs.Extensions {
             return indents[Math.Min(level, indents.Length - 1)];
         }
 
-        public static bool IsBeneficial(this BlueprintBuff buff, int level = 0) {
-            var contextApply = buff.GetComponent<AddFactContextActions>();
-            if (contextApply == null)
-                return true;
+        // Component types that are pure infrastructure/metadata — no gameplay effect.
+        // A buff with ONLY these components is not a real buff (e.g. healing visual tracker).
+        private static readonly HashSet<Type> InfrastructureComponents = new HashSet<Type> {
+            typeof(AddFactContextActions),
+            typeof(UniqueBuff),
+            typeof(SpellDescriptorComponent),
+            typeof(RemoveWhenCombatEnded),
+            typeof(RemoveBuffIfCasterIsMissing),
+            typeof(NotDispelable),
+            typeof(SetBuffOnsetDelay),
+            typeof(FakeDeathAnimationState),
+            typeof(SpecialAnimationState),
+            typeof(CustomImmuneMessageComponent),
+            typeof(AddSpellSchool),
+            typeof(IsPositiveEffect),
+            typeof(SummonedUnitBuff),
+        };
 
-            if (contextApply.Activated?.Actions?.Any(action => action is ContextActionSavingThrow) ?? false) {
+        // SpellDescriptor flags that indicate debuffs/negative effects
+        private const SpellDescriptor HarmfulDescriptors =
+            SpellDescriptor.Fear | SpellDescriptor.Compulsion | SpellDescriptor.Poison |
+            SpellDescriptor.Disease | SpellDescriptor.Charm | SpellDescriptor.Daze |
+            SpellDescriptor.Sickened | SpellDescriptor.Shaken | SpellDescriptor.Fatigue |
+            SpellDescriptor.Staggered | SpellDescriptor.Nauseated | SpellDescriptor.Frightened |
+            SpellDescriptor.Exhausted | SpellDescriptor.Stun | SpellDescriptor.Paralysis |
+            SpellDescriptor.Confusion | SpellDescriptor.Blindness | SpellDescriptor.Curse |
+            SpellDescriptor.Death | SpellDescriptor.Sleep | SpellDescriptor.StatDebuff |
+            SpellDescriptor.Bleed | SpellDescriptor.Petrified | SpellDescriptor.NegativeEmotion |
+            SpellDescriptor.MovementImpairing | SpellDescriptor.NegativeLevel;
+
+        public static bool IsBeneficial(this BlueprintBuff buff, int level = 0) {
+            // Use the game's own Harmful flag
+            if (buff.Harmful) {
                 return false;
             }
 
-            return true;
+            // Check SpellDescriptor for known debuff descriptors
+            if ((buff.SpellDescriptor & HarmfulDescriptors) != SpellDescriptor.None) {
+                return false;
+            }
+
+            // Keep the existing saving throw check — buffs that force saves on activation are debuffs
+            var contextApply = buff.GetComponent<AddFactContextActions>();
+            if (contextApply != null) {
+                if (contextApply.Activated?.Actions?.Any(action => action is ContextActionSavingThrow) ?? false) {
+                    return false;
+                }
+            }
+
+            // Buff must have at least one non-infrastructure component to be a real buff
+            if (buff.ComponentsArray == null || buff.ComponentsArray.Length == 0) {
+                return false;
+            }
+
+            var nonInfra = buff.ComponentsArray.Where(c => !InfrastructureComponents.Contains(c.GetType())).ToList();
+            bool result = nonInfra.Count > 0;
+            return result;
         }
 
         public static BlueprintAbility DeTouchify(this BlueprintAbility spell) {
@@ -191,7 +245,17 @@ namespace BubbleBuffs.Extensions {
             spell = spell.DeTouchify();
             LogVerbose(level, $"detouchified-to: {spell.Name}");
             if (spell.TryGetComponent<AbilityEffectRunAction>(out var runAction)) {
-                return runAction.Actions.Actions.Where(a => a != null).SelectMany(a => a.GetBeneficialBuffs(level + 1));
+                var actions = runAction.Actions.Actions.Where(a => a != null).ToList();
+
+                // Skip spells whose primary purpose is healing or damage
+                // Use FlattenAllActions to catch nested heal/damage inside Conditionals
+                var allActions = actions.FlattenAllActions();
+                bool hasHealOrDamage = allActions.Any(a => a is ContextActionHealTarget || a is ContextActionDealDamage);
+                if (hasHealOrDamage) {
+                    return new IBeneficialEffect[] { };
+                }
+
+                return actions.SelectMany(a => a.GetBeneficialBuffs(level + 1));
             } else {
                 return new IBeneficialEffect[] { };
             }
