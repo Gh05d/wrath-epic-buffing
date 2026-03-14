@@ -1943,6 +1943,7 @@ namespace BuffIt2TheLimit {
             public List<string> messages;
             public int count;
             public Dictionary<BuffSourceType, int> sourceCounts = new();
+            public bool ExtendRodUsed;
             public BuffResult(BubbleBuff buff) {
                 this.buff = buff;
             }
@@ -2012,6 +2013,8 @@ namespace BuffIt2TheLimit {
                         }
                         label += $" ({string.Join(", ", parts)})";
                     }
+                    if (r.ExtendRodUsed)
+                        label += $" [{"log.extend-rod-applied".i8()}]";
                     elements.Add(new TooltipBrickIconAndName(r.buff.Spell.Icon, label, TooltipBrickElementType.Small));
                 }
             }

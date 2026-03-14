@@ -297,6 +297,7 @@ namespace BuffIt2TheLimit {
                         var goodResult = tooltip.AddGood(buff);
                         goodResult.count = thisBuffGood;
                         goodResult.sourceCounts = thisBuffSourceCounts;
+                        goodResult.ExtendRodUsed = anyExtendRod;
                     }
                     if (thisBuffSkip > 0)
                         tooltip.AddSkip(buff).count = thisBuffSkip;
