@@ -147,7 +147,18 @@ namespace BuffIt2TheLimit {
 
                     foreach (var (target, caster) in buff.ActualCastQueue) {
                         var forTarget = unitBuffs[target];
-                        if (buff.BuffsApplied.IsPresent(forTarget, buff.IgnoreForOverwriteCheck) && !State.OverwriteBuff) {
+
+                        // For mass spells, check if ANY wanted target is missing the buff.
+                        // The single CastTask target may already have it, but others might not.
+                        if (buff.IsMass) {
+                            bool anyTargetMissingBuff = Bubble.Group.Any(u =>
+                                buff.UnitWants(u) && !buff.BuffsApplied.IsPresent(unitBuffs[u.UniqueId], buff.IgnoreForOverwriteCheck));
+                            if (!anyTargetMissingBuff && !State.OverwriteBuff) {
+                                thisBuffSkip++;
+                                skippedCasts++;
+                                continue;
+                            }
+                        } else if (buff.BuffsApplied.IsPresent(forTarget, buff.IgnoreForOverwriteCheck) && !State.OverwriteBuff) {
                             thisBuffSkip++;
                             skippedCasts++;
                             continue;
