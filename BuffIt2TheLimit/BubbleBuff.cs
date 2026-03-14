@@ -259,6 +259,10 @@ namespace BuffIt2TheLimit {
         }
 
         public void Validate() {
+            if (IsMass) {
+                ValidateMass();
+                return;
+            }
             foreach (var target in wanted) {
 
                 for (int n = 0; n < CasterQueue.Count; n++) {
@@ -285,7 +289,7 @@ namespace BuffIt2TheLimit {
                         if (!caster.CanTarget(target)) continue;
 
                         //Main.Verbose($"casting: {caster.who.CharacterName} => {Name} => {Bubble.Group[i].CharacterName}");
-                        
+
                         // Azata Zippy Magic - only charge credits if not prime cast
                         if (!caster.AzataZippyMagic || (caster.AzataZippyMagic && numberOfSpellCastsByCaster % 2 == 0)) {
                             // Check for opposition school
@@ -300,6 +304,43 @@ namespace BuffIt2TheLimit {
                         break;
                     }
                 }
+            }
+        }
+
+        private void ValidateMass() {
+            if (wanted.Count == 0) return;
+
+            // For mass/communal spells: find one caster, consume one credit, cast once.
+            // All wanted targets are marked as given since the spell affects everyone.
+            for (int n = 0; n < CasterQueue.Count; n++) {
+                var caster = CasterQueue[n];
+
+                // Skip disabled source types
+                if (caster.SourceType == BuffSourceType.Spell && !UseSpells) continue;
+                if (caster.SourceType == BuffSourceType.Scroll && !UseScrolls) continue;
+                if (caster.SourceType == BuffSourceType.Potion && !UsePotions) continue;
+                if (caster.SourceType == BuffSourceType.Equipment && !UseEquipment) continue;
+
+                var creditsNeeded = CreditsNeeded(caster.spell);
+                if (caster.AvailableCredits < creditsNeeded) continue;
+                if (!caster.SlottedSpell.IsAvailable) continue;
+
+                // Use first wanted target as the cast target (game distributes to all allies)
+                var firstTarget = wanted.First();
+                if (!caster.CanTarget(firstTarget)) continue;
+
+                caster.ChargeCredits(creditsNeeded);
+                caster.spent += creditsNeeded;
+
+                if (ActualCastQueue == null)
+                    ActualCastQueue = new();
+                ActualCastQueue.Add((firstTarget, caster));
+
+                // Mark all wanted targets as given — the spell affects everyone
+                foreach (var target in wanted)
+                    given.Add(target);
+
+                return;
             }
         }
 
