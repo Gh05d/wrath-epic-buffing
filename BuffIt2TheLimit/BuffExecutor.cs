@@ -132,6 +132,7 @@ namespace BuffIt2TheLimit {
             List<CastTask> tasks = new();
 
             Dictionary<UnitEntityData, int> remainingArcanistPool = new Dictionary<UnitEntityData, int>();
+            Dictionary<Kingmaker.Items.ItemEntity, int> remainingRodCharges = new();
             BlueprintScriptableObject arcanistPoolBlueprint = ResourcesLibrary.TryGetBlueprint<BlueprintScriptableObject>("cac948cbbe79b55459459dd6a8fe44ce");
 
             foreach (var buff in State.BuffList.Where(b => b.InGroup == buffGroup && b.Fulfilled > 0)) {
@@ -141,6 +142,7 @@ namespace BuffIt2TheLimit {
                     int thisBuffBad = 0;
                     int thisBuffSkip = 0;
                     var thisBuffSourceCounts = new Dictionary<BuffSourceType, int>();
+                    bool anyExtendRod = false;
                     TooltipTemplateBuffer.BuffResult badResult = null;
 
                     foreach (var (target, caster) in buff.ActualCastQueue) {
@@ -259,6 +261,22 @@ namespace BuffIt2TheLimit {
                             SourceType = caster.SourceType,
                             SourceItem = caster.SourceItem
                         };
+
+                        // Extend Rod lookup
+                        // Only for spell-source casts — scroll/wand/equipment casts don't have a
+                        // spellbook to determine spell level from. Future extension possible.
+                        if (buff.UseExtendRod && caster.SourceType == BuffSourceType.Spell) {
+                            int spellLevel = caster.spell.Spellbook.GetSpellLevel(caster.spell);
+                            var rod = BufferState.FindBestExtendRod(spellLevel, remainingRodCharges);
+                            if (rod != null) {
+                                task.MetamagicRodItem = rod;
+                                remainingRodCharges[rod] = remainingRodCharges[rod] - 1;
+                                anyExtendRod = true;
+                                Main.Verbose($"Extend Rod applied: {rod.Name} for {buff.Name}");
+                            } else {
+                                Main.Log($"Extend Rod unavailable for {buff.Name}, casting normally");
+                            }
+                        }
 
                         tasks.Add(task);
 
