@@ -142,6 +142,7 @@ namespace BuffIt2TheLimit {
         public bool UseScrolls = true;
         public bool UsePotions = true;
         public bool UseEquipment = true;
+        public bool UseExtendRod;
 
         public void AddProvider(UnitEntityData provider, Spellbook book, AbilityData spell, AbilityData baseSpell, IReactiveProperty<int> credits, bool newCredit, int creditClamp, int u, BuffSourceType sourceType = BuffSourceType.Spell, Kingmaker.Items.ItemEntity sourceItem = null) {
             if (this.book == null) {
@@ -199,6 +200,7 @@ namespace BuffIt2TheLimit {
             UseScrolls = state.UseScrolls;
             UsePotions = state.UsePotions;
             UseEquipment = state.UseEquipment;
+            UseExtendRod = state.UseExtendRod;
             SetHidden(HideReason.Blacklisted, state.Blacklisted);
             foreach (var caster in CasterQueue) {
                 if (state.Casters.TryGetValue(caster.Key, out var casterState)) {

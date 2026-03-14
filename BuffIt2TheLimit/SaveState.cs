@@ -89,6 +89,8 @@ namespace BuffIt2TheLimit {
         public bool UsePotions = true;
         [JsonProperty]
         public bool UseEquipment = true;
+        [JsonProperty]
+        public bool UseExtendRod;
     }
 
 
