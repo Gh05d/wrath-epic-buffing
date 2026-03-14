@@ -1691,7 +1691,7 @@ namespace BuffIt2TheLimit {
 
                 bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
                 int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
-                sourceControlObj.SetActive(!isEquipmentCategory && sourceCount > 1);
+                sourceControlObj.SetActive(!isEquipmentCategory && (sourceCount > 1 || hasSpellProviders));
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
