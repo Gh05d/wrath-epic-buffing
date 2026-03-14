@@ -21,6 +21,9 @@ namespace BuffIt2TheLimit.Handlers {
         private readonly CastTask _castTask;
         private readonly bool _spendSpellSlot;
         private ModifiableValue.Modifier _casterLevelModifier;
+        private bool _rodMetamagicApplied;
+        private bool _metamagicWasNull;
+        private Metamagic _originalMetamagicMask;
 
         #endregion
 
@@ -89,6 +92,25 @@ namespace BuffIt2TheLimit.Handlers {
 
             RemoveSpellResistance();
 
+            // Apply Extend Rod metamagic
+            if (_castTask.MetamagicRodItem != null) {
+                try {
+                    if (_castTask.SpellToCast.MetamagicData == null) {
+                        _metamagicWasNull = true;
+                        _castTask.SpellToCast.MetamagicData = new MetamagicData();
+                        _castTask.SpellToCast.MetamagicData.Add(Metamagic.Extend);
+                    } else {
+                        _metamagicWasNull = false;
+                        _originalMetamagicMask = _castTask.SpellToCast.MetamagicData.MetamagicMask;
+                        _castTask.SpellToCast.MetamagicData.Add(Metamagic.Extend);
+                    }
+                    _rodMetamagicApplied = true;
+                    Main.Verbose($"Applied Extend metamagic via rod for {_castTask.SpellToCast.Name}");
+                } catch (Exception ex) {
+                    Main.Error(ex, "Applying Extend Rod metamagic");
+                }
+            }
+
             if (_castTask.SourceType == BuffSourceType.Spell && IsAzataZippyMagicSecondaryCast) {
                 IncreaseSpellSlotsAvailable(_castTask.SpellToCast, _castTask.SpellToCast.SpellSlotCost);
                 AddMaterialComponentsForSpell(_castTask.SpellToCast, _castTask.SpellToCast.SpellSlotCost);
@@ -128,6 +150,25 @@ namespace BuffIt2TheLimit.Handlers {
                             }
                         } catch (Exception itemEx) {
                             Main.Error(itemEx, "Consuming item after cast");
+                        }
+                    }
+
+                    // Consume Extend Rod charge and restore metamagic
+                    if (_rodMetamagicApplied) {
+                        try {
+                            // Restore original MetamagicData state
+                            if (_metamagicWasNull) {
+                                _castTask.SpellToCast.MetamagicData = null;
+                            } else {
+                                _castTask.SpellToCast.MetamagicData.Clear();
+                                _castTask.SpellToCast.MetamagicData.Add(_originalMetamagicMask);
+                            }
+                            // Consume rod charge
+                            if (_castTask.MetamagicRodItem != null && _castTask.MetamagicRodItem.IsSpendCharges) {
+                                _castTask.MetamagicRodItem.Charges--;
+                            }
+                        } catch (Exception rodEx) {
+                            Main.Error(rodEx, "Consuming Extend Rod charge");
                         }
                     }
                 } catch (Exception ex) {
