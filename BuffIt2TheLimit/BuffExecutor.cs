@@ -314,6 +314,7 @@ namespace BuffIt2TheLimit {
         public bool SelfCastOnly;
         public BuffSourceType SourceType;
         public Kingmaker.Items.ItemEntity SourceItem;
+        public Kingmaker.Items.ItemEntity MetamagicRodItem;
 
         public Retentions Retentions {
             get {
