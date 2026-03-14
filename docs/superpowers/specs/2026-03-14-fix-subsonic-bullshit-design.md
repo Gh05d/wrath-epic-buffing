@@ -20,22 +20,11 @@ The root cause is unknown — suspected double-application of difficulty stat mo
 - [Steam: Immunity not working](https://steamcommunity.com/app/1184370/discussions/0/5086242673972209412/) — Per-round re-saving, DC 38-40 on Core
 - Owlcat Patch 1.0.5g claimed to fix the issue but reports persist post-patch
 
-### Fix Target
+### Non-Goals
 
-The goal is to **find and fix the root cause** of the DC inflation so that the actual saving throw DC matches what the game's own systems intend. This means:
-- If difficulty modifiers are applied correctly once → keep them (higher difficulty = higher DC is fine)
-- If difficulty modifiers are applied twice → remove the duplicate
-- If creature stats are inflated beyond their blueprint → fix the stats
-- The tooltip should match the actual DC after the fix
-
-This is NOT about forcing DC 22 on all difficulties. Difficulty scaling is intended — the bug is that extra modifiers are stacking beyond what the difficulty system intends.
-
-### Scope
-
-- **In scope:** Regular and mythic Carnivorous Crystal variants (both use Subsonic Hum)
-- **Out of scope:** Vescavor Swarm "Gibber" ability (same bug pattern, separate fix)
-- **Out of scope:** 24h immunity mechanic (works correctly)
-- **Out of scope:** UI, settings, configuration
+- Fixing the Vescavor Swarm "Gibber" ability (same bug pattern, but out of scope)
+- Fixing the 24h immunity mechanic (works correctly for the user)
+- Adding UI, settings, or configuration
 
 ## Solution
 
@@ -77,7 +66,7 @@ static class Main {
     }
 
     static bool OnUnload(UnityModManager.ModEntry modEntry) {
-        harmony.UnpatchAll(modEntry.Info.Id);
+        harmony.UnpatchAll();
         return true;
     }
 
@@ -101,14 +90,12 @@ static class DiagnosticPatch {
 }
 ```
 
-**Finding the Subsonic Hum GUID:** First sub-task of Phase 1. Search decompiled `Assembly-CSharp.dll` for "SubsonicHum" or "Subsonic" string references. Alternatively, use a WotR blueprint dumper tool or search the modding community's blueprint databases. The GUID is needed to filter diagnostic logging to only this ability.
-
 Key classes to investigate:
 - `RuleSavingThrow` — saving throw resolution, contains final DC
 - `RuleCalculateAbilityParams` — ability parameter calculation including DC
 - `ContextRankConfig` — DC formula in blueprint components
-- `BlueprintAbility` — Subsonic Hum blueprint (GUID to be found via decompilation)
-- `BlueprintUnit` — Carnivorous Crystal stat block (regular + mythic variants, separate GUIDs)
+- `BlueprintAbility` — Subsonic Hum blueprint (GUID to be determined)
+- `BlueprintUnit` — Carnivorous Crystal stat block
 - `AreaEffectEntityData` — aura tick logic (may explain RtwP vs TB difference)
 
 ### Phase 2: Fix Implementation
@@ -128,32 +115,20 @@ The specific fix will be determined after Phase 1 diagnosis.
 
 ### Build System
 
-Stripped-down csproj based on Buff It 2 The Limit. Differences from BI2TL:
+csproj mirrors Buff It 2 The Limit:
 - Target: `net481`
 - `BepInEx.AssemblyPublicizer.MSBuild` for private field access
 - Game DLLs via `$(WrathInstallDir)/Wrath_Data/Managed/`
-- Publicized DLLs: `Assembly-CSharp.dll` (minimum required; add others only if diagnostic code needs private access to Owlcat internals)
+- Publicized DLLs: `Assembly-CSharp.dll`, `Owlcat*.dll`, `UnityModManager.dll`
 - `-p:SolutionDir=$(pwd)/` required on Linux
-- **Omit from BI2TL csproj:** `AllowUnsafeBlocks`, `GenerateCustomPropsFile` target (Windows-only `findstr`), all `EmbeddedResource` items, all `Content` items except Info.json, `Deploy` target with ZipDirectory
-
-### Repo Setup
-
-New repo at `~/Code/fix-subsonic-bullshit/`. Requires:
-- `GameInstall/` symlink pointing to the same game DLL location as BI2TL (the existing `~/Code/wrath-epic-buffing/GameInstall/` target)
-- `GamePath.props` with `<WrathInstallDir>` pointing to `$(SolutionDir)GameInstall`
-- Minimal `CLAUDE.md` with build command, deploy command, and key gotchas
 
 ### Deploy
 
 ```bash
 # deploy.sh
-MOD_DIR="/run/media/deck/3b03f019-ee3d-473e-beb1-98236afc5254/steamapps/common/Pathfinder Second Adventure/Mods/FixSubsonicBullshit"
-
 ~/.dotnet/dotnet build FixSubsonicBullshit/FixSubsonicBullshit.csproj -p:SolutionDir="$(pwd)/"
-
-ssh deck-direct mkdir -p "\"$MOD_DIR\""
-scp FixSubsonicBullshit/bin/Debug/FixSubsonicBullshit.dll FixSubsonicBullshit/Info.json \
-  deck-direct:"\"$MOD_DIR/\""
+scp FixSubsonicBullshit/bin/Debug/FixSubsonicBullshit.dll \
+  deck-direct:"/run/media/deck/3b03f019-ee3d-473e-beb1-98236afc5254/steamapps/common/Pathfinder Second Adventure/Mods/FixSubsonicBullshit/"
 ```
 
 ### UMM Manifest (Info.json)
