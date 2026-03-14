@@ -1433,12 +1433,18 @@ namespace BuffIt2TheLimit {
             var sourceControlObj = sourceControlsSection;
             sourceControlObj.SetActive(false); // hidden until buff selected
 
-            // Left side — priority (left 55%)
+            // Left side — priority + extend rod toggle (left 55%)
             var (prioSideObj, prioSideRect) = UIHelpers.Create("prio-side", sourceControlObj.transform);
             prioSideRect.anchorMin = new Vector2(0, 0);
             prioSideRect.anchorMax = new Vector2(0.55f, 1);
             prioSideRect.offsetMin = new Vector2(20, 2);
             prioSideRect.offsetMax = new Vector2(0, -2);
+            var prioVLG = prioSideObj.AddComponent<VerticalLayoutGroup>();
+            prioVLG.childForceExpandHeight = false;
+            prioVLG.childForceExpandWidth = true;
+            prioVLG.childControlHeight = true;
+            prioVLG.childControlWidth = true;
+            prioVLG.spacing = 4;
 
             // Right side — toggles (right 45%)
             var (toggleSideObj, toggleSideRect) = UIHelpers.Create("toggle-side", sourceControlObj.transform);
@@ -1500,10 +1506,9 @@ namespace BuffIt2TheLimit {
             var prioLabelObj = new GameObject("prio-label", typeof(RectTransform));
             var prioLabelRect = prioLabelObj.GetComponent<RectTransform>();
             prioLabelRect.SetParent(prioSideObj.transform, false);
-            prioLabelRect.anchorMin = Vector2.zero;
-            prioLabelRect.anchorMax = Vector2.one;
-            prioLabelRect.offsetMin = Vector2.zero;
-            prioLabelRect.offsetMax = Vector2.zero;
+            var prioLE = prioLabelObj.AddComponent<LayoutElement>();
+            prioLE.preferredHeight = 24;
+            prioLE.flexibleWidth = 1;
             var prioOverrideText = prioLabelObj.AddComponent<TextMeshProUGUI>();
             prioOverrideText.text = $"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}";
             prioOverrideText.fontSize = 16;
@@ -1523,6 +1528,16 @@ namespace BuffIt2TheLimit {
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(b.SourcePriorityOverride)}";
                 b.SortProviders();
                 state.Save();
+            });
+
+            // Extend Rod toggle — on left side, below priority
+            var useExtendRodObj = MakeSourceToggle("use.extendrod".i8());
+            useExtendRodObj.transform.SetParent(prioSideObj.transform, false);
+            var useExtendRodToggle = useExtendRodObj.GetComponentInChildren<ToggleWorkaround>();
+
+            useExtendRodToggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.UseExtendRod = val; if (b.SavedState != null) b.SavedState.UseExtendRod = val; state.Save(); }
             });
 
             const float groupHeight = 90f;
@@ -1670,6 +1685,9 @@ namespace BuffIt2TheLimit {
                 useEquipmentObj.SetActive(hasEquipmentProviders);
                 if (hasEquipmentProviders)
                     useEquipmentToggle.isOn = buff.SavedState?.UseEquipment ?? true;
+
+                // Extend Rod toggle — always visible when source controls are shown
+                useExtendRodToggle.isOn = buff.UseExtendRod;
 
                 bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
                 int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
