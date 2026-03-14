@@ -274,6 +274,11 @@ namespace BuffIt2TheLimit {
                     var hasAvailableCredits = caster.AvailableCredits >= creditsNeeded || (caster.AvailableCredits < creditsNeeded && caster.AvailableCredits >= 0 && caster.AzataZippyMagic && numberOfSpellCastsByCaster % 2 == 1);
 
                     if (hasAvailableCredits) {
+                        // Skip providers whose underlying spell/ability is no longer available
+                        // (e.g., prepared spell slot already cast). This allows fallback to
+                        // alternative sources like potions or scrolls.
+                        if (!caster.SlottedSpell.IsAvailable) continue;
+
                         //Main.Verbose($"checking if: {caster.who.CharacterName} => {Name} => {Bubble.Group[i].CharacterName}");
                         if (!caster.CanTarget(target)) continue;
 
