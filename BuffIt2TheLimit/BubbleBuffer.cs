@@ -1342,7 +1342,7 @@ namespace BuffIt2TheLimit {
                 var buff = view.Selected;
                 if (buff == null) return;
 
-                for (int i = 0; i < Bubble.Group.Count; i++) {
+                for (int i = 0; i < Bubble.Group.Count && i < view.targets.Length; i++) {
                     if (view.targets[i].Button.Interactable && !buff.UnitWants(Bubble.Group[i])) {
                         buff.SetUnitWants(Bubble.Group[i], true);
                     }
@@ -1354,7 +1354,7 @@ namespace BuffIt2TheLimit {
                 var buff = view.Selected;
                 if (buff == null) return;
 
-                for (int i = 0; i < Bubble.Group.Count; i++) {
+                for (int i = 0; i < Bubble.Group.Count && i < view.targets.Length; i++) {
                     if (buff.UnitWants(Bubble.Group[i])) {
                         buff.SetUnitWants(Bubble.Group[i], false);
                     }
@@ -3013,7 +3013,8 @@ namespace BuffIt2TheLimit {
                 casterPortraits[i].GameObject.SetActive(i < buff.CasterQueue.Count);
                 if (i < buff.CasterQueue.Count) {
                     var who = buff.CasterQueue[i];
-                    casterPortraits[i].Image.sprite = targets[who.CharacterIndex].Image.sprite;
+                    if (who.CharacterIndex < targets.Length)
+                        casterPortraits[i].Image.sprite = targets[who.CharacterIndex].Image.sprite;
                     var bookName = who.book?.Blueprint.Name ?? "";
                     if (who.AvailableCredits < 100)
                         casterPortraits[i].Text.text = $"{who.spent}+{who.AvailableCredits}\n<i>{bookName}</i>";
