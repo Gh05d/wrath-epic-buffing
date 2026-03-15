@@ -632,7 +632,7 @@ namespace BuffIt2TheLimit {
             var lText = labelObj.AddComponent<TextMeshProUGUI>();
             lText.text = labelText;
             lText.fontSize = 14;
-            lText.color = Color.white;
+            lText.color = new Color(0.2f, 0.2f, 0.2f);
             lText.alignment = TextAlignmentOptions.MidlineLeft;
 
             var btnObj = UnityEngine.Object.Instantiate(buttonPrefab, row.transform);
