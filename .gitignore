@@ -7,7 +7,6 @@ GamePath.props
 deploy.sh
 GameInstall/
 GameDlls/
-.claude/CLAUDE.local.md
 .config/
 docs/
 
@@ -371,5 +370,7 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # AI Agents
-.claude/
+.claude/settings.local.json
+.claude/CLAUDE.local.md
+.claude/skills/
 .worktrees/
