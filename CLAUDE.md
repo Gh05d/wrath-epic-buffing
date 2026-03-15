@@ -54,11 +54,13 @@ Use `/release` skill to handle this automatically.
 ## Release
 
 Use `/release minor|patch|major` — the skill handles version bump, build, tag, push, GitHub release, and Nexus Mods copy-paste output. See `.claude/commands/release.md`.
+- **Release notes in English** — even though user communicates in German, all release notes (GitHub + Nexus) must be in English.
 
 ## Gotchas
 
 - **`-p:SolutionDir` required on Linux**: Without it, `GamePath.props` import fails silently and all 1400+ DLL references break. Always pass it.
 - **`findstr` warnings**: The csproj auto-detection target uses Windows `findstr`. On Linux this produces a harmless warning — ignore it.
+- **Upstream PRs often forked from old versions**: The upstream repo (factubsio/BubbleBuffs) is inactive. External PRs target `fork` (Gh05d) and are typically based on pre-fork commits, missing our additions (mass spell logic, extend rod, etc.). Rebase onto master before reviewing — this resolves most "missing feature" issues. After rebase+merge, GitHub won't auto-close the PR (different SHAs) — close manually with `gh pr close`.
 - **`.NET Framework 4.8.1` missing APIs**: `Dictionary.GetValueOrDefault()` doesn't exist. Use `TryGetValue` instead. Other missing APIs: `Index`/`Range` syntax, `IAsyncEnumerable`, `Span<T>` in many contexts.
 - **WidgetPaths version selection**: `Main.Load()` selects a `WidgetPaths` class based on `gameVersion.Major/Minor`. If the game updates, UI element paths may break. Check `UIHelpers.cs` for the hierarchy.
 - **EnhancedInventory interop**: Mod loads after `EnhancedInventory` (see `Info.json`). `TryFixEILayout()` adjusts UI positioning when EI is present.
@@ -131,6 +133,7 @@ EngineCastingHandler  →  handles the actual spell casting via game's ability s
 
 JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resources. Access via `"key".i8()` extension method. English (`en_GB.json`) is the fallback. When adding new UI text, add keys to all locale files.
 - **Locale files vary in completeness**: `en_GB` and `de_DE` have all keys. `fr_FR`, `ru_RU`, `zh_CN` are shorter and missing many keys added after the initial fork. Don't assume same line numbers or key presence across locales.
+- **Technical UI terms stay English in de_DE**: Gaming/UI terms like "shortcut", "buff group" names (Normal, Quick, Important) should not be translated into German — English reads more naturally in this context.
 
 ### Asset Loading
 
