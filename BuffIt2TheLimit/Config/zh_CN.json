@@ -52,5 +52,11 @@
   "openbuffs.tooltip.header": "打开增益菜单",
   "openbuffs.tooltip.desc": "直接打开BubbleBuffs配置菜单",
   "use.extendrod": "使用延长法术权杖",
-  "log.extend-rod-applied": "延长权杖"
+  "log.extend-rod-applied": "延长权杖",
+
+  "shortcut.long": "Normal shortcut:",
+  "shortcut.quick": "Quick shortcut:",
+  "shortcut.important": "Important shortcut:",
+  "shortcut.none": "(none)",
+  "shortcut.press": "(press any key)"
 }

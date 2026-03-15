@@ -87,5 +87,11 @@
   "log.no-scroll-available": "Keine Schriftrolle von {0} im Inventar",
   "log.no-potion-available": "Kein Trank von {0} im Inventar",
   "openbuffs.tooltip.header": "Buff-Menü öffnen",
-  "openbuffs.tooltip.desc": "BubbleBuffs-Konfigurationsmenü direkt öffnen"
+  "openbuffs.tooltip.desc": "BubbleBuffs-Konfigurationsmenü direkt öffnen",
+
+  "shortcut.long": "Normal shortcut:",
+  "shortcut.quick": "Quick shortcut:",
+  "shortcut.important": "Important shortcut:",
+  "shortcut.none": "(keine)",
+  "shortcut.press": "(Taste drücken)"
 }

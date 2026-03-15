@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -41,6 +42,8 @@ namespace BuffIt2TheLimit {
         public bool PotionsEnabled = true;
         [JsonProperty]
         public bool EquipmentEnabled = true;
+        [JsonProperty]
+        public Dictionary<BuffGroup, KeyCode> ShortcutKeys = new();
         [JsonProperty]
         public int Version;
     }

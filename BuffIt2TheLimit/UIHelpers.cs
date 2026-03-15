@@ -15,11 +15,11 @@ namespace BuffIt2TheLimit {
         public static Transform StaticRoot => Game.Instance.UI.Canvas.transform;
         public static Transform ServiceWindow => StaticRoot.Find("ServiceWindowsPCView");
 
-        public static Transform SpellbookScreen => ServiceWindow.Find(WidgetPaths.SpellScreen);
-        public static Transform MythicInfoView => ServiceWindow.Find(WidgetPaths.MythicView);
-        public static Transform EncyclopediaView => ServiceWindow.Find(WidgetPaths.EncyclopediaView);
+        public static Transform SpellbookScreen => ServiceWindow?.Find(WidgetPaths.SpellScreen);
+        public static Transform MythicInfoView => ServiceWindow?.Find(WidgetPaths.MythicView);
+        public static Transform EncyclopediaView => ServiceWindow?.Find(WidgetPaths.EncyclopediaView);
 
-        public static Transform CharacterScreen => ServiceWindow.Find(WidgetPaths.CharacterScreen);
+        public static Transform CharacterScreen => ServiceWindow?.Find(WidgetPaths.CharacterScreen);
 
         public static void SetAnchor(this RectTransform transform, double xMin, double xMax, double yMin, double yMax) {
             transform.anchorMin = new Vector2((float)xMin, (float)yMin);

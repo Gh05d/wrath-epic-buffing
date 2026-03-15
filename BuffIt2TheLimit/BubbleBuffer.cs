@@ -616,6 +616,45 @@ namespace BuffIt2TheLimit {
             WindowCreated = true;
         }
 
+        private void MakeKeybindRow(Transform parent, string labelText, BuffGroup group) {
+            var row = new GameObject($"keybind-{group}", typeof(RectTransform));
+            row.transform.SetParent(parent, false);
+            var hg = row.AddComponent<HorizontalLayoutGroup>();
+            hg.childControlHeight = true;
+            hg.childControlWidth = true;
+            hg.childForceExpandWidth = false;
+            hg.spacing = 8;
+
+            var labelObj = new GameObject("label", typeof(RectTransform));
+            labelObj.transform.SetParent(row.transform, false);
+            var labelLE = labelObj.AddComponent<LayoutElement>();
+            labelLE.flexibleWidth = 1;
+            var lText = labelObj.AddComponent<TextMeshProUGUI>();
+            lText.text = labelText;
+            lText.fontSize = 14;
+            lText.color = new Color(0.2f, 0.2f, 0.2f);
+            lText.alignment = TextAlignmentOptions.MidlineLeft;
+
+            var btnObj = UnityEngine.Object.Instantiate(buttonPrefab, row.transform);
+            var btnLE = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();
+            btnLE.preferredWidth = 120;
+            btnLE.flexibleWidth = 0;
+            var btnText = btnObj.GetComponentInChildren<TextMeshProUGUI>();
+            KeyCode currentKey = state.GetShortcut(group);
+            btnText.text = currentKey == KeyCode.None ? "shortcut.none".i8() : currentKey.ToString();
+
+            var btn = btnObj.GetComponent<OwlcatButton>();
+            btn.OnLeftClick.AddListener(() => {
+                if (BubbleBuffGlobalController.CapturingFor.HasValue) return;
+                btnText.text = "shortcut.press".i8();
+                BubbleBuffGlobalController.CapturingFor = group;
+                BubbleBuffGlobalController.OnShortcutCaptured = (g, kc) => {
+                    state.SetShortcut(g, kc);
+                    btnText.text = kc == KeyCode.None ? "shortcut.none".i8() : kc.ToString();
+                };
+            });
+        }
+
         private static (ToggleWorkaround, TextMeshProUGUI) MakeSettingsToggle(GameObject prefab, Transform content, string text) {
             var toggleObj = GameObject.Instantiate(prefab, content);
             toggleObj.SetActive(true);
@@ -794,6 +833,13 @@ namespace BuffIt2TheLimit {
                     state.InputDirty = true;
                     state.Save(true);
                 });
+            }
+
+            // Keyboard shortcut per group
+            foreach (BuffGroup group in Enum.GetValues(typeof(BuffGroup))) {
+                var groupCopy = group;
+                var key = $"shortcut.{group.ToString().ToLower()}";
+                MakeKeybindRow(panel.transform, key.i8(), groupCopy);
             }
 
             var b = toggleSettings.GetComponent<OwlcatButton>();
@@ -1832,7 +1878,7 @@ namespace BuffIt2TheLimit {
         internal void Execute(BuffGroup group) {
             UnitBuffPartView.StartSuppression();
             Executor.Execute(group);
-            Invoke("EndBuffPartViewSuppression", 1.0f);
+            BubbleBuffGlobalController.Instance.Invoke(nameof(BubbleBuffGlobalController.EndSuppression), 1.0f);
         }
 
 
@@ -1845,9 +1891,6 @@ namespace BuffIt2TheLimit {
             state.InputDirty = true;
         }
 
-        public void EndBuffPartViewSuppression() {
-            UnitBuffPartView.EndSuppresion();
-        }
 
     }
 
@@ -1885,6 +1928,16 @@ namespace BuffIt2TheLimit {
         }
     }
 
+
+    [HarmonyPatch(typeof(Game), nameof(Game.ResetUI))]
+    static class ReinstallUIOnControllerModeChange {
+        [HarmonyPostfix]
+        public static void ResetUI(bool isGameInputChange) {
+            if (!isGameInputChange) return;
+            Main.Log("[ResetUI] Input mode changed — reinstalling BubbleBuffs");
+            GlobalBubbleBuffer.Instance?.TryInstallUI();
+        }
+    }
 
     //[HarmonyPatch(typeof(UnitBuffPartPCView), "DrawBuffs")]
     static class UnitBuffPartView {
@@ -2030,28 +2083,50 @@ namespace BuffIt2TheLimit {
     class SyncBubbleHud : MonoBehaviour {
         private GameObject bubbleHud => GlobalBubbleBuffer.Instance.bubbleHud;
         private CanvasGroup src;
+        // When re-enabled after controller mode, alpha may still be 0 from a prior fade-out.
+        // Suppress alpha-based hiding until alpha has recovered to > 0.9 at least once.
+        private bool waitingForAlpha = false;
+        private float lastAlphaLogged = -1f;
+
         private void Awake() {
             src = GetComponent<CanvasGroup>();
-            if (src == null)
-                Main.Log("src canvas group is null");
+            Main.Verbose($"[SyncBubbleHud] Awake on '{gameObject.name}', src={(src == null ? "NULL" : "ok")}");
         }
 
         private void Update() {
             if (bubbleHud == null) return;
 
-            if (src.alpha < 0.1)
-                bubbleHud.SetActive(false);
-            else if (src.alpha > 0.9)
+            float alpha = src != null ? src.alpha : -1f;
+            if (Mathf.Abs(alpha - lastAlphaLogged) > 0.05f) {
+                Main.Verbose($"[SyncBubbleHud] alpha={alpha:F2}, bubbleHud.activeSelf={bubbleHud.activeSelf}, waitingForAlpha={waitingForAlpha}");
+                lastAlphaLogged = alpha;
+            }
+
+            if (src.alpha < 0.1) {
+                if (!waitingForAlpha)
+                    bubbleHud.SetActive(false);
+            } else if (src.alpha > 0.9) {
+                waitingForAlpha = false;
                 bubbleHud.SetActive(true);
+            }
         }
 
         private void OnEnable() {
+            Main.Verbose($"[SyncBubbleHud] OnEnable, bubbleHud={(bubbleHud == null ? "NULL" : $"activeSelf={bubbleHud.activeSelf}")}, src.alpha={src?.alpha:F2}");
+            waitingForAlpha = true;
             if (bubbleHud != null && !bubbleHud.activeSelf)
                 bubbleHud.SetActive(true);
         }
+
         private void OnDisable() {
+            Main.Verbose($"[SyncBubbleHud] OnDisable, bubbleHud={(bubbleHud == null ? "NULL" : $"activeSelf={bubbleHud.activeSelf}")}");
+            waitingForAlpha = false;
             if (bubbleHud != null && bubbleHud.activeSelf)
-            bubbleHud?.SetActive(false);
+                bubbleHud?.SetActive(false);
+        }
+
+        private void OnDestroy() {
+            Main.Verbose($"[SyncBubbleHud] OnDestroy — component was destroyed on '{gameObject.name}'");
         }
 
         public void Destroy() { }
@@ -2106,6 +2181,44 @@ namespace BuffIt2TheLimit {
         }
 
         internal void TryInstallUI() {
+            var canvas = Game.Instance.UI.Canvas?.gameObject;
+            if (canvas != null && canvas.GetComponent<BubbleBuffGlobalController>() == null) {
+                Main.Log("[TryInstallUI] Installing BubbleBuffGlobalController on persistent canvas");
+                canvas.AddComponent<BubbleBuffGlobalController>();
+            }
+
+            // Compute spellScreen now (null-safe) so SpellbookController can be installed
+            // before the gamepad guard — needed for shortcut execution in gamepad mode
+            // (e.g. Steam Input mapping controller buttons to keyboard shortcuts).
+            var spellScreen = UIHelpers.SpellbookScreen?.gameObject;
+
+            // If SpellbookController was installed on canvas as a gamepad-mode fallback but
+            // the spellbook screen is now available, migrate it to the proper host.
+            if (SpellbookController != null && spellScreen != null
+                    && SpellbookController.gameObject != spellScreen) {
+                Main.Verbose("[TryInstallUI] Migrating SpellbookController from canvas to spellbook screen");
+                UnityEngine.Object.Destroy(SpellbookController);
+                SpellbookController = null;
+            }
+
+            if (SpellbookController == null) {
+                var host = spellScreen ?? canvas;
+                if (host != null) {
+                    Main.Verbose($"[TryInstallUI] Installing SpellbookController on {(spellScreen != null ? "spellbook screen" : "canvas (gamepad fallback)")}");
+                    SpellbookController = host.AddComponent<BubbleBuffSpellbookController>();
+                    SpellbookController.CreateBuffstate();
+                }
+            }
+
+            if (Game.Instance.IsControllerGamepad) {
+                Main.Verbose("[TryInstallUI] Skipping PC HUD install — controller mode is Gamepad");
+                return;
+            }
+
+            if (spellScreen == null) {
+                Main.Verbose("[TryInstallUI] SpellbookScreen not available, cannot install PC HUD");
+                return;
+            }
 
             //var u = Game.Instance.Player.ActiveCompanions.First(c => c.CharacterName == "Ember");
             //Main.Log("Got character: " + u.CharacterName);
@@ -2118,9 +2231,7 @@ namespace BuffIt2TheLimit {
                 //Game.Instance.Player.MainCharacter.Value.Inventory.Add(symbol);
 
                 Main.Verbose("Installing ui");
-                Main.Verbose($"spellscreennull: {UIHelpers.SpellbookScreen == null}");
-                var spellScreen = UIHelpers.SpellbookScreen.gameObject;
-                Main.Verbose("got spell screen");
+                Main.Verbose($"spellscreennull: {spellScreen == null}");
 
                 UnitFrameSprites[0] = AssetLoader.LoadInternal("icons", "UI_HudCharacterFrameBorder_Default.png", new Vector2Int(31, 80));
                 UnitFrameSprites[1] = AssetLoader.LoadInternal("icons", "UI_HudCharacterFrameBorder_Hover.png", new Vector2Int(31, 80));
@@ -2128,17 +2239,6 @@ namespace BuffIt2TheLimit {
 #if DEBUG
                 RemoveOldController(spellScreen);
 #endif
-
-                if (spellScreen.transform.root.GetComponent<BubbleBuffGlobalController>() == null) {
-                    Main.Verbose("Creating new global controller");
-                    spellScreen.transform.root.gameObject.AddComponent<BubbleBuffGlobalController>();
-                }
-
-                if (spellScreen.GetComponent<BubbleBuffSpellbookController>() == null) {
-                    Main.Verbose("Creating new controller");
-                    SpellbookController = spellScreen.AddComponent<BubbleBuffSpellbookController>();
-                    SpellbookController.CreateBuffstate();
-                }
 
                 Main.Verbose("loading sprites");
                 if (applyBuffsSprites == null)
@@ -2345,9 +2445,12 @@ namespace BuffIt2TheLimit {
 #if debug
                 RemoveOldController<SyncBubbleHud>(hudLayout.ChildObject("IngameMenuView"));
 #endif
-                if (hudLayout.ChildObject("IngameMenuView").GetComponent<SyncBubbleHud>() == null) {
-                    hudLayout.ChildObject("IngameMenuView").AddComponent<SyncBubbleHud>();
-                    Main.Verbose("installed hud sync");
+                var ingameMenuView = hudLayout.ChildObject("IngameMenuView");
+                var existingSync = ingameMenuView.GetComponent<SyncBubbleHud>();
+                Main.Verbose($"[TryInstallUI] IngameMenuView='{ingameMenuView.name}', existingSyncBubbleHud={existingSync != null}, activeSelf={ingameMenuView.activeSelf}, activeInHierarchy={ingameMenuView.activeInHierarchy}");
+                if (existingSync == null) {
+                    ingameMenuView.AddComponent<SyncBubbleHud>();
+                    Main.Verbose("[TryInstallUI] installed new SyncBubbleHud");
                 }
 
 

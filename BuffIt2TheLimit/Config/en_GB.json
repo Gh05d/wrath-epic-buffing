@@ -95,6 +95,11 @@
   "log.no-scroll-available": "No scroll of {0} in inventory",
   "log.no-potion-available": "No potion of {0} in inventory",
   "openbuffs.tooltip.header": "Open Buff Menu",
-  "openbuffs.tooltip.desc": "Directly open the BubbleBuffs configuration menu"
+  "openbuffs.tooltip.desc": "Directly open the BubbleBuffs configuration menu",
 
+  "shortcut.long": "Normal shortcut:",
+  "shortcut.quick": "Quick shortcut:",
+  "shortcut.important": "Important shortcut:",
+  "shortcut.none": "(none)",
+  "shortcut.press": "(press any key)"
 }

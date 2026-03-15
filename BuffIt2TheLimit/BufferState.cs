@@ -1,4 +1,5 @@
-﻿using Kingmaker;
+﻿using UnityEngine;
+using Kingmaker;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.Items;
 using Kingmaker.Blueprints.Items.Equipment;
@@ -403,6 +404,17 @@ namespace BuffIt2TheLimit {
             }
 
             return false;
+        }
+
+        public KeyCode GetShortcut(BuffGroup group) =>
+            SavedState.ShortcutKeys.TryGetValue(group, out var kc) ? kc : KeyCode.None;
+
+        public void SetShortcut(BuffGroup group, KeyCode key) {
+            if (key == KeyCode.None)
+                SavedState.ShortcutKeys.Remove(group);
+            else
+                SavedState.ShortcutKeys[group] = key;
+            Save(true);
         }
 
         public void Save(bool shallow = false) {
