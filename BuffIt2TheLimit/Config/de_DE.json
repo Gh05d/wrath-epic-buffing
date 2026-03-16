@@ -93,5 +93,6 @@
   "shortcut.quick": "Quick shortcut:",
   "shortcut.important": "Important shortcut:",
   "shortcut.none": "(keine)",
-  "shortcut.press": "(Taste drücken)"
+  "shortcut.press": "(Shortcut drücken)",
+  "shortcut.openbuffmenu": "Open buff menu shortcut:"
 }
