@@ -62,6 +62,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`findstr` warnings**: The csproj auto-detection target uses Windows `findstr`. On Linux this produces a harmless warning — ignore it.
 - **Upstream PRs often forked from old versions**: The upstream repo (factubsio/BubbleBuffs) is inactive. External PRs target `fork` (Gh05d) and are typically based on pre-fork commits, missing our additions (mass spell logic, extend rod, etc.). Rebase onto master before reviewing — this resolves most "missing feature" issues. After rebase+merge, GitHub won't auto-close the PR (different SHAs) — close manually with `gh pr close`.
 - **`.NET Framework 4.8.1` missing APIs**: `Dictionary.GetValueOrDefault()` doesn't exist. Use `TryGetValue` instead. Other missing APIs: `Index`/`Range` syntax, `IAsyncEnumerable`, `Span<T>` in many contexts.
+- **Newtonsoft.Json version is old (game-bundled)**: No generic `JsonConverter<T>`. Use non-generic `JsonConverter` base class with `CanConvert(Type)` override instead.
 - **WidgetPaths version selection**: `Main.Load()` selects a `WidgetPaths` class based on `gameVersion.Major/Minor`. If the game updates, UI element paths may break. Check `UIHelpers.cs` for the hierarchy.
 - **EnhancedInventory interop**: Mod loads after `EnhancedInventory` (see `Info.json`). `TryFixEILayout()` adjusts UI positioning when EI is present.
 - **Publicizer scope**: Only DLLs with `Publicize="true"` in csproj have private fields accessible. If you get CS0122 on a game field, check whether the source DLL is publicized.
@@ -114,6 +115,8 @@ EngineCastingHandler  →  handles the actual spell casting via game's ability s
 | `BuffExecutor` | `BuffExecutor.cs` | Executes buff casting for a BuffGroup, creates CastTasks |
 | `EngineCastingHandler` | `Handlers/EngineCastingHandler.cs` | Handles actual spell casting through game's ability system |
 | `SavedBufferState` / `SavedBuffState` | `SaveState.cs` | JSON-serialized per-save configuration |
+| `ShortcutBinding` | `ShortcutBinding.cs` | Readonly struct for keyboard shortcuts with modifier keys (Ctrl/Shift/Alt) + backward-compatible JSON converter |
+| `BubbleBuffGlobalController` | `BuffExecutor.cs` | MonoBehaviour handling shortcut capture/execution and spell casting coroutines |
 
 ### UI Structure
 
