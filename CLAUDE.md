@@ -74,6 +74,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **Nexus Mods description**: Uses BBCode formatting (`[b]`, `[size]`, `[url]`), not Markdown.
 - **`BuffProvider.SelfCastOnly` is a computed property** (not a settable field): Returns `true` for `SourceType == Potion` or `spell.TargetAnchor == Owner`. To change self-only logic, modify the property getter in `BubbleBuff.cs`, don't try to set it.
 - **Caster portrait index ≠ CasterQueue index**: `BufferView.casterPortraitMap` maps portrait indices to CasterQueue indices after deduplication. Always use the map when translating portrait clicks to CasterQueue entries.
+- **`BubbleBuff.SavedState` is never assigned**: The `SavedState` field on `BubbleBuff` is always null at runtime. The save system reads/writes via `BufferState.Save()` which copies from `buff.UseSpells`/etc fields directly. UI code must read from `buff.UseSpells`, NOT `buff.SavedState?.UseSpells` (which always falls back to default). Toggle handlers should write to `buff.UseSpells` directly.
 - **`ilspycmd` stack overflows on large classes** (e.g., `UnitEntityData`). Use smaller part classes instead (e.g., `UnitPartPetMaster`). Publicized DLLs at `obj/Debug/publicized/Assembly-CSharp.dll` work better than originals.
 - **`docs/` directory is gitignored**: Use `git add -f` when committing spec/plan files.
 
