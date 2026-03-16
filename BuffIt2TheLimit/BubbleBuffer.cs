@@ -997,37 +997,32 @@ namespace BuffIt2TheLimit {
             CurrentCategory.Selected.Value = Category.Buff;
         }
 
-        private bool previousSortByName = false;
-
         private void RefreshFiltering() {
             if (state.BuffList == null)
                 return;
 
-            if (previousSortByName != SortByName.Value) {
-                if (SortByName.Value) {
-                    view.DisplayOrder.Sort((a, b) => {
-                        if (a.name == b.name) {
-                            if (a.key.MetamagicMask == 0 && b.key.MetamagicMask > 0) {
-                                return -1;
-                            } else if (a.key.MetamagicMask > 0 && b.key.MetamagicMask == 0) {
-                                return 1;
-                            } else {
-                                return a.key.Archmage ? 1 : -1;
-                            }
+            if (SortByName.Value) {
+                view.DisplayOrder.Sort((a, b) => {
+                    if (a.name == b.name) {
+                        if (a.key.MetamagicMask == 0 && b.key.MetamagicMask > 0) {
+                            return -1;
+                        } else if (a.key.MetamagicMask > 0 && b.key.MetamagicMask == 0) {
+                            return 1;
                         } else {
-                            return a.name.CompareTo(b.name);
+                            return a.key.Archmage ? 1 : -1;
                         }
-                    });
-                } else {
-                    view.DisplayOrder.Sort((a, b) => {
-                        return a.discovery - b.discovery;
-                    });
-                }
+                    } else {
+                        return a.name.CompareTo(b.name);
+                    }
+                });
+            } else {
+                view.DisplayOrder.Sort((a, b) => {
+                    return a.discovery - b.discovery;
+                });
+            }
 
-                previousSortByName = SortByName.Value;
-                foreach (var k in view.DisplayOrder) {
-                    view.buffWidgets[k.key].transform.SetAsLastSibling();
-                }
+            foreach (var k in view.DisplayOrder) {
+                view.buffWidgets[k.key].transform.SetAsLastSibling();
             }
 
             foreach (var buff in state.BuffList) {
