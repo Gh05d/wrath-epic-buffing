@@ -319,7 +319,9 @@ namespace BuffIt2TheLimit {
                             IsDuplicateSpellApplied = IsDuplicateSpellApplied,
                             SelfCastOnly = caster.SelfCastOnly,
                             SourceType = caster.SourceType,
-                            SourceItem = caster.SourceItem
+                            SourceItem = caster.SourceItem,
+                            OriginalMetamagicWasNull = spellToCast.MetamagicData == null,
+                            OriginalMetamagicMask = spellToCast.MetamagicData?.MetamagicMask ?? (Metamagic)0,
                         };
 
                         // Extend Rod lookup
@@ -394,6 +396,10 @@ namespace BuffIt2TheLimit {
         public BuffSourceType SourceType;
         public Kingmaker.Items.ItemEntity SourceItem;
         public Kingmaker.Items.ItemEntity MetamagicRodItem;
+        // Original MetamagicData state, captured before any EngineCastingHandler
+        // modifies the shared SpellToCast. Used by handlers to restore/clean state.
+        public bool OriginalMetamagicWasNull;
+        public Metamagic OriginalMetamagicMask;
 
         public Retentions Retentions {
             get {
