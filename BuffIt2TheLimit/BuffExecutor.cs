@@ -33,12 +33,21 @@ namespace BuffIt2TheLimit {
         public const float DELAY = 0.05f;
 
         // Shortcut capture state
-        public static BuffGroup? CapturingFor = null;
-        public static Action<BuffGroup, KeyCode> OnShortcutCaptured = null;
+        public static bool CapturingActive = false;
+        public static Action<ShortcutBinding> OnShortcutCaptured = null;
 
         // Cached enum arrays to avoid per-frame allocation in Update()
+        private static readonly HashSet<KeyCode> ModifierKeys = new() {
+            KeyCode.LeftShift, KeyCode.RightShift,
+            KeyCode.LeftControl, KeyCode.RightControl,
+            KeyCode.LeftAlt, KeyCode.RightAlt,
+            KeyCode.LeftCommand, KeyCode.RightCommand,
+            KeyCode.LeftApple, KeyCode.RightApple,
+        };
         private static readonly KeyCode[] KeyboardKeys = ((KeyCode[])Enum.GetValues(typeof(KeyCode)))
-            .TakeWhile(kc => kc < KeyCode.Mouse0).ToArray();
+            .TakeWhile(kc => kc < KeyCode.Mouse0)
+            .Where(kc => !ModifierKeys.Contains(kc))
+            .ToArray();
         private static readonly BuffGroup[] BuffGroups = (BuffGroup[])Enum.GetValues(typeof(BuffGroup));
 
         private void Awake() {
@@ -86,25 +95,31 @@ namespace BuffIt2TheLimit {
                 }
             }
 
-            // Handle keyboard shortcut capture and execution
-            var state = GlobalBubbleBuffer.Instance?.SpellbookController?.state;
-            if (state != null) {
-                if (CapturingFor.HasValue) {
-                    foreach (KeyCode kc in KeyboardKeys) {
-                        if (Input.GetKeyDown(kc)) {
-                            var captured = kc == KeyCode.Escape ? KeyCode.None : kc;
-                            OnShortcutCaptured?.Invoke(CapturingFor.Value, captured);
-                            CapturingFor = null;
-                            OnShortcutCaptured = null;
-                            break;
-                        }
+            // Handle keyboard shortcut capture
+            if (CapturingActive) {
+                foreach (KeyCode kc in KeyboardKeys) {
+                    if (Input.GetKeyDown(kc)) {
+                        var binding = kc == KeyCode.Escape ? ShortcutBinding.None : ShortcutBinding.Capture(kc);
+                        OnShortcutCaptured?.Invoke(binding);
+                        CapturingActive = false;
+                        OnShortcutCaptured = null;
+                        break;
                     }
-                } else {
+                }
+            } else {
+                // Handle buff group shortcut execution
+                var state = GlobalBubbleBuffer.Instance?.SpellbookController?.state;
+                if (state != null) {
                     foreach (BuffGroup group in BuffGroups) {
-                        var kc = state.GetShortcut(group);
-                        if (kc != KeyCode.None && Input.GetKeyDown(kc)) {
+                        var binding = state.GetShortcut(group);
+                        if (binding.IsPressed()) {
                             GlobalBubbleBuffer.Execute(group);
                         }
+                    }
+
+                    // Handle open-buff-menu shortcut
+                    if (state.GetOpenBuffMenuShortcut().IsPressed()) {
+                        instance?.OpenBuffMenu();
                     }
                 }
             }

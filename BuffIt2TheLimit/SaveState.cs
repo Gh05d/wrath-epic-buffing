@@ -43,7 +43,9 @@ namespace BuffIt2TheLimit {
         [JsonProperty]
         public bool EquipmentEnabled = true;
         [JsonProperty]
-        public Dictionary<BuffGroup, KeyCode> ShortcutKeys = new();
+        public Dictionary<BuffGroup, ShortcutBinding> ShortcutKeys = new();
+        [JsonProperty]
+        public ShortcutBinding OpenBuffMenuKey;
         [JsonProperty]
         public int Version;
     }

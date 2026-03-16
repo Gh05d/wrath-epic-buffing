@@ -406,14 +406,21 @@ namespace BuffIt2TheLimit {
             return false;
         }
 
-        public KeyCode GetShortcut(BuffGroup group) =>
-            SavedState.ShortcutKeys.TryGetValue(group, out var kc) ? kc : KeyCode.None;
+        public ShortcutBinding GetShortcut(BuffGroup group) =>
+            SavedState.ShortcutKeys.TryGetValue(group, out var binding) ? binding : ShortcutBinding.None;
 
-        public void SetShortcut(BuffGroup group, KeyCode key) {
-            if (key == KeyCode.None)
+        public void SetShortcut(BuffGroup group, ShortcutBinding binding) {
+            if (binding.IsNone)
                 SavedState.ShortcutKeys.Remove(group);
             else
-                SavedState.ShortcutKeys[group] = key;
+                SavedState.ShortcutKeys[group] = binding;
+            Save(true);
+        }
+
+        public ShortcutBinding GetOpenBuffMenuShortcut() => SavedState.OpenBuffMenuKey;
+
+        public void SetOpenBuffMenuShortcut(ShortcutBinding binding) {
+            SavedState.OpenBuffMenuKey = binding;
             Save(true);
         }
 

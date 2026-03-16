@@ -615,8 +615,8 @@ namespace BuffIt2TheLimit {
             WindowCreated = true;
         }
 
-        private void MakeKeybindRow(Transform parent, string labelText, BuffGroup group) {
-            var row = new GameObject($"keybind-{group}", typeof(RectTransform));
+        private void MakeKeybindRow(Transform parent, string labelText, Func<ShortcutBinding> getter, Action<ShortcutBinding> setter) {
+            var row = new GameObject($"keybind-row", typeof(RectTransform));
             row.transform.SetParent(parent, false);
             var hg = row.AddComponent<HorizontalLayoutGroup>();
             hg.childControlHeight = true;
@@ -639,17 +639,16 @@ namespace BuffIt2TheLimit {
             btnLE.preferredWidth = 120;
             btnLE.flexibleWidth = 0;
             var btnText = btnObj.GetComponentInChildren<TextMeshProUGUI>();
-            KeyCode currentKey = state.GetShortcut(group);
-            btnText.text = currentKey == KeyCode.None ? "shortcut.none".i8() : currentKey.ToString();
+            btnText.text = getter().ToDisplayString();
 
             var btn = btnObj.GetComponent<OwlcatButton>();
             btn.OnLeftClick.AddListener(() => {
-                if (BubbleBuffGlobalController.CapturingFor.HasValue) return;
+                if (BubbleBuffGlobalController.CapturingActive) return;
                 btnText.text = "shortcut.press".i8();
-                BubbleBuffGlobalController.CapturingFor = group;
-                BubbleBuffGlobalController.OnShortcutCaptured = (g, kc) => {
-                    state.SetShortcut(g, kc);
-                    btnText.text = kc == KeyCode.None ? "shortcut.none".i8() : kc.ToString();
+                BubbleBuffGlobalController.CapturingActive = true;
+                BubbleBuffGlobalController.OnShortcutCaptured = (binding) => {
+                    setter(binding);
+                    btnText.text = binding.ToDisplayString();
                 };
             });
         }
@@ -838,8 +837,15 @@ namespace BuffIt2TheLimit {
             foreach (BuffGroup group in Enum.GetValues(typeof(BuffGroup))) {
                 var groupCopy = group;
                 var key = $"shortcut.{group.ToString().ToLower()}";
-                MakeKeybindRow(panel.transform, key.i8(), groupCopy);
+                MakeKeybindRow(panel.transform, key.i8(),
+                    () => state.GetShortcut(groupCopy),
+                    binding => state.SetShortcut(groupCopy, binding));
             }
+
+            // Open buff menu shortcut
+            MakeKeybindRow(panel.transform, "shortcut.openbuffmenu".i8(),
+                () => state.GetOpenBuffMenuShortcut(),
+                binding => state.SetOpenBuffMenuShortcut(binding));
 
             var b = toggleSettings.GetComponent<OwlcatButton>();
             b.SetTooltip(new TooltipTemplateSimple("settings".i8(), "settings-toggle".i8()), new TooltipConfig {
@@ -2154,6 +2160,36 @@ namespace BuffIt2TheLimit {
             pendingPhase = 0;
             pendingHideFrames = 0;
         }
+
+        public void OpenBuffMenu() {
+            try {
+                // If already in buff mode, do nothing (open only, no toggle)
+                if (SpellbookController != null && SpellbookController.IsReady && SpellbookController.Buffing)
+                    return;
+
+                var serviceWindow = UIHelpers.ServiceWindow;
+                var spellScreen = serviceWindow != null ? serviceWindow.Find(UIHelpers.WidgetPaths.SpellScreen) : null;
+                bool spellbookVisible = spellScreen != null && spellScreen.gameObject.activeInHierarchy;
+
+                if (spellbookVisible && SpellbookController != null && SpellbookController.IsReady) {
+                    SpellbookController.ToggleBuffMode();
+                } else {
+                    var staticRoot = Game.Instance.UI.Canvas.transform;
+                    var spellbookButton = staticRoot.Find("NestedCanvas1/IngameMenuView/ButtonsPart/Container/SpellBookButton")
+                        ?.GetComponentInChildren<OwlcatButton>();
+                    if (spellbookButton != null) {
+                        PendingOpenBuffMode = true;
+                        pendingFrameCount = 0;
+                        spellbookButton.OnLeftClick.Invoke();
+                    } else {
+                        Main.Log("BuffIt2TheLimit: Could not find SpellBookButton in IngameMenuView");
+                    }
+                }
+            } catch (Exception ex) {
+                Main.Error(ex, "Open Buffs");
+            }
+        }
+
         private ButtonSprites applyBuffsSprites;
         private ButtonSprites applyBuffsShortSprites;
         private ButtonSprites showMapSprites;
@@ -2418,35 +2454,7 @@ namespace BuffIt2TheLimit {
 
                 // Add Open Buffs quick button
                 AddButton("openbuffs.tooltip.header".i8(), "openbuffs.tooltip.desc".i8(), openBuffsSprites, () => {
-                    try {
-                        // If already in buff mode, do nothing
-                        if (SpellbookController != null && SpellbookController.IsReady && SpellbookController.Buffing)
-                            return;
-
-                        // Check if the spellbook screen is truly visible
-                        var serviceWindow = UIHelpers.ServiceWindow;
-                        var spellScreen = serviceWindow != null ? serviceWindow.Find(UIHelpers.WidgetPaths.SpellScreen) : null;
-                        bool spellbookVisible = spellScreen != null && spellScreen.gameObject.activeInHierarchy;
-
-                        if (spellbookVisible && SpellbookController != null && SpellbookController.IsReady) {
-                            // Spellbook is open and ready — toggle buff mode directly
-                            SpellbookController.ToggleBuffMode();
-                        } else {
-                            // Open the spellbook first, then toggle via pending flag
-                            var staticRoot = Game.Instance.UI.Canvas.transform;
-                            var spellbookButton = staticRoot.Find("NestedCanvas1/IngameMenuView/ButtonsPart/Container/SpellBookButton")
-                                ?.GetComponentInChildren<OwlcatButton>();
-                            if (spellbookButton != null) {
-                                PendingOpenBuffMode = true;
-                                pendingFrameCount = 0;
-                                spellbookButton.OnLeftClick.Invoke();
-                            } else {
-                                Main.Log("BuffIt2TheLimit: Could not find SpellBookButton in IngameMenuView");
-                            }
-                        }
-                    } catch (Exception ex) {
-                        Main.Error(ex, "Open Buffs button");
-                    }
+                    OpenBuffMenu();
                 });
 
                 Main.Verbose("remove old bubble?");
