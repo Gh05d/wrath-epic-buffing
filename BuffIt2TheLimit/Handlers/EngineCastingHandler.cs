@@ -135,18 +135,9 @@ namespace BuffIt2TheLimit.Handlers {
                         }
                     }
 
-                    // Consume Extend Rod charge and restore metamagic
+                    // Restore Extend Rod metamagic state (charge already consumed in OnBefore)
                     if (_rodMetamagicApplied) {
-                        // Consume rod charge first — must always run even if restore fails.
-                        try {
-                            if (_castTask.MetamagicRodItem != null && _castTask.MetamagicRodItem.IsSpendCharges) {
-                                _castTask.MetamagicRodItem.Charges--;
-                                Main.Verbose($"Extend Rod charge consumed: {_castTask.MetamagicRodItem.Name} ({_castTask.MetamagicRodItem.Charges} remaining)");
-                            }
-                        } catch (Exception chargeEx) {
-                            Main.Error(chargeEx, "Consuming Extend Rod charge");
-                        }
-                        // Restore original MetamagicData state. Null-safe because the first
+                        // Best-effort restore of MetamagicData. Null-safe because the first
                         // handler to fire may already have restored it when SpellToCast is shared.
                         try {
                             if (_castTask.OriginalMetamagicWasNull) {
@@ -192,6 +183,13 @@ namespace BuffIt2TheLimit.Handlers {
                                 }
                                 _castTask.SpellToCast.MetamagicData.Add(Metamagic.Extend);
                                 _rodMetamagicApplied = true;
+                                // Consume rod charge at cast time (not in HandleExecutionProcessEnd).
+                                // ProcessEnd is unreliable for instant casts — the game may not
+                                // create an AbilityExecutionProcess for every Rulebook.Trigger call.
+                                if (_castTask.MetamagicRodItem.IsSpendCharges) {
+                                    _castTask.MetamagicRodItem.Charges--;
+                                    Main.Verbose($"Extend Rod charge consumed: {_castTask.MetamagicRodItem.Name} ({_castTask.MetamagicRodItem.Charges} remaining)");
+                                }
                             } catch (Exception ex) {
                                 Main.Error(ex, "Applying Extend Rod metamagic");
                             }
