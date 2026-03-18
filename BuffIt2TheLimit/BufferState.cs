@@ -298,7 +298,11 @@ namespace BuffIt2TheLimit {
                         if (dude.Body.QuickSlots == null) continue;
                         foreach (var slot in dude.Body.QuickSlots) {
                             if (!slot.HasItem) continue;
+
+                            Main.Verbose($"      QuickSlot: {slot.Item.Name} (Blueprint: {slot.Item.Blueprint.GetType().Name})", "state");
+
                             if (!(slot.Item.Blueprint is BlueprintItemEquipmentUsable usableBp)) {
+                                Main.Verbose($"        SKIP: not BlueprintItemEquipmentUsable", "state");
                                 continue;
                             }
 
@@ -307,11 +311,17 @@ namespace BuffIt2TheLimit {
                             if (usableBp.Type == UsableItemType.Wand) continue;
 
                             var spellBlueprint = usableBp.Ability;
-                            if (spellBlueprint == null) continue;
+                            if (spellBlueprint == null) {
+                                Main.Verbose($"        SKIP: Ability is null (Type: {usableBp.Type})", "state");
+                                continue;
+                            }
 
                             var itemEntity = slot.Item;
                             int charges = itemEntity.Charges;
-                            if (charges <= 0) continue;
+                            if (charges <= 0) {
+                                Main.Verbose($"        SKIP: charges={charges}", "state");
+                                continue;
+                            }
 
                             var credits = new ReactiveProperty<int>(charges);
                             var abilityData = new AbilityData(spellBlueprint, dude);
