@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -69,6 +70,8 @@ namespace BuffIt2TheLimit {
 
         [JsonProperty]
         public BuffGroup InGroup;
+        [JsonProperty(ItemConverterType = typeof(StringEnumConverter))]
+        public HashSet<BuffGroup> InGroups;
         [JsonProperty]
         public bool Blacklisted;
 
