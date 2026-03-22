@@ -63,6 +63,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **Upstream PRs often forked from old versions**: The upstream repo (factubsio/BubbleBuffs) is inactive. External PRs target `fork` (Gh05d) and are typically based on pre-fork commits, missing our additions (mass spell logic, extend rod, etc.). Rebase onto master before reviewing — this resolves most "missing feature" issues. After rebase+merge, GitHub won't auto-close the PR (different SHAs) — close manually with `gh pr close`.
 - **`.NET Framework 4.8.1` missing APIs**: `Dictionary.GetValueOrDefault()` doesn't exist. Use `TryGetValue` instead. Other missing APIs: `Index`/`Range` syntax, `IAsyncEnumerable`, `Span<T>` in many contexts.
 - **Newtonsoft.Json version is old (game-bundled)**: No generic `JsonConverter<T>`. Use non-generic `JsonConverter` base class with `CanConvert(Type)` override instead.
+- **`[JsonConverter]` on collections applies to the collection, not elements**: To serialize `HashSet<SomeEnum>` as string names, use `[JsonProperty(ItemConverterType = typeof(StringEnumConverter))]`, NOT `[JsonConverter(typeof(StringEnumConverter))]` — the latter tries to convert the entire HashSet as an enum and crashes at runtime.
 - **WidgetPaths version selection**: `Main.Load()` selects a `WidgetPaths` class based on `gameVersion.Major/Minor`. If the game updates, UI element paths may break. Check `UIHelpers.cs` for the hierarchy.
 - **EnhancedInventory interop**: Mod loads after `EnhancedInventory` (see `Info.json`). `TryFixEILayout()` adjusts UI positioning when EI is present.
 - **Publicizer scope**: Only DLLs with `Publicize="true"` in csproj have private fields accessible. If you get CS0122 on a game field, check whether the source DLL is publicized.
@@ -80,6 +81,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`docs/` directory is gitignored**: Use `git add -f` when committing spec/plan files.
 - **`UnitUseAbility.CreateCastCommand` rejects synthetic AbilityData**: Equipment/scroll/potion items use `new AbilityData(blueprint, caster)` which isn't in the caster's ability list. The game's command system silently rejects it. `AnimatedExecutionEngine` falls back to `Rulebook.Trigger` for non-spell CastTasks. `InstantExecutionEngine` always uses `Rulebook.Trigger` so it works for all source types.
 - **Verify deploys by comparing DLL timestamps**: After `./deploy.sh`, compare local `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` vs `ssh deck-direct "ls -la '<game-path>/Mods/BuffIt2TheLimit/BuffIt2TheLimit.dll'"`. File size and date must match. Game must be restarted to load the new DLL.
+- **Debug Unity UI positions with `GetWorldCorners()`**: When UI elements appear mispositioned, add `Main.Log` calls with `RectTransform.GetWorldCorners()` to compare actual pixel positions at runtime. Anchor math from code is error-prone — verify empirically via Player.log.
 
 ## Debug Keybinds (DEBUG builds only)
 
@@ -133,6 +135,7 @@ EngineCastingHandler  →  handles the actual spell casting via game's ability s
 - **Buff window**: Created by `BubbleBuffSpellbookController.CreateWindow()`. Uses `ButtonGroup<T>` for tab groups, `Portrait` class for caster portraits.
 - **UI hierarchy access**: `UIHelpers.StaticRoot` → `Game.Instance.UI.Canvas.transform`. `UIHelpers.SpellbookScreen` finds the spellbook via version-specific `WidgetPaths`.
 - **Game version compat**: `WidgetPaths_1_0` through `WidgetPaths_2_0` in `UIHelpers.cs` handle different UI paths across game versions.
+- **Overlay UI elements must share the same parent**: The gear/settings button is on the window root (`content` in `CreateWindow`). Any UI that should align with it (e.g., group checkboxes) must also be parented to the window root (`content.parent` inside `MakeDetailsView`), not to flow-layout sections like `actionBarSection`. Different parents = different coordinate systems.
 
 ### Enums
 
