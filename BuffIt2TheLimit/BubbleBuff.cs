@@ -47,7 +47,7 @@ namespace BuffIt2TheLimit {
         }
     }
     public class BubbleBuff {
-        public BuffGroup InGroup = BuffGroup.Long;
+        public HashSet<BuffGroup> InGroups = new HashSet<BuffGroup> { BuffGroup.Long };
         public AbilityData Spell;
         HashSet<string> wanted = new();
         HashSet<string> notWanted = new();
@@ -186,7 +186,11 @@ namespace BuffIt2TheLimit {
         }
 
         public void InitialiseFromSave(SavedBuffState state) {
-            InGroup = state.InGroup;
+            if (state.InGroups != null) {
+                InGroups = new HashSet<BuffGroup>(state.InGroups);
+            } else {
+                InGroups = new HashSet<BuffGroup> { state.InGroup };
+            }
             SourcePriorityOverride = state.SourcePriorityOverride;
             for (int i = 0; i < Bubble.Group.Count; i++) {
                 UnitEntityData u = Bubble.Group[i];
