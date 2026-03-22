@@ -71,39 +71,28 @@ Führe alle Checks aus, bevor du irgendetwas änderst.
 
 3. **`chore:`-Commits herausfiltern** (Versions-Bumps, Repository.json-Updates — kein Mehrwert für User).
 
-4. **Zwei Versionen der Release Notes erstellen:**
+4. **Release Notes erstellen (GitHub Markdown):**
 
-   **A) GitHub Markdown:**
    ```markdown
-   ## Was ist neu
+   ## What's New
 
    - <Bullet-Liste aus gefilterten Commits, als lesbarer Satz formuliert>
 
    ## Installation
 
-   1. `BuffIt2TheLimit-X.Y.Z.zip` herunterladen
-   2. In `{GameDir}/Mods/BuffIt2TheLimit/` entpacken
-   3. Im Unity Mod Manager aktivieren
+   1. Download `BuffIt2TheLimit-X.Y.Z.zip`
+   2. Extract into `{GameDir}/Mods/BuffIt2TheLimit/`
+   3. Enable in Unity Mod Manager
 
-   ## Voraussetzungen
+   ## Requirements
 
    - [Unity Mod Manager](https://www.nexusmods.com/site/mods/21) 0.23.0+
    - Pathfinder: Wrath of the Righteous 1.4+
    ```
 
-   **B) Nexus Plain Text** (kein Markdown):
-   ```
-   Was ist neu in vX.Y.Z:
+   Nexus-Upload wird automatisch von der GitHub Action übernommen (`.github/workflows/nexus-upload.yml`).
 
-   - <Bullet-Liste, Klartext>
-
-   Installation:
-   1. BuffIt2TheLimit-X.Y.Z.zip herunterladen
-   2. In {GameDir}/Mods/BuffIt2TheLimit/ entpacken
-   3. Im Unity Mod Manager aktivieren
-   ```
-
-5. **Dem User beide Versionen zeigen** und fragen: „Release Notes so in Ordnung, oder soll ich etwas anpassen?"
+5. **Dem User die Release Notes zeigen** und fragen: „Release Notes so in Ordnung, oder soll ich etwas anpassen?"
 
    Warte auf Freigabe oder Änderungswünsche. Überarbeite bis der User zustimmt.
 
@@ -162,12 +151,10 @@ Was jetzt passiert:
   2. git tag -a vX.Y.Z
   3. git push fork vX.Y.Z
   4. GitHub Release erstellen mit ZIP-Upload
+  5. GitHub Action lädt automatisch zu Nexus Mods hoch
 
 GitHub Release Notes (Vorschau):
 <GitHub Markdown Notes>
-
-Nexus Plain Text:
-<Nexus Plain Text Notes>
 
 Fortfahren? (ja/nein)
 ```
@@ -222,26 +209,26 @@ Reihenfolge ist wichtig — Code erst pushen, dann taggen:
 
 ---
 
-## Schritt 8: Nexus-Ausgabe
+## Schritt 8: Abschluss
 
-Zeige dem User alles was er für Nexus Mods braucht:
+Prüfe ob die GitHub Action für den Nexus-Upload erfolgreich war:
+```
+gh run list --repo Gh05d/wrath-epic-buffing --limit 1
+```
+
+Zeige dem User die Zusammenfassung:
 
 ```
 === Release vX.Y.Z abgeschlossen! ===
 
 GitHub: https://github.com/Gh05d/wrath-epic-buffing/releases/tag/vX.Y.Z
+Nexus:  Automatisch hochgeladen via GitHub Action (Status: <success/failure>)
+```
 
-=== Nexus Mods Upload ===
-URL: https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195?tab=files
+Falls die GitHub Action fehlgeschlagen ist, zeige den manuellen Nexus-Upload-Link:
+```
+Nexus Upload (manuell): https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195?tab=files
 ZIP: BuffIt2TheLimit/bin/BuffIt2TheLimit-X.Y.Z.zip
-
---- Nexus Release Notes (copy-paste) ---
-<Nexus Plain Text Notes>
----
-
---- Nexus Versions-Feld (copy-paste) ---
-X.Y.Z
----
 ```
 
 ---

@@ -53,7 +53,7 @@ Use `/release` skill to handle this automatically.
 
 ## Release
 
-Use `/release minor|patch|major` — the skill handles version bump, build, tag, push, GitHub release, and Nexus Mods copy-paste output. See `.claude/commands/release.md`.
+Use `/release minor|patch|major` — the skill handles version bump, build, tag, push, and GitHub release. Nexus Mods upload is automated via GitHub Action on release publish. See `.claude/commands/release.md`.
 - **Release notes in English** — even though user communicates in German, all release notes (GitHub + Nexus) must be in English.
 
 ## Gotchas
@@ -70,6 +70,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **Worktrees need `GamePath.props` + `GameInstall/`**: Both are gitignored. Copy `GamePath.props` from main repo and symlink `GameInstall/` into the worktree, otherwise build fails with 1400+ errors.
 - **`MetamagicData.MetamagicMask` has private set**: Use `Add(Metamagic)` to set flags, `Clear()` to reset. Default constructor is parameterless `new MetamagicData()`. No parameterized constructors exist.
 - **`sourceControlObj` visibility**: Controlled by `sourceCount > 1 || hasSpellProviders` in `UpdateDetailsView`. Was originally `sourceCount > 1` which hid the section for single-source buffs. If adding new controls there, verify visibility conditions.
+- **Nexus Mods upload**: Automated via GitHub Action (`.github/workflows/nexus-upload.yml`) on release publish. No manual upload needed. The `/release` skill handles the full flow.
 - **Nexus Mods changelogs**: Use plain text, not BBCode — the release/change notes field is a simple table.
 - **Nexus Mods description**: Uses BBCode formatting (`[b]`, `[size]`, `[url]`), not Markdown.
 - **`BuffProvider.SelfCastOnly` is a computed property** (not a settable field): Returns `true` for `SourceType == Potion` or `spell.TargetAnchor == Owner`. To change self-only logic, modify the property getter in `BubbleBuff.cs`, don't try to set it.
@@ -77,6 +78,8 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`BubbleBuff.SavedState` is never assigned**: The `SavedState` field on `BubbleBuff` is always null at runtime. The save system reads/writes via `BufferState.Save()` which copies from `buff.UseSpells`/etc fields directly. UI code must read from `buff.UseSpells`, NOT `buff.SavedState?.UseSpells` (which always falls back to default). Toggle handlers should write to `buff.UseSpells` directly.
 - **`ilspycmd` stack overflows on large classes** (e.g., `UnitEntityData`). Use smaller part classes instead (e.g., `UnitPartPetMaster`). Publicized DLLs at `obj/Debug/publicized/Assembly-CSharp.dll` work better than originals.
 - **`docs/` directory is gitignored**: Use `git add -f` when committing spec/plan files.
+- **`UnitUseAbility.CreateCastCommand` rejects synthetic AbilityData**: Equipment/scroll/potion items use `new AbilityData(blueprint, caster)` which isn't in the caster's ability list. The game's command system silently rejects it. `AnimatedExecutionEngine` falls back to `Rulebook.Trigger` for non-spell CastTasks. `InstantExecutionEngine` always uses `Rulebook.Trigger` so it works for all source types.
+- **Verify deploys by comparing DLL timestamps**: After `./deploy.sh`, compare local `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` vs `ssh deck-direct "ls -la '<game-path>/Mods/BuffIt2TheLimit/BuffIt2TheLimit.dll'"`. File size and date must match. Game must be restarted to load the new DLL.
 
 ## Debug Keybinds (DEBUG builds only)
 
