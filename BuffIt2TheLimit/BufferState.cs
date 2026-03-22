@@ -434,10 +434,13 @@ namespace BuffIt2TheLimit {
             Save(true);
         }
 
+        private static readonly HashSet<BuffGroup> DefaultGroups = new HashSet<BuffGroup> { BuffGroup.Long };
+
         public void Save(bool shallow = false) {
             static void updateSavedBuff(BubbleBuff buff, SavedBuffState save) {
                 save.Blacklisted = buff.HideBecause(HideReason.Blacklisted);
-                save.InGroup = buff.InGroup;
+                save.InGroups = new HashSet<BuffGroup>(buff.InGroups);
+                save.InGroup = buff.InGroups.Count > 0 ? buff.InGroups.First() : BuffGroup.Long;
 
                 if (buff.IgnoreForOverwriteCheck.Count > 0) {
                     save.IgnoreForOverwriteCheck = buff.IgnoreForOverwriteCheck.Select(g => g.ToString()).ToArray();
@@ -478,10 +481,14 @@ namespace BuffIt2TheLimit {
                     var key = buff.Key;
                     if (SavedState.Buffs.TryGetValue(key, out var save)) {
                         updateSavedBuff(buff, save);
-                        if (save.Wanted.Empty() && save.IgnoreForOverwriteCheck.Empty() && !buff.HideBecause(HideReason.Blacklisted)) {
+                        if (save.Wanted.Empty() && save.IgnoreForOverwriteCheck.Empty()
+                            && !buff.HideBecause(HideReason.Blacklisted)
+                            && buff.InGroups.SetEquals(DefaultGroups)) {
                             SavedState.Buffs.Remove(key);
                         }
-                    } else if (buff.Requested > 0 || buff.IgnoreForOverwriteCheck.Count > 0 || buff.HideBecause(HideReason.Blacklisted)) {
+                    } else if (buff.Requested > 0 || buff.IgnoreForOverwriteCheck.Count > 0
+                               || buff.HideBecause(HideReason.Blacklisted)
+                               || !buff.InGroups.SetEquals(DefaultGroups)) {
                         save = new();
                         save.Wanted = new HashSet<string>();
                         updateSavedBuff(buff, save);
