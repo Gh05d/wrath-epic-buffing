@@ -1647,29 +1647,43 @@ namespace BuffIt2TheLimit {
             groupLE.layoutPriority = 3;
             groupObj.SetActive(false);
 
-            var buffGroup = new ButtonGroup<BuffGroup>(groupRect);
-
-            buffGroup.Add(BuffGroup.Long, "group.normal.btn".i8());
-            buffGroup.Add(BuffGroup.Important, "group.important.btn".i8());
-            buffGroup.Add(BuffGroup.Quick, "group.short.btn".i8());
-
-            // Fix button anchors for HLG compatibility (MakeButton sets point-anchors)
-            foreach (Transform child in groupRect) {
-                var childRect = child as RectTransform;
-                if (childRect != null) {
-                    childRect.anchorMin = Vector2.zero;
-                    childRect.anchorMax = Vector2.one;
-                    childRect.pivot = new Vector2(0.5f, 0.5f);
-                    childRect.offsetMin = Vector2.zero;
-                    childRect.offsetMax = Vector2.zero;
-                    var btnLE = child.gameObject.AddComponent<LayoutElement>();
-                    btnLE.flexibleWidth = 1;
-                }
+            float groupToggleScale = 0.7f;
+            GameObject MakeGroupToggle(string label) {
+                var toggleObj = GameObject.Instantiate(togglePrefab, groupRect);
+                toggleObj.SetActive(true);
+                toggleObj.transform.localScale = new Vector3(groupToggleScale, groupToggleScale, groupToggleScale);
+                toggleObj.GetComponentInChildren<TextMeshProUGUI>().text = label;
+                return toggleObj;
             }
 
-            buffGroup.Selected.Subscribe<BuffGroup>(g => {
+            var groupNormalObj = MakeGroupToggle("group.normal.btn".i8());
+            var groupImportantObj = MakeGroupToggle("group.important.btn".i8());
+            var groupQuickObj = MakeGroupToggle("group.short.btn".i8());
+
+            var groupNormalToggle = groupNormalObj.GetComponentInChildren<ToggleWorkaround>();
+            var groupImportantToggle = groupImportantObj.GetComponentInChildren<ToggleWorkaround>();
+            var groupQuickToggle = groupQuickObj.GetComponentInChildren<ToggleWorkaround>();
+
+            groupNormalToggle.onValueChanged.AddListener(val => {
                 if (view.Get(out var buff)) {
-                    buff.InGroup = g;
+                    if (val) buff.InGroups.Add(BuffGroup.Long);
+                    else buff.InGroups.Remove(BuffGroup.Long);
+                    state.Save();
+                }
+            });
+
+            groupImportantToggle.onValueChanged.AddListener(val => {
+                if (view.Get(out var buff)) {
+                    if (val) buff.InGroups.Add(BuffGroup.Important);
+                    else buff.InGroups.Remove(BuffGroup.Important);
+                    state.Save();
+                }
+            });
+
+            groupQuickToggle.onValueChanged.AddListener(val => {
+                if (view.Get(out var buff)) {
+                    if (val) buff.InGroups.Add(BuffGroup.Quick);
+                    else buff.InGroups.Remove(BuffGroup.Quick);
                     state.Save();
                 }
             });
@@ -1698,7 +1712,9 @@ namespace BuffIt2TheLimit {
                     return;
                 }
 
-                buffGroup.Selected.Value = buff.InGroup;
+                groupNormalToggle.isOn = buff.InGroups.Contains(BuffGroup.Long);
+                groupImportantToggle.isOn = buff.InGroups.Contains(BuffGroup.Important);
+                groupQuickToggle.isOn = buff.InGroups.Contains(BuffGroup.Quick);
                 hideSpellToggle.isOn = buff.HideBecause(HideReason.Blacklisted);
 
                 var effects = buff.BuffsApplied.All.ToArray();
