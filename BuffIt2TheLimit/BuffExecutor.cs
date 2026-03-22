@@ -184,7 +184,7 @@ namespace BuffIt2TheLimit {
             Dictionary<Kingmaker.Items.ItemEntity, int> remainingRodCharges = new();
             BlueprintScriptableObject arcanistPoolBlueprint = ResourcesLibrary.TryGetBlueprint<BlueprintScriptableObject>("cac948cbbe79b55459459dd6a8fe44ce");
 
-            foreach (var buff in State.BuffList.Where(b => b.InGroup == buffGroup && b.Fulfilled > 0)) {
+            foreach (var buff in State.BuffList.Where(b => b.InGroups.Contains(buffGroup) && b.Fulfilled > 0)) {
 
                 try {
                     int thisBuffGood = 0;

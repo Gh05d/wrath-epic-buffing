@@ -2929,7 +2929,7 @@ namespace BuffIt2TheLimit {
             foreach (BuffGroup group in Enum.GetValues(typeof(BuffGroup))) {
                 try {
                     if (groupSummaryLabels.TryGetValue(group, out var label)) {
-                        var list = state.BuffList.Where(b => b.InGroup == group)
+                        var list = state.BuffList.Where(b => b.InGroups.Contains(group))
                                                                    .Select(b => (b.Requested, b.Fulfilled));
                         if (!list.Empty()) {
                             var (requested, fulfilled) = list.Aggregate((a, b) => (a.Requested + b.Requested, a.Fulfilled + b.Fulfilled));
