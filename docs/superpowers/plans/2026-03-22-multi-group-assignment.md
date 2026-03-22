@@ -26,8 +26,7 @@ Add `InGroups` field to the persistence class while keeping backward compatibili
 Add `using Newtonsoft.Json.Converters;` to the top of the file. Then add the new field after the existing `InGroup` field (line 71):
 
 ```csharp
-[JsonProperty]
-[JsonConverter(typeof(StringEnumConverter))]
+[JsonProperty(ItemConverterType = typeof(StringEnumConverter))]
 public HashSet<BuffGroup> InGroups;
 ```
 

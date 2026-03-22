@@ -35,8 +35,7 @@ Add new field, keep old for backward compatibility:
 [JsonProperty]
 public BuffGroup InGroup; // Legacy — read during deserialization for migration
 
-[JsonProperty]
-[JsonConverter(typeof(StringEnumConverter))] // Serialize as ["Long","Quick"] not [0,2]
+[JsonProperty(ItemConverterType = typeof(StringEnumConverter))] // Serialize as ["Long","Quick"] not [0,2]
 public HashSet<BuffGroup> InGroups; // New — written on save
 ```
 
