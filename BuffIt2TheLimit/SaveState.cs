@@ -44,6 +44,9 @@ namespace BuffIt2TheLimit {
         [JsonProperty]
         public bool EquipmentEnabled = true;
         [JsonProperty]
+        [System.ComponentModel.DefaultValue(true)]
+        public bool SongsEnabled = true;
+        [JsonProperty]
         public Dictionary<BuffGroup, ShortcutBinding> ShortcutKeys = new();
         [JsonProperty]
         public ShortcutBinding OpenBuffMenuKey;
