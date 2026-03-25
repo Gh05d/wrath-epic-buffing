@@ -2736,6 +2736,8 @@ namespace BuffIt2TheLimit {
             if (buff.IsSong) {
                 view.ChildObject("School/SchoolLabel").GetComponent<TextMeshProUGUI>().text = "";
                 view.ChildObject("Metamagic").SetActive(false);
+                var songTooltip = new Kingmaker.UI.MVVM._VM.Tooltip.Templates.TooltipTemplateActivatableAbility(buff.ActivatableSource);
+                TooltipHelper.SetTooltip(button, songTooltip);
                 return;
             }
 
