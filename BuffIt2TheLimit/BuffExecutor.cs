@@ -10,6 +10,7 @@ using Kingmaker.UI.Models.Log.CombatLog_ThreadSystem;
 using Kingmaker.UI.Models.Log.CombatLog_ThreadSystem.LogThreads.Common;
 using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Abilities;
+using Kingmaker.UnitLogic.ActivatableAbilities;
 using Kingmaker.UnitLogic.Abilities.Components;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
 using Kingmaker.Utility;
@@ -166,6 +167,39 @@ namespace BuffIt2TheLimit {
 
             State.Recalculate(false);
 
+            // Phase 0: Activate songs before casting buffs
+            var activatedGroups = new HashSet<(ActivatableAbilityGroup, string)>();
+            foreach (var songBuff in State.BuffList.Where(b => b.IsSong && b.InGroups.Contains(buffGroup) && b.Fulfilled > 0)) {
+                try {
+                    var activatable = songBuff.ActivatableSource;
+                    if (activatable == null || activatable.IsOn) {
+                        Main.Verbose($"Song {songBuff.Name}: already active or null, skipping");
+                        continue;
+                    }
+
+                    var group = activatable.Blueprint.Group;
+                    var caster = songBuff.CasterQueue.FirstOrDefault()?.who;
+                    if (caster == null) continue;
+
+                    // Mutual exclusivity: only one song per ActivatableAbilityGroup per caster
+                    var groupKey = (group, caster.UniqueId);
+                    if (activatedGroups.Contains(groupKey)) {
+                        Main.Log($"Song {songBuff.Name}: skipped — another {group} song already activated for {caster.CharacterName}");
+                        continue;
+                    }
+
+                    if (!activatable.IsAvailable) {
+                        Main.Verbose($"Song {songBuff.Name}: not available (resources or restrictions)");
+                        continue;
+                    }
+
+                    Main.Verbose($"Activating song: {songBuff.Name} on {caster.CharacterName}");
+                    activatable.IsOn = true;
+                    activatedGroups.Add(groupKey);
+                } catch (Exception ex) {
+                    Main.Error(ex, $"activating song {songBuff.Name}");
+                }
+            }
 
             TargetWrapper[] targets = Bubble.Group.Select(u => new TargetWrapper(u)).ToArray();
             int attemptedCasts = 0;
@@ -187,6 +221,8 @@ namespace BuffIt2TheLimit {
             foreach (var buff in State.BuffList.Where(b => b.InGroups.Contains(buffGroup) && b.Fulfilled > 0)) {
 
                 try {
+                    if (buff.IsSong) continue; // Songs handled in Phase 0
+
                     int thisBuffGood = 0;
                     int thisBuffBad = 0;
                     int thisBuffSkip = 0;
