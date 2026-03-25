@@ -82,7 +82,12 @@ New path in `BuffExecutor.Execute()`:
 
 ### 6. Mutual Exclusivity
 
-Characters can typically only have one bardic performance active at a time (enforced by `ActivatableAbilityGroup.BardicPerformance`). If a user enables two performances from the same character in the same buff group:
+Two separate mutual exclusivity groups exist:
+- `ActivatableAbilityGroup.BardicPerformance` (Bard/Skald) — only one active per character
+- `ActivatableAbilityGroup.AzataMythicPerformance` (Azata) — only one active per character
+- A Bard performance and an Azata song CAN run simultaneously on the same character
+
+If a user enables two performances from the same `ActivatableAbilityGroup` on the same character in the same buff group:
 - The game enforces mutual exclusivity — activating a second performance deactivates the first
 - The mod should respect this: within a single execution, only activate the first matching song per `ActivatableAbilityGroup` per caster. Log a warning if a second is skipped.
 
@@ -99,7 +104,28 @@ Characters can typically only have one bardic performance active at a time (enfo
 - Save/load extends existing `SavedBufferState` with `SongsEnabled` field, backward-compatible (`[DefaultValue(true)]`)
 - `BubbleBuff.Spell`-dependent code paths must null-guard since songs have `Spell == null`
 
-## Open Questions (Resolve During Implementation)
+## Resolved Questions
 
-1. **Activation API**: Decompile `ActivatableAbility` / `ActivatableAbilityData` to confirm the exact method for programmatic activation. Use `ilspycmd` on the relevant game DLL.
-2. **Azata song grouping**: Verify whether Azata songs use `ActivatableAbilityGroup.BardicPerformance` or a separate group — this affects mutual exclusivity handling.
+### Activation API (verified via IL decompilation)
+
+`ActivatableAbility` (namespace `Kingmaker.UnitLogic.ActivatableAbilities`) key members:
+
+| Member | Type | Purpose |
+|---|---|---|
+| `IsOn` | `bool` property | Whether ability is active. Setter calls `SetIsOn(value, null)` |
+| `IsAvailable` | `bool` property | Combined resources + restrictions check |
+| `IsAvailableByResources` | `bool` property | Has enough resource charges (via `ActivatableAbilityResourceLogic`) |
+| `ResourceCount` | `int` property | Remaining rounds |
+| `CanTurnOn()` | `bool` method | Checks all `TurnOnConditions` |
+| `AppliedBuff` | `Buff` property | The currently applied buff (`m_AppliedBuff`) |
+| `TurnOffImmediately()` | `void` method | Immediate deactivation |
+
+**Activation:** `ability.IsOn = true` (internally calls `SetIsOn(true, null)`).
+**Pre-check:** `!ability.IsOn && ability.IsAvailable` (covers resources + restrictions + combat requirements).
+
+### Azata Song Grouping (verified via blueprint inspection)
+
+- Azata songs use `ActivatableAbilityGroup.AzataMythicPerformance` (enum value 28)
+- Bard performances use `ActivatableAbilityGroup.BardicPerformance` (enum value 1)
+- **Separate groups** — a Bard performance and an Azata song CAN run simultaneously
+- Mutual exclusivity is per-group: only one Bard performance OR one Azata song at a time per character
