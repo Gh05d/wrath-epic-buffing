@@ -99,7 +99,7 @@ namespace BuffIt2TheLimit {
         private string metaMagicRendered = null;
         private string MetaMagicFlags {
             get {
-                if (Metamagics == null)
+                if (IsSong || Metamagics == null)
                     return "";
                 if (metaMagicRendered == null) {
                     metaMagicRendered = "[";
@@ -116,8 +116,11 @@ namespace BuffIt2TheLimit {
         }
 
 
-        public string Name => Key.Archmage ? "Archmage Armor" : Spell.Name;
-        public string NameMeta => $"{Spell.Name} {MetaMagicFlags}";
+        public string Name => IsSong ? ActivatableSource.Blueprint.Name
+            : Key.Archmage ? "Archmage Armor"
+            : Spell.Name;
+        public string NameMeta => IsSong ? Name : $"{Spell.Name} {MetaMagicFlags}";
+        public Sprite Icon => IsSong ? ActivatableSource.Blueprint.Icon : Spell?.Blueprint?.Icon;
 
 
         public bool UnitWants(UnitEntityData unit) => wanted.Contains(unit.UniqueId);
@@ -139,6 +142,17 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        public BubbleBuff(Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbility activatable) {
+            this.ActivatableSource = activatable;
+            this.Spell = null;
+            this.IsSong = true;
+            var blueprint = activatable.Blueprint;
+            this.NameLower = blueprint.Name.ToLower();
+            this.Key = new BuffKey(blueprint.AssetGuid);
+            this.Category = Category.Song;
+            this.BuffsApplied = new AbilityCombinedEffects(Enumerable.Empty<IBeneficialEffect>());
+        }
+
         public Action OnUpdate = null;
         internal String NameLower;
         internal Spellbook book;
@@ -150,6 +164,8 @@ namespace BuffIt2TheLimit {
         public bool UsePotions = true;
         public bool UseEquipment = true;
         public bool UseExtendRod;
+        public bool IsSong;
+        public Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbility ActivatableSource;
 
         public void AddProvider(UnitEntityData provider, Spellbook book, AbilityData spell, AbilityData baseSpell, IReactiveProperty<int> credits, bool newCredit, int creditClamp, int u, BuffSourceType sourceType = BuffSourceType.Spell, Kingmaker.Items.ItemEntity sourceItem = null) {
             if (this.book == null) {
@@ -270,6 +286,10 @@ namespace BuffIt2TheLimit {
         }
 
         public void Validate() {
+            if (IsSong) {
+                ValidateSong();
+                return;
+            }
             if (IsMass) {
                 ValidateMass();
                 return;
@@ -364,6 +384,33 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        public void ValidateSong() {
+            if (ActivatableSource == null) return;
+            ActualCastQueue = new List<(string, BuffProvider)>();
+
+            if (ActivatableSource.IsOn) {
+                // Already active — mark all wanted as given
+                foreach (var target in wanted) {
+                    given.Add(target);
+                }
+                return;
+            }
+
+            if (!ActivatableSource.IsAvailable) {
+                Main.Verbose($"Song {Name}: not available (resources or restrictions)");
+                return;
+            }
+
+            if (CasterQueue.Count == 0) return;
+
+            var caster = CasterQueue[0];
+            // Mark all wanted targets as given (songs are party-wide)
+            foreach (var target in wanted) {
+                given.Add(target);
+            }
+            ActualCastQueue.Add((caster.who.UniqueId, caster));
+        }
+
         internal void SetHidden(HideReason reason, bool set) {
             if (set)
                 HiddenBecause |= reason;
@@ -388,6 +435,7 @@ namespace BuffIt2TheLimit {
         }
 
         internal void SortProviders() {
+            if (IsSong) return;
             var globalPriority = GlobalBubbleBuffer.Instance?.SpellbookController?.state?.SavedState?.GlobalSourcePriority
                 ?? SourcePriority.SpellsScrollsPotions;
             var effectivePriority = SourcePriorityOverride >= 0
@@ -523,6 +571,7 @@ namespace BuffIt2TheLimit {
         }
 
         public bool SelfCastOnly =>
+            SourceType == BuffSourceType.Song ||
             SourceType == BuffSourceType.Potion ||
             spell.TargetAnchor == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityTargetAnchor.Owner;
 
