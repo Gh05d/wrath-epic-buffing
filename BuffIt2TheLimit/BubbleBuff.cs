@@ -577,7 +577,7 @@ namespace BuffIt2TheLimit {
 
         public bool CanTarget(string targetId) {
             if (SourceType == BuffSourceType.Song)
-                return true; // Songs are party-wide, any target is valid
+                return targetId == who.UniqueId; // Songs activate on the caster only
 
             if (ArchmageArmor)
                 return targetId == who.UniqueId;
