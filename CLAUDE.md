@@ -77,7 +77,9 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`BuffProvider.SelfCastOnly` is a computed property** (not a settable field): Returns `true` for `SourceType == Potion` or `spell.TargetAnchor == Owner`. To change self-only logic, modify the property getter in `BubbleBuff.cs`, don't try to set it.
 - **Caster portrait index ≠ CasterQueue index**: `BufferView.casterPortraitMap` maps portrait indices to CasterQueue indices after deduplication. Always use the map when translating portrait clicks to CasterQueue entries.
 - **`BubbleBuff.SavedState` is never assigned**: The `SavedState` field on `BubbleBuff` is always null at runtime. The save system reads/writes via `BufferState.Save()` which copies from `buff.UseSpells`/etc fields directly. UI code must read from `buff.UseSpells`, NOT `buff.SavedState?.UseSpells` (which always falls back to default). Toggle handlers should write to `buff.UseSpells` directly.
-- **`ilspycmd` stack overflows on large classes** (e.g., `UnitEntityData`). Use smaller part classes instead (e.g., `UnitPartPetMaster`). Publicized DLLs at `obj/Debug/publicized/Assembly-CSharp.dll` work better than originals.
+- **`BubbleBuff.Spell` is null for songs**: Songs use `ActivatableSource` instead. All code paths touching `Spell`, `Spell.Blueprint`, `Spell.Name`, `Spell.IsMetamagicked()` etc. must null-guard or check `IsSong` first. Key locations: `BindBuffToView`, `BuffProvider.CanTarget`, `UpdateDetailsView`, `MetaMagicFlags`, `Name`/`NameMeta` properties.
+- **`BuffProvider.CanTarget` crashes when `spell` is null**: Songs and any future source type with `spell = null` must early-return from `CanTarget()`. The `SelfCastOnly` property also accesses `spell.TargetAnchor` — guard with `SourceType` check before accessing `spell`.
+- **`ilspycmd` stack overflows on large classes** (e.g., `UnitEntityData`). Use smaller part classes instead (e.g., `UnitPartPetMaster`). Publicized DLLs at `BuffIt2TheLimit/obj/Debug/publicized/Assembly-CSharp.dll` work better than originals. IL mode (`-il` flag) avoids some type-resolution stack overflows that C# decompilation hits.
 - **`docs/` directory is gitignored**: Use `git add -f` when committing spec/plan files.
 - **`UnitUseAbility.CreateCastCommand` rejects synthetic AbilityData**: Equipment/scroll/potion items use `new AbilityData(blueprint, caster)` which isn't in the caster's ability list. The game's command system silently rejects it. `AnimatedExecutionEngine` falls back to `Rulebook.Trigger` for non-spell CastTasks. `InstantExecutionEngine` always uses `Rulebook.Trigger` so it works for all source types.
 - **Verify deploys by comparing DLL timestamps**: After `./deploy.sh`, compare local `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` vs `ssh deck-direct "ls -la '<game-path>/Mods/BuffIt2TheLimit/BuffIt2TheLimit.dll'"`. File size and date must match. Game must be restarted to load the new DLL.
@@ -140,8 +142,8 @@ EngineCastingHandler  →  handles the actual spell casting via game's ability s
 ### Enums
 
 - **`BuffGroup`**: `Long`, `Important`, `Quick` — the three buff categories users assign buffs to
-- **`Category`**: `Buff`, `Ability`, `Equipment` — tab filter categories
-- **`BuffSourceType`**: `Spell`, `Scroll`, `Potion`, `Equipment` — how a buff can be provided
+- **`Category`**: `Buff`, `Ability`, `Equipment`, `Song` — tab filter categories
+- **`BuffSourceType`**: `Spell`, `Scroll`, `Potion`, `Equipment`, `Song` — how a buff can be provided
 - **`SourcePriority`**: Only permutes Spell/Scroll/Potion order. Equipment always sorts last in `GetSourceOrder()` (intentional — equipment items are valuable, used as fallback).
 
 ### Localization
@@ -163,6 +165,15 @@ JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resourc
 - **`UsableItemType.Scroll/Potion`**: In player inventory. Stack count = credits. Consumed via `Inventory.Remove()`.
 - **QuickSlot items** (`dude.Body.QuickSlots`): Equipment like rods, special items. Many have `Ability = null` (metamagic rods). Charges consumed via `SourceItem.Charges--`.
 - **Equipped item abilities** (`dude.Abilities.RawFacts` with `SourceItem != null`): Staves and worn items. Filtered by `!(Blueprint is BlueprintItemEquipmentUsable)` to avoid double-counting QuickSlot items.
+
+### ActivatableAbility API (Songs/Performances)
+
+- **Scanning**: `dude.ActivatableAbilities.RawFacts` iterates all activatable abilities. Filter by `blueprint.Group` — `BardicPerformance` (1) for Bard/Skald, `AzataMythicPerformance` (28) for Azata.
+- **Activation**: `activatable.IsOn = true` (calls `SetIsOn(true, null)` internally). Pre-check: `!activatable.IsOn && activatable.IsAvailable`.
+- **Resource check**: `activatable.IsAvailable` (combined), `activatable.IsAvailableByResources`, `activatable.ResourceCount` (remaining rounds).
+- **Mutual exclusivity**: Bard and Azata use separate `ActivatableAbilityGroup` values — they CAN run simultaneously. Within each group, only one per character.
+- **Tooltip**: Use `new TooltipTemplateActivatableAbility(activatable)` from `Kingmaker.UI.MVVM._VM.Tooltip.Templates` — the game's native tooltip for activatable abilities.
+- **Songs bypass `AddBuff()`**: `GetBeneficialBuffs()` requires `AbilityEffectRunAction` which activatable abilities don't have. Use dedicated `AddSong()` method that constructs `BubbleBuff` directly.
 
 ### Pet/Companion API
 
