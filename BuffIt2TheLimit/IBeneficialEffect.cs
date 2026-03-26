@@ -176,7 +176,7 @@ namespace BuffIt2TheLimit {
         public readonly bool IsLong;
 
         public PetType? PetType { get; set; }
-        
+
         public WornItemEnchantmentEffect(ContextActionEnchantWornItem action) {
             Applied = action.Enchantment.AssetGuid.m_Guid;
             if (action.Slot == Kingmaker.UI.GenericSlot.EquipSlotBase.SlotType.PrimaryHand)
@@ -191,6 +191,33 @@ namespace BuffIt2TheLimit {
                 effect.AddPrimaryWeaponEnchant(Applied, IsLong);
             else if (SecondaryWeapon)
                 effect.AddSecondaryWeaponEnchnant(Applied, IsLong);
+        }
+    }
+
+    public class WeaponEnchantPoolEffect : IBeneficialEffect {
+        public readonly HashSet<Guid> DefaultEnchantments;
+        public readonly bool SecondaryHand;
+        public readonly bool IsLong;
+
+        public PetType? PetType { get; set; }
+
+        public WeaponEnchantPoolEffect(ContextActionWeaponEnchantPool action) {
+            DefaultEnchantments = new HashSet<Guid>(
+                action.DefaultEnchantments
+                    .Where(e => e != null)
+                    .Select(e => e.AssetGuid.m_Guid)
+            );
+            SecondaryHand = action.EnchantSecondaryHandInstead;
+            IsLong = action.IsLong();
+        }
+
+        public void AppendTo(AbilityCombinedEffects effect) {
+            foreach (var enchant in DefaultEnchantments) {
+                if (SecondaryHand)
+                    effect.AddSecondaryWeaponEnchnant(enchant, IsLong);
+                else
+                    effect.AddPrimaryWeaponEnchant(enchant, IsLong);
+            }
         }
     }
 
