@@ -385,8 +385,8 @@ namespace BuffIt2TheLimit {
             frame.sprite = normalBorder;
 
             var (sourceOverlayBgObj, sourceOverlayBgRect) = UIHelpers.Create("source-overlay-bg", pRect);
-            sourceOverlayBgRect.anchorMin = new Vector2(0.5f, 0.0f);
-            sourceOverlayBgRect.anchorMax = new Vector2(1.0f, 0.45f);
+            sourceOverlayBgRect.anchorMin = new Vector2(0.4f, 0.0f);
+            sourceOverlayBgRect.anchorMax = new Vector2(1.0f, 0.55f);
             sourceOverlayBgRect.offsetMin = Vector2.zero;
             sourceOverlayBgRect.offsetMax = Vector2.zero;
             portrait.SourceOverlayBg = sourceOverlayBgObj.AddComponent<Image>();
@@ -394,8 +394,8 @@ namespace BuffIt2TheLimit {
             sourceOverlayBgObj.SetActive(false);
 
             var (sourceOverlayObj, sourceOverlayRect) = UIHelpers.Create("source-overlay", pRect);
-            sourceOverlayRect.anchorMin = new Vector2(0.5f, 0.0f);
-            sourceOverlayRect.anchorMax = new Vector2(1.0f, 0.45f);
+            sourceOverlayRect.anchorMin = new Vector2(0.4f, 0.0f);
+            sourceOverlayRect.anchorMax = new Vector2(1.0f, 0.55f);
             sourceOverlayRect.offsetMin = Vector2.zero;
             sourceOverlayRect.offsetMax = Vector2.zero;
             portrait.SourceOverlay = sourceOverlayObj.AddComponent<Image>();
@@ -3069,43 +3069,49 @@ namespace BuffIt2TheLimit {
             }
         }
 
-        private string BuildCasterTooltip(BuffProvider provider) {
+        private string BuildCasterTooltip(BubbleBuff buff, string casterId) {
             var lines = new List<string>();
 
-            switch (provider.SourceType) {
-                case BuffSourceType.Spell:
-                    var spellLevel = provider.spell?.SpellLevel ?? 0;
-                    var bookName = provider.book?.Blueprint.Name ?? "";
-                    lines.Add(string.Format("tooltip.source.spell".i8(), bookName, spellLevel));
-                    if (provider.AvailableCredits < 100)
-                        lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
-                    break;
-                case BuffSourceType.Scroll:
-                    var scrollName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
-                    lines.Add(string.Format("tooltip.source.scroll".i8(), scrollName));
-                    lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
-                    break;
-                case BuffSourceType.Potion:
-                    var potionName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
-                    lines.Add(string.Format("tooltip.source.potion".i8(), potionName));
-                    lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
-                    break;
-                case BuffSourceType.Equipment:
-                    var equipName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
-                    lines.Add(string.Format("tooltip.source.equipment".i8(), equipName));
-                    lines.Add(string.Format("tooltip.source.charges".i8(), provider.AvailableCredits));
-                    break;
-                default:
-                    return "";
-            }
+            foreach (var provider in buff.CasterQueue) {
+                if (provider.who.UniqueId != casterId) continue;
 
-            // UMD hint for scroll/wand sources not on class spell list
-            if (provider.SourceType == BuffSourceType.Scroll || provider.SourceType == BuffSourceType.Equipment) {
-                bool onClassList = provider.who.Spellbooks.Any(b =>
-                    b.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
-                        level.Spells.Any(s => s == provider.spell?.Blueprint)) == true);
-                if (!onClassList) {
-                    lines.Add(string.Format("tooltip.source.umd".i8(), provider.ScrollDC));
+                if (lines.Count > 0) lines.Add("");
+
+                switch (provider.SourceType) {
+                    case BuffSourceType.Spell:
+                        var spellLevel = provider.spell?.SpellLevel ?? 0;
+                        var bookName = provider.book?.Blueprint.Name ?? "";
+                        lines.Add(string.Format("tooltip.source.spell".i8(), bookName, spellLevel));
+                        if (provider.AvailableCredits < 100)
+                            lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
+                        break;
+                    case BuffSourceType.Scroll:
+                        var scrollName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
+                        lines.Add(string.Format("tooltip.source.scroll".i8(), scrollName));
+                        lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
+                        break;
+                    case BuffSourceType.Potion:
+                        var potionName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
+                        lines.Add(string.Format("tooltip.source.potion".i8(), potionName));
+                        lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
+                        break;
+                    case BuffSourceType.Equipment:
+                        var equipName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
+                        lines.Add(string.Format("tooltip.source.equipment".i8(), equipName));
+                        lines.Add(string.Format("tooltip.source.charges".i8(), provider.AvailableCredits));
+                        break;
+                    default:
+                        continue;
+                }
+
+                // UMD hint for scroll/wand sources not on class spell list
+                if (provider.SourceType == BuffSourceType.Scroll || provider.SourceType == BuffSourceType.Equipment) {
+                    bool onClassList = provider.who.Spellbooks.Any(b =>
+                        b.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
+                            level.Spells.Any(s => s == provider.spell?.Blueprint)) == true);
+                    if (!onClassList) {
+                        lines.Add(string.Format("tooltip.source.umd".i8(), provider.ScrollDC));
+                    }
                 }
             }
 
@@ -3172,7 +3178,7 @@ namespace BuffIt2TheLimit {
                             InfoCallPCMethod = InfoCallPCMethod.None
                         });
                     } else {
-                        var tooltipBody = BuildCasterTooltip(who);
+                        var tooltipBody = BuildCasterTooltip(buff, who.who.UniqueId);
                         casterPortraits[i].Button.SetTooltip(
                             new TooltipTemplateSimple(who.who.CharacterName, tooltipBody),
                             new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
