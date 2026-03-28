@@ -384,9 +384,18 @@ namespace BuffIt2TheLimit {
             frameObj.FillParent();
             frame.sprite = normalBorder;
 
+            var (sourceOverlayBgObj, sourceOverlayBgRect) = UIHelpers.Create("source-overlay-bg", pRect);
+            sourceOverlayBgRect.anchorMin = new Vector2(0.5f, 0.0f);
+            sourceOverlayBgRect.anchorMax = new Vector2(1.0f, 0.45f);
+            sourceOverlayBgRect.offsetMin = Vector2.zero;
+            sourceOverlayBgRect.offsetMax = Vector2.zero;
+            portrait.SourceOverlayBg = sourceOverlayBgObj.AddComponent<Image>();
+            portrait.SourceOverlayBg.color = new Color(0, 0, 0, 0.6f);
+            sourceOverlayBgObj.SetActive(false);
+
             var (sourceOverlayObj, sourceOverlayRect) = UIHelpers.Create("source-overlay", pRect);
-            sourceOverlayRect.anchorMin = new Vector2(0.55f, 0.0f);
-            sourceOverlayRect.anchorMax = new Vector2(1.0f, 0.35f);
+            sourceOverlayRect.anchorMin = new Vector2(0.5f, 0.0f);
+            sourceOverlayRect.anchorMax = new Vector2(1.0f, 0.45f);
             sourceOverlayRect.offsetMin = Vector2.zero;
             sourceOverlayRect.offsetMax = Vector2.zero;
             portrait.SourceOverlay = sourceOverlayObj.AddComponent<Image>();
@@ -2688,6 +2697,7 @@ namespace BuffIt2TheLimit {
         public Image Overlay;
         public Image FullOverlay;
         public Image SourceOverlay;
+        public Image SourceOverlayBg;
         public bool State = false;
 
         public void ExpandOff() {
@@ -3094,6 +3104,7 @@ namespace BuffIt2TheLimit {
                     if (casterPortraits[i].SourceOverlay != null) {
                         if (who.SourceType == BuffSourceType.Spell) {
                             casterPortraits[i].SourceOverlay.gameObject.SetActive(false);
+                            casterPortraits[i].SourceOverlayBg?.gameObject.SetActive(false);
                         } else {
                             var overlaySprite = who.SourceType switch {
                                 BuffSourceType.Scroll => GlobalBubbleBuffer.scrollOverlayIcon,
@@ -3104,8 +3115,10 @@ namespace BuffIt2TheLimit {
                             if (overlaySprite != null) {
                                 casterPortraits[i].SourceOverlay.sprite = overlaySprite;
                                 casterPortraits[i].SourceOverlay.gameObject.SetActive(true);
+                                casterPortraits[i].SourceOverlayBg?.gameObject.SetActive(true);
                             } else {
                                 casterPortraits[i].SourceOverlay.gameObject.SetActive(false);
+                                casterPortraits[i].SourceOverlayBg?.gameObject.SetActive(false);
                             }
                         }
                     }
