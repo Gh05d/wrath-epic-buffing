@@ -3151,9 +3151,13 @@ namespace BuffIt2TheLimit {
             casterPortraitMap = distinctCasters.ToArray();
 
             bool isSelfOnly = distinctCasters.Count == 0 && buff.CasterQueue.Count > 0;
-            Main.Log($"[SelfOnly] {buff.Name}: distinctCasters={distinctCasters.Count} casterQueue={buff.CasterQueue.Count} isSelfOnly={isSelfOnly}");
+            Main.Log($"[SelfOnly] {buff.Name}: distinctCasters={distinctCasters.Count} casterQueue={buff.CasterQueue.Count} isSelfOnly={isSelfOnly} labelNull={selfCastInfoLabel == null}");
             castersHolder.SetActive(!isSelfOnly);
-            selfCastInfoLabel?.gameObject.SetActive(isSelfOnly);
+            if (selfCastInfoLabel != null) {
+                selfCastInfoLabel.gameObject.SetActive(isSelfOnly);
+                if (isSelfOnly)
+                    Main.Log($"[SelfOnly] Showing label, active={selfCastInfoLabel.gameObject.activeSelf} parentActive={selfCastInfoLabel.gameObject.transform.parent?.gameObject.activeSelf}");
+            }
 
             for (int i = 0; i < casterPortraits.Length; i++) {
                 casterPortraits[i].GameObject.SetActive(i < distinctCasters.Count);
