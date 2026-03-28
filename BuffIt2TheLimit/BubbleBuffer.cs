@@ -1630,10 +1630,12 @@ namespace BuffIt2TheLimit {
             selfCastInfoRect.FillParent();
             view.selfCastInfoLabel = selfCastInfoObj.AddComponent<TextMeshProUGUI>();
             view.selfCastInfoLabel.text = "tooltip.source.selfonly".i8();
-            view.selfCastInfoLabel.fontSize = 18;
+            view.selfCastInfoLabel.fontSize = 36;
             view.selfCastInfoLabel.alignment = TextAlignmentOptions.Center;
             view.selfCastInfoLabel.color = Color.white;
             view.selfCastInfoLabel.fontStyle = FontStyles.Italic;
+            view.selfCastInfoLabel.outlineWidth = 0.3f;
+            view.selfCastInfoLabel.outlineColor = Color.black;
             selfCastInfoObj.SetActive(false);
             selfCastInfoObj.transform.SetAsLastSibling();
 
