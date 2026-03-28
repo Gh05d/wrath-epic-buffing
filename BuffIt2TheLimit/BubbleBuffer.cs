@@ -411,7 +411,7 @@ namespace BuffIt2TheLimit {
             if (createLabel) {
                 var labelPrefab = UIHelpers.SpellbookScreen.Find("MainContainer/MemorizingPanelContainer/MemorizingPanel/SubstituteContainer/Label").gameObject;
                 var label = GameObject.Instantiate(labelPrefab, pRect);
-                label.Rect().SetAnchor(0.5, 0.5, -.15, -.15);
+                label.Rect().SetAnchor(0.5, 0.5, -.25, -.25);
                 label.Rect().sizeDelta = new Vector2(width, 1);
                 label.SetActive(true);
                 portrait.Text = label.GetComponentInChildren<TextMeshProUGUI>();
@@ -1630,10 +1630,12 @@ namespace BuffIt2TheLimit {
             selfCastInfoRect.FillParent();
             view.selfCastInfoLabel = selfCastInfoObj.AddComponent<TextMeshProUGUI>();
             view.selfCastInfoLabel.text = "tooltip.source.selfonly".i8();
-            view.selfCastInfoLabel.fontSize = 16;
+            view.selfCastInfoLabel.fontSize = 18;
             view.selfCastInfoLabel.alignment = TextAlignmentOptions.Center;
-            view.selfCastInfoLabel.color = new Color(0.8f, 0.8f, 0.6f, 1f);
+            view.selfCastInfoLabel.color = Color.white;
+            view.selfCastInfoLabel.fontStyle = FontStyles.Italic;
             selfCastInfoObj.SetActive(false);
+            selfCastInfoObj.transform.SetAsLastSibling();
 
             for (int i = 0; i < totalCasters; i++) {
                 var portrait = CreatePortrait(groupHeight, castersRect, true, true, view.casterPortraits, casterPopout);
@@ -3151,13 +3153,8 @@ namespace BuffIt2TheLimit {
             casterPortraitMap = distinctCasters.ToArray();
 
             bool isSelfOnly = distinctCasters.Count == 0 && buff.CasterQueue.Count > 0;
-            Main.Log($"[SelfOnly] {buff.Name}: distinctCasters={distinctCasters.Count} casterQueue={buff.CasterQueue.Count} isSelfOnly={isSelfOnly} labelNull={selfCastInfoLabel == null}");
             castersHolder.SetActive(!isSelfOnly);
-            if (selfCastInfoLabel != null) {
-                selfCastInfoLabel.gameObject.SetActive(isSelfOnly);
-                if (isSelfOnly)
-                    Main.Log($"[SelfOnly] Showing label, active={selfCastInfoLabel.gameObject.activeSelf} parentActive={selfCastInfoLabel.gameObject.transform.parent?.gameObject.activeSelf}");
-            }
+            selfCastInfoLabel?.gameObject.SetActive(isSelfOnly);
 
             for (int i = 0; i < casterPortraits.Length; i++) {
                 casterPortraits[i].GameObject.SetActive(i < distinctCasters.Count);
@@ -3176,7 +3173,6 @@ namespace BuffIt2TheLimit {
                             _ => null
                         };
                         if (abbr != null) {
-                            Main.Log($"[CasterSummary] {who.who.CharacterName}/{buff.Name}: {abbr} credits={p.AvailableCredits} spent={p.spent} banned={p.Banned} clamp={p.clamp} selfCastOnly={p.SelfCastOnly}");
                             summaryParts.Add(p.AvailableCredits < 100 ? $"{abbr}:{p.AvailableCredits}" : abbr);
                         }
                     }
@@ -3214,7 +3210,7 @@ namespace BuffIt2TheLimit {
                             new TooltipTemplateSimple(who.who.CharacterName, tooltipBody),
                             new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
                     }
-                    casterPortraits[i].Text.fontSize = 12;
+                    casterPortraits[i].Text.fontSize = 14;
                     casterPortraits[i].Text.lineSpacing = 4;
                     casterPortraits[i].Text.outlineWidth = 0;
                     casterPortraits[i].Image.color = who.Banned ? Color.red : Color.white;
