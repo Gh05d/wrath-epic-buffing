@@ -104,5 +104,6 @@
   "tooltip.source.equipment": "Equipment — {0}",
   "tooltip.source.charges": "{0} Ladungen verbleibend",
   "tooltip.source.stacks": "{0} verbleibend",
-  "tooltip.source.umd": "Benötigt Use Magic Device (DC {0})"
+  "tooltip.source.umd": "Benötigt Use Magic Device (DC {0})",
+  "tooltip.source.selfonly": "Nur Self-Cast"
 }

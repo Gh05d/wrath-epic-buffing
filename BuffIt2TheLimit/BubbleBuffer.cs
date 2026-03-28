@@ -1609,7 +1609,7 @@ namespace BuffIt2TheLimit {
 
             const float groupHeight = 90f;
             var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", castersSection.transform);
-            castersHolder = groupHolder;
+            view.castersHolder = groupHolder;
             castersRect.SetParent(castersSection.transform, false);
             groupHolder.MakeComponent<ContentSizeFitter>(f => {
                 f.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -1625,6 +1625,15 @@ namespace BuffIt2TheLimit {
             horizontalGroup.childControlHeight = true;
             horizontalGroup.childForceExpandHeight = false;
             horizontalGroup.childAlignment = TextAnchor.MiddleCenter;
+
+            var (selfCastInfoObj, selfCastInfoRect) = UIHelpers.Create("SelfCastInfo", castersSection.transform);
+            selfCastInfoRect.FillParent();
+            view.selfCastInfoLabel = selfCastInfoObj.AddComponent<TextMeshProUGUI>();
+            view.selfCastInfoLabel.text = "tooltip.source.selfonly".i8();
+            view.selfCastInfoLabel.fontSize = 16;
+            view.selfCastInfoLabel.alignment = TextAlignmentOptions.Center;
+            view.selfCastInfoLabel.color = new Color(0.8f, 0.8f, 0.6f, 1f);
+            selfCastInfoObj.SetActive(false);
 
             for (int i = 0; i < totalCasters; i++) {
                 var portrait = CreatePortrait(groupHeight, castersRect, true, true, view.casterPortraits, casterPopout);
@@ -1920,7 +1929,7 @@ namespace BuffIt2TheLimit {
         private void OnDestroy() {
         }
 
-        private GameObject castersHolder;
+
 
 
 
@@ -2848,6 +2857,8 @@ namespace BuffIt2TheLimit {
         private BufferState state;
         public Portrait[] casterPortraits;
         public int[] casterPortraitMap;
+        public GameObject castersHolder;
+        public TextMeshProUGUI selfCastInfoLabel;
 
         public GameObject listPrefab;
         public Transform content;
@@ -3139,6 +3150,10 @@ namespace BuffIt2TheLimit {
 
             casterPortraitMap = distinctCasters.ToArray();
 
+            bool isSelfOnly = distinctCasters.Count == 0 && buff.CasterQueue.Count > 0;
+            castersHolder.SetActive(!isSelfOnly);
+            selfCastInfoLabel?.gameObject.SetActive(isSelfOnly);
+
             for (int i = 0; i < casterPortraits.Length; i++) {
                 casterPortraits[i].GameObject.SetActive(i < distinctCasters.Count);
                 if (i < distinctCasters.Count) {
@@ -3155,8 +3170,10 @@ namespace BuffIt2TheLimit {
                             BuffSourceType.Equipment => "Eq",
                             _ => null
                         };
-                        if (abbr != null)
+                        if (abbr != null) {
+                            Main.Verbose($"[CasterSummary] {who.who.CharacterName}/{buff.Name}: {abbr} credits={p.AvailableCredits} spent={p.spent} banned={p.Banned} clamp={p.clamp}", "ui");
                             summaryParts.Add(p.AvailableCredits < 100 ? $"{abbr}:{p.AvailableCredits}" : abbr);
+                        }
                     }
                     casterPortraits[i].Text.text = string.Join("\n", summaryParts);
                     if (casterPortraits[i].SourceOverlay != null) {

@@ -112,5 +112,6 @@
   "tooltip.source.equipment": "Equipment — {0}",
   "tooltip.source.charges": "{0} charges remaining",
   "tooltip.source.stacks": "{0} remaining",
-  "tooltip.source.umd": "Requires Use Magic Device (DC {0})"
+  "tooltip.source.umd": "Requires Use Magic Device (DC {0})",
+  "tooltip.source.selfonly": "Self-cast only"
 }
