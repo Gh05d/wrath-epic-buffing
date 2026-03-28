@@ -3069,6 +3069,47 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        private string BuildCasterTooltip(BuffProvider provider) {
+            var lines = new List<string>();
+
+            switch (provider.SourceType) {
+                case BuffSourceType.Spell:
+                    var spellLevel = provider.spell?.SpellLevel ?? 0;
+                    var bookName = provider.book?.Blueprint.Name ?? "";
+                    lines.Add(string.Format("tooltip.source.spell".i8(), bookName, spellLevel));
+                    if (provider.AvailableCredits < 100)
+                        lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
+                    break;
+                case BuffSourceType.Scroll:
+                    var scrollName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
+                    lines.Add(string.Format("tooltip.source.scroll".i8(), scrollName));
+                    lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
+                    break;
+                case BuffSourceType.Potion:
+                    var potionName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
+                    lines.Add(string.Format("tooltip.source.potion".i8(), potionName));
+                    lines.Add(string.Format("tooltip.source.stacks".i8(), provider.AvailableCredits));
+                    break;
+                case BuffSourceType.Equipment:
+                    var equipName = provider.SourceItem?.Blueprint.Name ?? provider.spell?.Blueprint.Name ?? "";
+                    lines.Add(string.Format("tooltip.source.equipment".i8(), equipName));
+                    lines.Add(string.Format("tooltip.source.charges".i8(), provider.AvailableCredits));
+                    break;
+            }
+
+            // UMD hint for scroll/wand sources not on class spell list
+            if (provider.SourceType == BuffSourceType.Scroll || provider.SourceType == BuffSourceType.Equipment) {
+                bool onClassList = provider.who.Spellbooks.Any(b =>
+                    b.Blueprint.SpellList?.SpellsByLevel?.Any(level =>
+                        level.Spells.Any(s => s == provider.spell?.Blueprint)) == true);
+                if (!onClassList) {
+                    lines.Add(string.Format("tooltip.source.umd".i8(), provider.ScrollDC));
+                }
+            }
+
+            return string.Join("\n", lines);
+        }
+
         private void UpdateCasterDetails(BubbleBuff buff) {
             var seen = new HashSet<string>();
             var distinctCasters = new List<int>();
@@ -3121,6 +3162,18 @@ namespace BuffIt2TheLimit {
                                 casterPortraits[i].SourceOverlayBg?.gameObject.SetActive(false);
                             }
                         }
+                    }
+                    // Bind hover tooltip
+                    if (who.SourceType == BuffSourceType.Song && buff.ActivatableSource != null) {
+                        var songTooltip = new Kingmaker.UI.MVVM._VM.Tooltip.Templates.TooltipTemplateActivatableAbility(buff.ActivatableSource);
+                        casterPortraits[i].Button.SetTooltip(songTooltip, new TooltipConfig {
+                            InfoCallPCMethod = InfoCallPCMethod.None
+                        });
+                    } else {
+                        var tooltipBody = BuildCasterTooltip(who);
+                        casterPortraits[i].Button.SetTooltip(
+                            new TooltipTemplateSimple(who.who.CharacterName, tooltipBody),
+                            new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
                     }
                     casterPortraits[i].Text.fontSize = 12;
                     casterPortraits[i].Text.outlineWidth = 0;
