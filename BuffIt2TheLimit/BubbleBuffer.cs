@@ -280,6 +280,9 @@ namespace BuffIt2TheLimit {
             rect.localRotation = Quaternion.identity;
             var group = Root.AddComponent<CanvasGroup>();
             var fader = Root.AddComponent<FadeAnimator>();
+
+            // Ensure toggle button renders above the buff window frame
+            parent.transform.SetAsLastSibling();
         }
 
         internal void Hide() {
@@ -317,6 +320,7 @@ namespace BuffIt2TheLimit {
                 MainContainer.SetActive(false);
                 NoSpellbooksContainer.SetActive(false);
                 ShowBuffWindow();
+                ToggleButton.GetComponentInChildren<TextMeshProUGUI>().text = "buffexit".i8();
             } else {
                 Hide();
                 if (WasMainShown) {
@@ -326,6 +330,7 @@ namespace BuffIt2TheLimit {
                     FadeIn(NoSpellbooksContainer);
                     NoSpellbooksContainer.SetActive(true);
                 }
+                ToggleButton.GetComponentInChildren<TextMeshProUGUI>().text = "buffsetup".i8();
             }
         }
 
