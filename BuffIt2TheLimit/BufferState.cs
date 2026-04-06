@@ -402,7 +402,7 @@ namespace BuffIt2TheLimit {
 
         internal void Recalculate(bool updateUi, BuffGroup? priorityGroup = null) {
             Bubble.RefreshGroup();
-            var group = Bubble.Group;
+            var group = Bubble.ConfigGroup;
             if (InputDirty || GroupIsDirty(group)) {
                 AbilityCache.Revalidate();
                 RecalculateAvailableBuffs(group);

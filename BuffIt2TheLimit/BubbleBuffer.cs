@@ -1949,7 +1949,7 @@ namespace BuffIt2TheLimit {
 
 
         internal void RevalidateSpells() {
-            if (state.GroupIsDirty(Bubble.Group)) {
+            if (state.GroupIsDirty(Bubble.ConfigGroup)) {
                 AbilityCache.Revalidate();
             }
 
@@ -1972,7 +1972,7 @@ namespace BuffIt2TheLimit {
         public static void Revalidate() {
             Main.Verbose("Revalidating Caster Cache");
             CasterCache.Clear();
-            foreach (var u in Bubble.Group) {
+            foreach (var u in Bubble.ConfigGroup) {
                 var entry = new CasterCacheEntry {
                     PowerfulChange = u.Abilities.GetAbility(BubbleBlueprints.PowerfulChange),
                     ShareTransmutation = u.Abilities.GetAbility(BubbleBlueprints.ShareTransmutation),

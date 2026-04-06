@@ -215,8 +215,8 @@ namespace BuffIt2TheLimit {
                 InGroups = new HashSet<BuffGroup> { state.InGroup };
             }
             SourcePriorityOverride = state.SourcePriorityOverride;
-            for (int i = 0; i < Bubble.Group.Count; i++) {
-                UnitEntityData u = Bubble.Group[i];
+            for (int i = 0; i < Bubble.ConfigGroup.Count; i++) {
+                UnitEntityData u = Bubble.ConfigGroup[i];
                 if (state.Wanted.Contains(u.UniqueId))
                     SetUnitWants(u, true);
             }
