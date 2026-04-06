@@ -5,7 +5,7 @@
 		<TargetFramework>net481</TargetFramework>
 		<AssemblyName>BuffIt2TheLimit</AssemblyName>
 		<Description>BuffIt2TheLimit</Description>
-		<Version>1.8.0</Version>
+		<Version>1.8.1</Version>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<LangVersion>latest</LangVersion>
 		<RootNamespace>BuffIt2TheLimit</RootNamespace>
