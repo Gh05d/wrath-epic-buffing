@@ -1389,6 +1389,24 @@ namespace BuffIt2TheLimit {
                 state.Recalculate(true);
             });
 
+            // Reserve toggle button — in the addRemoveRow VLG, below Add/Remove buttons
+            var reserveToggle = GameObject.Instantiate(buttonPrefab, addRemoveRow.transform);
+            reserveToggle.GetComponentInChildren<TextMeshProUGUI>().text = Bubble.ShowReserve ? "reserve.toggle.hide".i8() : "reserve.toggle".i8();
+            var reserveRect = reserveToggle.Rect();
+            reserveRect.anchorMin = Vector2.zero;
+            reserveRect.anchorMax = Vector2.one;
+            reserveRect.pivot = new Vector2(0.5f, 0.5f);
+            reserveRect.offsetMin = Vector2.zero;
+            reserveRect.offsetMax = Vector2.zero;
+            reserveToggle.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                Bubble.ShowReserve = !Bubble.ShowReserve;
+                int childCount = Root.transform.childCount;
+                for (int ci = childCount - 1; ci >= 0; ci--) {
+                    GameObject.DestroyImmediate(Root.transform.GetChild(ci).gameObject);
+                }
+                WindowCreated = false;
+                ShowBuffWindow();
+            });
 
 
 
@@ -1844,28 +1862,6 @@ namespace BuffIt2TheLimit {
         private SearchBar search;
 
         private void MakeGroupHolder(GameObject portraitPrefab, GameObject expandButtonPrefab, GameObject buttonPrefab, Transform content) {
-            // Reserve toggle button
-            var toggleObj = MakeButton(Bubble.ShowReserve ? "reserve.toggle.hide".i8() : "reserve.toggle".i8(), content);
-            var toggleRect = toggleObj.transform as RectTransform;
-            toggleRect.anchorMin = new Vector2(0f, 0f);
-            toggleRect.anchorMax = new Vector2(0.24f, 1f);
-            toggleRect.pivot = new Vector2(0.5f, 0.5f);
-            toggleRect.offsetMin = new Vector2(4, 4);
-            toggleRect.offsetMax = new Vector2(-2, -4);
-            var toggleLayout = toggleObj.AddComponent<LayoutElement>();
-            toggleLayout.ignoreLayout = true;
-            toggleLayout.preferredHeight = 38;
-            toggleLayout.layoutPriority = 3;
-
-            toggleObj.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
-                Bubble.ShowReserve = !Bubble.ShowReserve;
-                foreach (Transform child in Root.transform) {
-                    GameObject.Destroy(child.gameObject);
-                }
-                WindowCreated = false;
-                ShowBuffWindow();
-            });
-
             // ScrollRect viewport
             var scrollObj = new GameObject("PortraitScroll", typeof(RectTransform));
             var scrollRect = scrollObj.GetComponent<RectTransform>();
@@ -3382,10 +3378,8 @@ namespace BuffIt2TheLimit {
                 var config = new List<UnitEntityData>(result);
                 var activeIds = new HashSet<string>(result.Select(u => u.UniqueId));
 
-                foreach (var unit in Game.Instance.Player.AllCharacters) {
+                foreach (var unit in Game.Instance.Player.RemoteCompanions) {
                     if (activeIds.Contains(unit.UniqueId)) continue;
-                    if (unit.IsInGame) continue; // Skip summons/active-scene units
-                    if (unit.Get<UnitPartPet>() != null) continue; // Skip pets (added via master)
 
                     config.Add(unit);
 

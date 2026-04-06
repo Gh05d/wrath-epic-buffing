@@ -48,6 +48,7 @@ namespace BuffIt2TheLimit {
                     UnitEntityData dude = Group[characterIndex];
                     Main.Verbose($"Looking at dude: ${dude.CharacterName}", "state");
                     foreach (var book in dude.Spellbooks) {
+
                         Main.Verbose($"  Looking at spellbook: {book.Blueprint.DisplayName}", "state");
                         foreach (var spell in book.GetCustomSpells(0)) {
                             ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
