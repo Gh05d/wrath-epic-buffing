@@ -1844,29 +1844,78 @@ namespace BuffIt2TheLimit {
         private SearchBar search;
 
         private void MakeGroupHolder(GameObject portraitPrefab, GameObject expandButtonPrefab, GameObject buttonPrefab, Transform content) {
+            // ScrollRect viewport
+            var scrollObj = new GameObject("PortraitScroll", typeof(RectTransform));
+            var scrollRect = scrollObj.GetComponent<RectTransform>();
+            scrollRect.AddTo(content);
+
+            scrollRect.anchorMin = new Vector2(0.25f, 0f);
+            scrollRect.anchorMax = new Vector2(1f, 1f);
+            scrollRect.pivot = new Vector2(0.5f, 0.5f);
+            scrollRect.offsetMin = new Vector2(2, 4);
+            scrollRect.offsetMax = new Vector2(-4, -4);
+
+            var scroll = scrollObj.AddComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
+
+            // Viewport with mask
+            var viewportObj = new GameObject("Viewport", typeof(RectTransform));
+            var viewportRect = viewportObj.GetComponent<RectTransform>();
+            viewportRect.SetParent(scrollRect, false);
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = Vector2.zero;
+            viewportObj.AddComponent<RectMask2D>();
+
+            scroll.viewport = viewportRect;
+
+            // Content container (HorizontalLayoutGroup)
             var groupHolder = new GameObject("GroupHolder", typeof(RectTransform));
             var groupRect = groupHolder.GetComponent<RectTransform>();
-            groupRect.AddTo(content);
+            groupRect.SetParent(viewportRect, false);
+            groupRect.anchorMin = new Vector2(0, 0);
+            groupRect.anchorMax = new Vector2(0, 1);
+            groupRect.pivot = new Vector2(0, 0.5f);
+            groupRect.offsetMin = Vector2.zero;
+            groupRect.offsetMax = Vector2.zero;
 
             const float groupHeight = 100f;
-
-            groupRect.anchorMin = new Vector2(0.25f, 0f);
-            groupRect.anchorMax = new Vector2(1f, 1f);
-            groupRect.pivot = new Vector2(0.5f, 0.5f);
-            groupRect.offsetMin = new Vector2(2, 4);
-            groupRect.offsetMax = new Vector2(-4, -4);
 
             var horizontalGroup = groupHolder.AddComponent<HorizontalLayoutGroup>();
             horizontalGroup.spacing = 6;
             horizontalGroup.childControlHeight = true;
             horizontalGroup.childForceExpandHeight = false;
-            horizontalGroup.childControlWidth = true;
-            horizontalGroup.childForceExpandWidth = true;
-            horizontalGroup.childAlignment = TextAnchor.MiddleCenter;
+            horizontalGroup.childControlWidth = false;
+            horizontalGroup.childForceExpandWidth = false;
+            horizontalGroup.childAlignment = TextAnchor.MiddleLeft;
 
-            view.targets = new Portrait[Bubble.Group.Count];
+            var contentFitter = groupHolder.AddComponent<ContentSizeFitter>();
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            for (int i = 0; i < Bubble.Group.Count; i++) {
+            scroll.content = groupRect;
+
+            view.targets = new Portrait[Bubble.ConfigGroup.Count];
+
+            for (int i = 0; i < Bubble.ConfigGroup.Count; i++) {
+                bool isReserve = i >= Bubble.Group.Count;
+
+                // Add separator before first reserve character
+                if (isReserve && i == Bubble.Group.Count) {
+                    var separator = new GameObject("ReserveSeparator", typeof(RectTransform));
+                    var sepRect = separator.GetComponent<RectTransform>();
+                    sepRect.SetParent(groupRect, false);
+                    var sepImage = separator.AddComponent<Image>();
+                    sepImage.color = new Color(1f, 1f, 1f, 0.3f);
+                    var sepLayout = separator.AddComponent<LayoutElement>();
+                    sepLayout.preferredWidth = 2;
+                    sepLayout.flexibleWidth = 0;
+                }
+
                 Portrait portrait = CreatePortrait(groupHeight, groupRect, false, false);
 
                 portrait.GameObject.SetActive(true);
@@ -1874,12 +1923,20 @@ namespace BuffIt2TheLimit {
                 aspect.aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
                 aspect.aspectRatio = 0.75f;
 
-                portrait.Image.sprite = Bubble.Group[i].Portrait.SmallPortrait;
+                portrait.Image.sprite = Bubble.ConfigGroup[i].Portrait.SmallPortrait;
+
+                // Dim reserve portraits
+                if (isReserve) {
+                    portrait.Image.color = new Color(1f, 1f, 1f, 0.5f);
+                    portrait.Button.SetTooltip(
+                        new TooltipTemplateSimple(Bubble.ConfigGroup[i].CharacterName, "reserve.portrait.tooltip".i8()),
+                        new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
+                }
 
                 int personIndex = i;
 
                 portrait.Button.OnLeftClick.AddListener(() => {
-                    UnitEntityData me = Bubble.Group[personIndex];
+                    UnitEntityData me = Bubble.ConfigGroup[personIndex];
                     var buff = view.Selected;
                     if (buff == null)
                         return;
