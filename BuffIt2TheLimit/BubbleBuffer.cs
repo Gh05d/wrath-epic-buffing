@@ -3271,7 +3271,9 @@ namespace BuffIt2TheLimit {
 
     static class Bubble {
         public static List<UnitEntityData> Group = new();
+        public static List<UnitEntityData> ConfigGroup = new();
         public static Dictionary<string, UnitEntityData> GroupById = new();
+        public static bool ShowReserve = false;
 
         public static void RefreshGroup() {
             var baseGroup = Game.Instance.SelectionCharacter.ActualGroup;
@@ -3294,8 +3296,35 @@ namespace BuffIt2TheLimit {
 
             Group = result;
 
+            if (ShowReserve) {
+                var config = new List<UnitEntityData>(result);
+                var activeIds = new HashSet<string>(result.Select(u => u.UniqueId));
+
+                foreach (var unit in Game.Instance.Player.AllCharacters) {
+                    if (activeIds.Contains(unit.UniqueId)) continue;
+
+                    config.Add(unit);
+
+                    var petMaster = unit.Get<UnitPartPetMaster>();
+                    if (petMaster == null) continue;
+
+                    var pets = new List<UnitEntityData>();
+                    foreach (var petRef in petMaster.Pets) {
+                        var pet = petRef.Entity;
+                        if (pet != null && !activeIds.Contains(pet.UniqueId) && !config.Contains(pet)) {
+                            pets.Add(pet);
+                        }
+                    }
+                    pets.Sort((a, b) => string.Compare(a.UniqueId, b.UniqueId, StringComparison.Ordinal));
+                    config.AddRange(pets);
+                }
+                ConfigGroup = config;
+            } else {
+                ConfigGroup = result;
+            }
+
             GroupById.Clear();
-            foreach (var u in Group) {
+            foreach (var u in ConfigGroup) {
                 GroupById[u.UniqueId] = u;
             }
         }
