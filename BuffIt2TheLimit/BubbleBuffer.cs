@@ -3291,7 +3291,13 @@ namespace BuffIt2TheLimit {
                     casterPortraits[i].Text.fontSize = 14;
                     casterPortraits[i].Text.lineSpacing = 4;
                     casterPortraits[i].Text.outlineWidth = 0;
-                    casterPortraits[i].Image.color = who.Banned ? Color.red : Color.white;
+                    bool isReserveCaster = !Bubble.Group.Any(u => u.UniqueId == who.who.UniqueId);
+                    if (who.Banned)
+                        casterPortraits[i].Image.color = Color.red;
+                    else if (isReserveCaster)
+                        casterPortraits[i].Image.color = new Color(1f, 1f, 1f, 0.5f);
+                    else
+                        casterPortraits[i].Image.color = Color.white;
                 }
             }
             addToAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested != Bubble.ConfigGroup.Count;
@@ -3375,6 +3381,7 @@ namespace BuffIt2TheLimit {
 
                 foreach (var unit in Game.Instance.Player.RemoteCompanions) {
                     if (activeIds.Contains(unit.UniqueId)) continue;
+                    if (unit.Get<UnitPartPet>() != null) continue; // Pets added via master
 
                     config.Add(unit);
 
