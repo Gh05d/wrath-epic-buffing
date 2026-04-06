@@ -1910,6 +1910,9 @@ namespace BuffIt2TheLimit {
             viewportRect.offsetMin = Vector2.zero;
             viewportRect.offsetMax = Vector2.zero;
             viewportObj.AddComponent<RectMask2D>();
+            var viewportImage = viewportObj.AddComponent<Image>();
+            viewportImage.color = Color.clear;
+            viewportImage.raycastTarget = true;
 
             scroll.viewport = viewportRect;
 
@@ -3399,6 +3402,8 @@ namespace BuffIt2TheLimit {
 
                 foreach (var unit in Game.Instance.Player.AllCharacters) {
                     if (activeIds.Contains(unit.UniqueId)) continue;
+                    if (!unit.IsInGame) continue;
+                    if (unit.Get<UnitPartPet>() != null) continue;
 
                     config.Add(unit);
 
