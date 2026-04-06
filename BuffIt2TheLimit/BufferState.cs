@@ -48,6 +48,7 @@ namespace BuffIt2TheLimit {
                     UnitEntityData dude = Group[characterIndex];
                     Main.Verbose($"Looking at dude: ${dude.CharacterName}", "state");
                     foreach (var book in dude.Spellbooks) {
+
                         Main.Verbose($"  Looking at spellbook: {book.Blueprint.DisplayName}", "state");
                         foreach (var spell in book.GetCustomSpells(0)) {
                             ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
@@ -402,7 +403,7 @@ namespace BuffIt2TheLimit {
 
         internal void Recalculate(bool updateUi, BuffGroup? priorityGroup = null) {
             Bubble.RefreshGroup();
-            var group = Bubble.Group;
+            var group = Bubble.ConfigGroup;
             if (InputDirty || GroupIsDirty(group)) {
                 AbilityCache.Revalidate();
                 RecalculateAvailableBuffs(group);
@@ -470,7 +471,7 @@ namespace BuffIt2TheLimit {
                     save.IgnoreForOverwriteCheck = null;
                 }
 
-                foreach (var u in Bubble.Group) {
+                foreach (var u in Bubble.ConfigGroup) {
                     if (buff.UnitWants(u)) {
                         save.Wanted.Add(u.UniqueId);
                     } else if (buff.UnitWantsRemoved(u)) {

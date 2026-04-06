@@ -194,6 +194,33 @@ namespace BuffIt2TheLimit {
         }
     }
 
+    public class EnhanceWeaponEffect : IBeneficialEffect {
+        public readonly HashSet<Guid> Enchantments;
+        public readonly bool SecondaryHand;
+        public readonly bool IsLong;
+
+        public PetType? PetType { get; set; }
+
+        public EnhanceWeaponEffect(EnhanceWeapon action) {
+            Enchantments = new HashSet<Guid>(
+                action.m_Enchantment
+                    .Where(e => e?.Get() != null)
+                    .Select(e => e.Get().AssetGuid.m_Guid)
+            );
+            SecondaryHand = action.UseSecondaryHand;
+            IsLong = action.IsLong();
+        }
+
+        public void AppendTo(AbilityCombinedEffects effect) {
+            foreach (var enchant in Enchantments) {
+                if (SecondaryHand)
+                    effect.AddSecondaryWeaponEnchnant(enchant, IsLong);
+                else
+                    effect.AddPrimaryWeaponEnchant(enchant, IsLong);
+            }
+        }
+    }
+
     public class WeaponEnchantPoolEffect : IBeneficialEffect {
         public readonly HashSet<Guid> DefaultEnchantments;
         public readonly bool SecondaryHand;

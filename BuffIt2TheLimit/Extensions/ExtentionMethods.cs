@@ -81,6 +81,9 @@ namespace BuffIt2TheLimit.Extensions {
         public static bool IsLong(this ContextActionWeaponEnchantPool action) {
             return action.DurationValue?.Rate != DurationRate.Rounds;
         }
+        public static bool IsLong(this EnhanceWeapon action) {
+            return action.DurationValue?.Rate != DurationRate.Rounds;
+        }
 
         public static Guid BGuid(this EntityFact fact) {
             return fact.Blueprint.AssetGuid.m_Guid;
@@ -114,6 +117,9 @@ namespace BuffIt2TheLimit.Extensions {
                 } else if (action is ContextActionWeaponEnchantPool enchantPool) {
                     LogVerbose(level + 1, $"FOUND: enchantPool {action.name}");
                     yield return new WeaponEnchantPoolEffect(enchantPool);
+                } else if (action is EnhanceWeapon enhanceWeapon) {
+                    LogVerbose(level + 1, $"FOUND: enhanceWeapon {action.name}");
+                    yield return new EnhanceWeaponEffect(enhanceWeapon);
                 } else if (action.GetType().Name.Equals("ContextActionApplyBuffRanks")) {
                     // This is from TabletopTweaks-Core. Since it's all reflection don't bother with the full logic,
                     // just add it, treat it as long, and let users hide if they want.

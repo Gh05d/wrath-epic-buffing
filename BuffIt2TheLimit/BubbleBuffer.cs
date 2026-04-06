@@ -535,8 +535,8 @@ namespace BuffIt2TheLimit {
 
             // Calculate totalCasters upfront (needed by MakeDetailsView)
             totalCasters = 0;
-            for (int i = 0; i < Bubble.Group.Count; i++) {
-                totalCasters += Bubble.Group[i].Spellbooks?.Count() ?? 0;
+            for (int i = 0; i < Bubble.ConfigGroup.Count; i++) {
+                totalCasters += Bubble.ConfigGroup[i].Spellbooks?.Count() ?? 0;
             }
 
             MakeDetailsView(portraitPrefab, framePrefab, nextPrefab, prevPrefab, togglePrefab, expandButtonPrefab, rightPanel);
@@ -1369,9 +1369,9 @@ namespace BuffIt2TheLimit {
                 var buff = view.Selected;
                 if (buff == null) return;
 
-                for (int i = 0; i < Bubble.Group.Count && i < view.targets.Length; i++) {
-                    if (view.targets[i].Button.Interactable && !buff.UnitWants(Bubble.Group[i])) {
-                        buff.SetUnitWants(Bubble.Group[i], true);
+                for (int i = 0; i < Bubble.ConfigGroup.Count && i < view.targets.Length; i++) {
+                    if (view.targets[i].Button.Interactable && !buff.UnitWants(Bubble.ConfigGroup[i])) {
+                        buff.SetUnitWants(Bubble.ConfigGroup[i], true);
                     }
                 }
                 state.Recalculate(true);
@@ -1381,14 +1381,34 @@ namespace BuffIt2TheLimit {
                 var buff = view.Selected;
                 if (buff == null) return;
 
-                for (int i = 0; i < Bubble.Group.Count && i < view.targets.Length; i++) {
-                    if (buff.UnitWants(Bubble.Group[i])) {
-                        buff.SetUnitWants(Bubble.Group[i], false);
+                for (int i = 0; i < Bubble.ConfigGroup.Count && i < view.targets.Length; i++) {
+                    if (buff.UnitWants(Bubble.ConfigGroup[i])) {
+                        buff.SetUnitWants(Bubble.ConfigGroup[i], false);
                     }
                 }
                 state.Recalculate(true);
             });
 
+            // Reserve toggle button — in the addRemoveRow VLG, below Add/Remove buttons
+            var reserveToggle = GameObject.Instantiate(buttonPrefab, addRemoveRow.transform);
+            reserveToggle.GetComponentInChildren<TextMeshProUGUI>().text = Bubble.ShowReserve ? "reserve.toggle.hide".i8() : "reserve.toggle".i8();
+            var reserveRect = reserveToggle.Rect();
+            reserveRect.anchorMin = Vector2.zero;
+            reserveRect.anchorMax = Vector2.one;
+            reserveRect.pivot = new Vector2(0.5f, 0.5f);
+            reserveRect.offsetMin = Vector2.zero;
+            reserveRect.offsetMax = Vector2.zero;
+            reserveToggle.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
+                Bubble.ShowReserve = !Bubble.ShowReserve;
+                var prevKey = view.currentSelectedSpell.Value?.Key;
+                view.currentSelectedSpell.Value = null;
+                ShowBuffWindow();
+                if (prevKey.HasValue) {
+                    var match = state.BuffList?.FirstOrDefault(b => b.Key.Equals(prevKey.Value));
+                    if (match != null)
+                        view.currentSelectedSpell.Value = match;
+                }
+            });
 
 
 
@@ -1844,29 +1864,81 @@ namespace BuffIt2TheLimit {
         private SearchBar search;
 
         private void MakeGroupHolder(GameObject portraitPrefab, GameObject expandButtonPrefab, GameObject buttonPrefab, Transform content) {
+            // ScrollRect viewport
+            var scrollObj = new GameObject("PortraitScroll", typeof(RectTransform));
+            var scrollRect = scrollObj.GetComponent<RectTransform>();
+            scrollRect.AddTo(content);
+
+            scrollRect.anchorMin = new Vector2(0.25f, 0f);
+            scrollRect.anchorMax = new Vector2(1f, 1f);
+            scrollRect.pivot = new Vector2(0.5f, 0.5f);
+            scrollRect.offsetMin = new Vector2(2, 4);
+            scrollRect.offsetMax = new Vector2(-4, -4);
+
+            var scroll = scrollObj.AddComponent<ScrollRect>();
+            scroll.horizontal = true;
+            scroll.vertical = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 30f;
+
+            // Viewport with mask
+            var viewportObj = new GameObject("Viewport", typeof(RectTransform));
+            var viewportRect = viewportObj.GetComponent<RectTransform>();
+            viewportRect.SetParent(scrollRect, false);
+            viewportRect.anchorMin = Vector2.zero;
+            viewportRect.anchorMax = Vector2.one;
+            viewportRect.offsetMin = Vector2.zero;
+            viewportRect.offsetMax = Vector2.zero;
+            viewportObj.AddComponent<RectMask2D>();
+            var viewportImage = viewportObj.AddComponent<Image>();
+            viewportImage.color = Color.clear;
+            viewportImage.raycastTarget = true;
+
+            scroll.viewport = viewportRect;
+
+            // Content container (HorizontalLayoutGroup)
             var groupHolder = new GameObject("GroupHolder", typeof(RectTransform));
             var groupRect = groupHolder.GetComponent<RectTransform>();
-            groupRect.AddTo(content);
+            groupRect.SetParent(viewportRect, false);
+            groupRect.anchorMin = new Vector2(0, 0);
+            groupRect.anchorMax = new Vector2(0, 1);
+            groupRect.pivot = new Vector2(0, 0.5f);
+            groupRect.offsetMin = Vector2.zero;
+            groupRect.offsetMax = Vector2.zero;
 
             const float groupHeight = 100f;
-
-            groupRect.anchorMin = new Vector2(0.25f, 0f);
-            groupRect.anchorMax = new Vector2(1f, 1f);
-            groupRect.pivot = new Vector2(0.5f, 0.5f);
-            groupRect.offsetMin = new Vector2(2, 4);
-            groupRect.offsetMax = new Vector2(-4, -4);
 
             var horizontalGroup = groupHolder.AddComponent<HorizontalLayoutGroup>();
             horizontalGroup.spacing = 6;
             horizontalGroup.childControlHeight = true;
             horizontalGroup.childForceExpandHeight = false;
-            horizontalGroup.childControlWidth = true;
-            horizontalGroup.childForceExpandWidth = true;
-            horizontalGroup.childAlignment = TextAnchor.MiddleCenter;
+            horizontalGroup.childControlWidth = false;
+            horizontalGroup.childForceExpandWidth = false;
+            horizontalGroup.childAlignment = TextAnchor.MiddleLeft;
 
-            view.targets = new Portrait[Bubble.Group.Count];
+            var contentFitter = groupHolder.AddComponent<ContentSizeFitter>();
+            contentFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            contentFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
-            for (int i = 0; i < Bubble.Group.Count; i++) {
+            scroll.content = groupRect;
+
+            view.targets = new Portrait[Bubble.ConfigGroup.Count];
+
+            for (int i = 0; i < Bubble.ConfigGroup.Count; i++) {
+                bool isReserve = i >= Bubble.Group.Count;
+
+                // Add separator before first reserve character
+                if (isReserve && i == Bubble.Group.Count) {
+                    var separator = new GameObject("ReserveSeparator", typeof(RectTransform));
+                    var sepRect = separator.GetComponent<RectTransform>();
+                    sepRect.SetParent(groupRect, false);
+                    var sepImage = separator.AddComponent<Image>();
+                    sepImage.color = new Color(1f, 1f, 1f, 0.3f);
+                    var sepLayout = separator.AddComponent<LayoutElement>();
+                    sepLayout.preferredWidth = 2;
+                    sepLayout.flexibleWidth = 0;
+                }
+
                 Portrait portrait = CreatePortrait(groupHeight, groupRect, false, false);
 
                 portrait.GameObject.SetActive(true);
@@ -1874,12 +1946,20 @@ namespace BuffIt2TheLimit {
                 aspect.aspectMode = AspectRatioFitter.AspectMode.HeightControlsWidth;
                 aspect.aspectRatio = 0.75f;
 
-                portrait.Image.sprite = Bubble.Group[i].Portrait.SmallPortrait;
+                portrait.Image.sprite = Bubble.ConfigGroup[i].Portrait.SmallPortrait;
+
+                // Dim reserve portraits
+                if (isReserve) {
+                    portrait.Image.color = new Color(1f, 1f, 1f, 0.5f);
+                    portrait.Button.SetTooltip(
+                        new TooltipTemplateSimple(Bubble.ConfigGroup[i].CharacterName, "reserve.portrait.tooltip".i8()),
+                        new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
+                }
 
                 int personIndex = i;
 
                 portrait.Button.OnLeftClick.AddListener(() => {
-                    UnitEntityData me = Bubble.Group[personIndex];
+                    UnitEntityData me = Bubble.ConfigGroup[personIndex];
                     var buff = view.Selected;
                     if (buff == null)
                         return;
@@ -1907,7 +1987,7 @@ namespace BuffIt2TheLimit {
         private void ShowBuffWindow() {
             Bubble.RefreshGroup();
 
-            if (WindowCreated && view.targets.Length != Bubble.Group.Count) {
+            if (WindowCreated && view.targets.Length != Bubble.ConfigGroup.Count) {
                 Main.Verbose("Group size changed, rebuilding window");
                 foreach (Transform child in Root.transform) {
                     GameObject.Destroy(child.gameObject);
@@ -1949,7 +2029,7 @@ namespace BuffIt2TheLimit {
 
 
         internal void RevalidateSpells() {
-            if (state.GroupIsDirty(Bubble.Group)) {
+            if (state.GroupIsDirty(Bubble.ConfigGroup)) {
                 AbilityCache.Revalidate();
             }
 
@@ -1972,7 +2052,7 @@ namespace BuffIt2TheLimit {
         public static void Revalidate() {
             Main.Verbose("Revalidating Caster Cache");
             CasterCache.Clear();
-            foreach (var u in Bubble.Group) {
+            foreach (var u in Bubble.ConfigGroup) {
                 var entry = new CasterCacheEntry {
                     PowerfulChange = u.Abilities.GetAbility(BubbleBlueprints.PowerfulChange),
                     ShareTransmutation = u.Abilities.GetAbility(BubbleBlueprints.ShareTransmutation),
@@ -2881,7 +2961,7 @@ namespace BuffIt2TheLimit {
         private static GameObject BigLabelPrefab => UIHelpers.CharacterScreen.Find("NamePortrait/CharName/CharacterName").gameObject;
 
         public void ReorderTargetPortraits() {
-            var group = Bubble.Group;
+            var group = Bubble.ConfigGroup;
             for (int i = 0; i < group.Count && i < targets.Length; i++) {
                 targets[i].Image.sprite = group[i].Portrait.SmallPortrait;
             }
@@ -3038,7 +3118,7 @@ namespace BuffIt2TheLimit {
             if (buff == null && currentSelectedSpell.Value != null)
                 buff = Selected;
 
-            for (int p = 0; p < Bubble.Group.Count && p < targets.Length; p++)
+            for (int p = 0; p < Bubble.ConfigGroup.Count && p < targets.Length; p++)
                 UpdateTargetBuffColor(buff, p);
         }
 
@@ -3058,7 +3138,7 @@ namespace BuffIt2TheLimit {
                     massGood = true;
             }
 
-            var me = Bubble.Group[i];
+            var me = Bubble.ConfigGroup[i];
 
 
             if (isMass && !buff.UnitWants(me)) {
@@ -3218,10 +3298,16 @@ namespace BuffIt2TheLimit {
                     casterPortraits[i].Text.fontSize = 14;
                     casterPortraits[i].Text.lineSpacing = 4;
                     casterPortraits[i].Text.outlineWidth = 0;
-                    casterPortraits[i].Image.color = who.Banned ? Color.red : Color.white;
+                    bool isReserveCaster = !Bubble.Group.Any(u => u.UniqueId == who.who.UniqueId);
+                    if (who.Banned)
+                        casterPortraits[i].Image.color = Color.red;
+                    else if (isReserveCaster)
+                        casterPortraits[i].Image.color = new Color(1f, 1f, 1f, 0.5f);
+                    else
+                        casterPortraits[i].Image.color = Color.white;
                 }
             }
-            addToAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested != Bubble.Group.Count;
+            addToAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested != Bubble.ConfigGroup.Count;
             removeFromAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested > 0;
         }
 
@@ -3271,7 +3357,9 @@ namespace BuffIt2TheLimit {
 
     static class Bubble {
         public static List<UnitEntityData> Group = new();
+        public static List<UnitEntityData> ConfigGroup = new();
         public static Dictionary<string, UnitEntityData> GroupById = new();
+        public static bool ShowReserve = false;
 
         public static void RefreshGroup() {
             var baseGroup = Game.Instance.SelectionCharacter.ActualGroup;
@@ -3294,8 +3382,36 @@ namespace BuffIt2TheLimit {
 
             Group = result;
 
+            if (ShowReserve) {
+                var config = new List<UnitEntityData>(result);
+                var activeIds = new HashSet<string>(result.Select(u => u.UniqueId));
+
+                foreach (var unit in Game.Instance.Player.RemoteCompanions) {
+                    if (activeIds.Contains(unit.UniqueId)) continue;
+                    if (unit.Get<UnitPartPet>() != null) continue; // Pets added via master
+
+                    config.Add(unit);
+
+                    var petMaster = unit.Get<UnitPartPetMaster>();
+                    if (petMaster == null) continue;
+
+                    var pets = new List<UnitEntityData>();
+                    foreach (var petRef in petMaster.Pets) {
+                        var pet = petRef.Entity;
+                        if (pet != null && !activeIds.Contains(pet.UniqueId) && !config.Contains(pet)) {
+                            pets.Add(pet);
+                        }
+                    }
+                    pets.Sort((a, b) => string.Compare(a.UniqueId, b.UniqueId, StringComparison.Ordinal));
+                    config.AddRange(pets);
+                }
+                ConfigGroup = config;
+            } else {
+                ConfigGroup = result;
+            }
+
             GroupById.Clear();
-            foreach (var u in Group) {
+            foreach (var u in ConfigGroup) {
                 GroupById[u.UniqueId] = u;
             }
         }

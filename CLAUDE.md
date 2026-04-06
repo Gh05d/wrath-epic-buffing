@@ -74,6 +74,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **Nexus Mods upload**: Automated via GitHub Action (`.github/workflows/nexus-upload.yml`) on release publish. No manual upload needed. The `/release` skill handles the full flow.
 - **Nexus Mods changelogs**: Use plain text, not BBCode — the release/change notes field is a simple table.
 - **Nexus Mods description**: Uses BBCode formatting (`[b]`, `[size]`, `[url]`), not Markdown.
+- **Nexus Mods version display**: The mod-page version is a separate field NOT updated by file uploads. Must be updated manually on the Nexus Edit page after each release. Tracked in [Nexus-Mods/upload-action#11](https://github.com/Nexus-Mods/upload-action/issues/11).
 - **`BuffProvider.SelfCastOnly` is a computed property** (not a settable field): Returns `true` for `SourceType == Potion` or `spell.TargetAnchor == Owner`. To change self-only logic, modify the property getter in `BubbleBuff.cs`, don't try to set it.
 - **Caster portrait index ≠ CasterQueue index**: `BufferView.casterPortraitMap` maps portrait indices to CasterQueue indices after deduplication. Always use the map when translating portrait clicks to CasterQueue entries.
 - **`BubbleBuff.SavedState` is never assigned**: The `SavedState` field on `BubbleBuff` is always null at runtime. The save system reads/writes via `BufferState.Save()` which copies from `buff.UseSpells`/etc fields directly. UI code must read from `buff.UseSpells`, NOT `buff.SavedState?.UseSpells` (which always falls back to default). Toggle handlers should write to `buff.UseSpells` directly.
@@ -84,6 +85,12 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`UnitUseAbility.CreateCastCommand` rejects synthetic AbilityData**: Equipment/scroll/potion items use `new AbilityData(blueprint, caster)` which isn't in the caster's ability list. The game's command system silently rejects it. `AnimatedExecutionEngine` falls back to `Rulebook.Trigger` for non-spell CastTasks. `InstantExecutionEngine` always uses `Rulebook.Trigger` so it works for all source types.
 - **Verify deploys by comparing DLL timestamps**: After `./deploy.sh`, compare local `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` vs `ssh deck-direct "ls -la '<game-path>/Mods/BuffIt2TheLimit/BuffIt2TheLimit.dll'"`. File size and date must match. Game must be restarted to load the new DLL.
 - **Debug Unity UI positions with `GetWorldCorners()`**: When UI elements appear mispositioned, add `Main.Log` calls with `RectTransform.GetWorldCorners()` to compare actual pixel positions at runtime. Anchor math from code is error-prone — verify empirically via Player.log.
+- **`Game.Instance.Player.RemoteCompanions`** is the correct API for benched-but-available companions. `AllCharacters` includes dead, ex-companions, and summons. `RemoteCompanions` includes pets — filter with `unit.Get<UnitPartPet>() != null`.
+- **`IsInGame` semantics**: `False` = benched/remote companion (not in scene), `True` = in scene (active party + summons). Counterintuitive — benched companions are NOT "in game".
+- **`spell.CanTarget()` rejects out-of-scene units**: The game's ability targeting system requires targets to be in the current scene. For config-only targeting (reserve companions), bypass this check.
+- **Don't destroy UI elements during their click callbacks**: `GameObject.Destroy` (deferred) and `DestroyImmediate` both corrupt Unity's EventSystem mid-click. Let `ShowBuffWindow` handle rebuilds via its size-mismatch detection instead.
+- **`OwlcatButton` via `AddComponent` doesn't render**: Needs internal layer structure. Use `MakeButton()` with `buttonPrefab` (static field set in `CreateWindow`) for game-styled buttons.
+- **ScrollRect needs raycast target for wheel events**: Add transparent `Image` with `raycastTarget = true` to the Viewport. Without it, only drag-scroll works.
 
 ## Debug Keybinds (DEBUG builds only)
 

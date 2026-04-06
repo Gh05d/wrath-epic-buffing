@@ -215,8 +215,8 @@ namespace BuffIt2TheLimit {
                 InGroups = new HashSet<BuffGroup> { state.InGroup };
             }
             SourcePriorityOverride = state.SourcePriorityOverride;
-            for (int i = 0; i < Bubble.Group.Count; i++) {
-                UnitEntityData u = Bubble.Group[i];
+            for (int i = 0; i < Bubble.ConfigGroup.Count; i++) {
+                UnitEntityData u = Bubble.ConfigGroup[i];
                 if (state.Wanted.Contains(u.UniqueId))
                     SetUnitWants(u, true);
             }
@@ -294,10 +294,17 @@ namespace BuffIt2TheLimit {
                 ValidateMass();
                 return;
             }
+            var activePartyIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
+
             foreach (var target in wanted) {
+                // Skip reserve characters — can't buff someone not in the active party
+                if (!activePartyIds.Contains(target)) continue;
 
                 for (int n = 0; n < CasterQueue.Count; n++) {
                     var caster = CasterQueue[n];
+
+                    // Skip reserve casters — can't cast if not in the active party
+                    if (!activePartyIds.Contains(caster.who.UniqueId)) continue;
 
                     // Skip disabled source types
                     if (caster.SourceType == BuffSourceType.Spell && !UseSpells) continue;
@@ -341,6 +348,8 @@ namespace BuffIt2TheLimit {
         private void ValidateMass() {
             if (wanted.Count == 0) return;
 
+            var activePartyIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
+
             // Azata Zippy Magic is disabled for IsMass spells in EngineCastingHandler,
             // so no Zippy credit adjustment needed here.
 
@@ -348,6 +357,9 @@ namespace BuffIt2TheLimit {
             // All wanted targets are marked as given since the spell affects everyone.
             for (int n = 0; n < CasterQueue.Count; n++) {
                 var caster = CasterQueue[n];
+
+                // Skip reserve casters — can't cast if not in the active party
+                if (!activePartyIds.Contains(caster.who.UniqueId)) continue;
 
                 // Skip disabled source types
                 if (caster.SourceType == BuffSourceType.Spell && !UseSpells) continue;
@@ -362,6 +374,7 @@ namespace BuffIt2TheLimit {
                 // Find a wanted target this caster can reach (game distributes to all allies)
                 string validTarget = null;
                 foreach (var t in wanted) {
+                    if (!activePartyIds.Contains(t)) continue; // Skip reserve targets
                     if (caster.CanTarget(t)) {
                         validTarget = t;
                         break;
@@ -376,9 +389,11 @@ namespace BuffIt2TheLimit {
                     ActualCastQueue = new();
                 ActualCastQueue.Add((validTarget, caster));
 
-                // Mark all wanted targets as given — the spell affects everyone
-                foreach (var target in wanted)
-                    given.Add(target);
+                // Mark all wanted targets in the active party as given
+                foreach (var target in wanted) {
+                    if (activePartyIds.Contains(target))
+                        given.Add(target);
+                }
 
                 return;
             }
@@ -443,7 +458,13 @@ namespace BuffIt2TheLimit {
                 : globalPriority;
             var sourceOrder = GetSourceOrder(effectivePriority);
 
+            var activeIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
             CasterQueue.Sort((a, b) => {
+                // Active party first, reserve last
+                bool aActive = activeIds.Contains(a.who.UniqueId);
+                bool bActive = activeIds.Contains(b.who.UniqueId);
+                if (aActive != bActive) return aActive ? -1 : 1;
+
                 int aSourceWeight = sourceOrder[(int)a.SourceType];
                 int bSourceWeight = sourceOrder[(int)b.SourceType];
                 if (aSourceWeight != bSourceWeight)
@@ -581,6 +602,12 @@ namespace BuffIt2TheLimit {
 
             if (ArchmageArmor)
                 return targetId == who.UniqueId;
+
+            // Reserve targets: skip game's spell.CanTarget (rejects out-of-scene units)
+            // but still respect self-cast-only restrictions
+            if (!Bubble.Group.Any(u => u.UniqueId == targetId)) {
+                return !SelfCastOnly || targetId == who.UniqueId;
+            }
 
             using (new ForceShareTransmutation(this)) {
                 if (!spell.CanTarget(new TargetWrapper(Bubble.GroupById[targetId])))

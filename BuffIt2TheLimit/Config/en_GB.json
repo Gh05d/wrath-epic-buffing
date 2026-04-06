@@ -114,5 +114,9 @@
   "tooltip.source.charges": "{0} charges remaining",
   "tooltip.source.stacks": "{0} remaining",
   "tooltip.source.umd": "Requires Use Magic Device (DC {0})",
-  "tooltip.source.selfonly": "Self-cast only"
+  "tooltip.source.selfonly": "Self-cast only",
+  "reserve.toggle": "Show Reserve",
+  "reserve.toggle.hide": "Hide Reserve",
+  "reserve.toggle.tooltip": "Show all recruited companions, including those not in the active party",
+  "reserve.portrait.tooltip": "Not in active party"
 }
