@@ -1845,38 +1845,20 @@ namespace BuffIt2TheLimit {
 
         private void MakeGroupHolder(GameObject portraitPrefab, GameObject expandButtonPrefab, GameObject buttonPrefab, Transform content) {
             // Reserve toggle button
-            var toggleObj = new GameObject("ReserveToggle", typeof(RectTransform));
-            var toggleRect = toggleObj.GetComponent<RectTransform>();
-            toggleRect.SetParent(content, false);
+            var toggleObj = MakeButton(Bubble.ShowReserve ? "reserve.toggle.hide".i8() : "reserve.toggle".i8(), content);
+            var toggleRect = toggleObj.transform as RectTransform;
             toggleRect.anchorMin = new Vector2(0f, 0f);
-            toggleRect.anchorMax = new Vector2(0.24f, 0.5f);
+            toggleRect.anchorMax = new Vector2(0.24f, 1f);
+            toggleRect.pivot = new Vector2(0.5f, 0.5f);
             toggleRect.offsetMin = new Vector2(4, 4);
-            toggleRect.offsetMax = new Vector2(-2, -2);
+            toggleRect.offsetMax = new Vector2(-2, -4);
+            var toggleLayout = toggleObj.AddComponent<LayoutElement>();
+            toggleLayout.ignoreLayout = true;
+            toggleLayout.preferredHeight = 38;
+            toggleLayout.layoutPriority = 3;
 
-            var toggleImage = toggleObj.AddComponent<Image>();
-            toggleImage.color = Bubble.ShowReserve ? new Color(0.4f, 0.8f, 0.4f, 0.8f) : new Color(0.3f, 0.3f, 0.3f, 0.8f);
-
-            var toggleButton = toggleObj.AddComponent<OwlcatButton>();
-            toggleButton.SetTooltip(
-                new TooltipTemplateSimple("reserve.toggle".i8(), "reserve.toggle.tooltip".i8()),
-                new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
-
-            var toggleLabel = new GameObject("Label", typeof(RectTransform));
-            var toggleLabelRect = toggleLabel.GetComponent<RectTransform>();
-            toggleLabelRect.SetParent(toggleRect, false);
-            toggleLabelRect.anchorMin = Vector2.zero;
-            toggleLabelRect.anchorMax = Vector2.one;
-            toggleLabelRect.offsetMin = Vector2.zero;
-            toggleLabelRect.offsetMax = Vector2.zero;
-            var toggleText = toggleLabel.AddComponent<TextMeshProUGUI>();
-            toggleText.text = "reserve.toggle".i8();
-            toggleText.fontSize = 14;
-            toggleText.alignment = TextAlignmentOptions.Center;
-            toggleText.color = Color.white;
-
-            toggleButton.OnLeftClick.AddListener(() => {
+            toggleObj.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                 Bubble.ShowReserve = !Bubble.ShowReserve;
-                // Force full window rebuild
                 foreach (Transform child in Root.transform) {
                     GameObject.Destroy(child.gameObject);
                 }
@@ -3402,8 +3384,8 @@ namespace BuffIt2TheLimit {
 
                 foreach (var unit in Game.Instance.Player.AllCharacters) {
                     if (activeIds.Contains(unit.UniqueId)) continue;
-                    if (!unit.IsInGame) continue;
-                    if (unit.Get<UnitPartPet>() != null) continue;
+                    if (unit.IsInGame) continue; // Skip summons/active-scene units
+                    if (unit.Get<UnitPartPet>() != null) continue; // Skip pets (added via master)
 
                     config.Add(unit);
 

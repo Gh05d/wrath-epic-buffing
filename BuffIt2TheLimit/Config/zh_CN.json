@@ -65,6 +65,7 @@
   "setting-songs-enabled": "Enable song activation",
   "song.rounds-remaining": "Rounds remaining: {0}",
   "reserve.toggle": "Show Reserve",
+  "reserve.toggle.hide": "Hide Reserve",
   "reserve.toggle.tooltip": "Show all recruited companions, including those not in the active party",
   "reserve.portrait.tooltip": "Not in active party"
 }

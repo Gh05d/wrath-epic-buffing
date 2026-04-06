@@ -108,6 +108,7 @@
   "tooltip.source.umd": "Benötigt Use Magic Device (DC {0})",
   "tooltip.source.selfonly": "Nur Self-Cast",
   "reserve.toggle": "Reserve anzeigen",
+  "reserve.toggle.hide": "Reserve ausblenden",
   "reserve.toggle.tooltip": "Alle rekrutierten Begleiter anzeigen, auch wenn sie nicht in der aktiven Gruppe sind",
   "reserve.portrait.tooltip": "Nicht in aktiver Gruppe"
 }
