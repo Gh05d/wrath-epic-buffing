@@ -94,6 +94,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **Don't destroy UI elements during their click callbacks**: `GameObject.Destroy` (deferred) and `DestroyImmediate` both corrupt Unity's EventSystem mid-click. Let `ShowBuffWindow` handle rebuilds via its size-mismatch detection instead.
 - **`OwlcatButton` via `AddComponent` doesn't render**: Needs internal layer structure. Use `MakeButton()` with `buttonPrefab` (static field set in `CreateWindow`) for game-styled buttons.
 - **ScrollRect needs raycast target for wheel events**: Add transparent `Image` with `raycastTarget = true` to the Viewport. Without it, only drag-scroll works.
+- **`GlobalBubbleBuffer.Buttons` references go stale after save/load**: The `Buttons` list contains OwlcatButton references that become destroyed Unity objects when the UI is reinstalled. Always null-guard individual buttons in `ForEach` lambdas. In EventBus handlers, separate UI operations from game logic in distinct try-catch blocks so a stale button doesn't block other functionality.
 
 ## Debug Keybinds (DEBUG builds only)
 

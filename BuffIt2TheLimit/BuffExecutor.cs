@@ -418,17 +418,29 @@ namespace BuffIt2TheLimit {
         }
 
         public void ExecuteCombatStart() {
-            Main.Verbose("Begin combat-start buff execution");
+            Main.Log("Combat start: begin auto-cast");
 
             // Recalculate for all groups
             State.Recalculate(false);
 
+            // Diagnostic: count buffs with CastOnCombatStart
+            var allBuffs = State.BuffList.ToList();
+            var combatStartBuffs = allBuffs.Where(b => b.CastOnCombatStart).ToList();
+            Main.Log($"Combat start: {combatStartBuffs.Count} buffs marked (of {allBuffs.Count} total)");
+            foreach (var b in combatStartBuffs) {
+                Main.Log($"  - {b.Name}: IsSong={b.IsSong}, Fulfilled={b.Fulfilled}, ActualCastQueue={b.ActualCastQueue?.Count ?? -1}");
+            }
+
             // Phase 0: Activate songs marked for combat start
             var activatedGroups = new HashSet<(ActivatableAbilityGroup, string)>();
-            foreach (var songBuff in State.BuffList.Where(b => b.IsSong && b.CastOnCombatStart && b.Fulfilled > 0)) {
+            int songsActivated = 0;
+            foreach (var songBuff in combatStartBuffs.Where(b => b.IsSong && b.Fulfilled > 0)) {
                 try {
                     var activatable = songBuff.ActivatableSource;
-                    if (activatable == null || activatable.IsOn) continue;
+                    if (activatable == null || activatable.IsOn) {
+                        Main.Log($"  Song {songBuff.Name}: skipped (null={activatable == null}, already on={activatable?.IsOn})");
+                        continue;
+                    }
 
                     var group = activatable.Blueprint.Group;
                     var caster = songBuff.CasterQueue.FirstOrDefault()?.who;
@@ -437,11 +449,15 @@ namespace BuffIt2TheLimit {
                     var groupKey = (group, caster.UniqueId);
                     if (activatedGroups.Contains(groupKey)) continue;
 
-                    if (!activatable.IsAvailable) continue;
+                    if (!activatable.IsAvailable) {
+                        Main.Log($"  Song {songBuff.Name}: not available");
+                        continue;
+                    }
 
-                    Main.Verbose($"Combat start: activating song {songBuff.Name} on {caster.CharacterName}");
+                    Main.Log($"  Song {songBuff.Name}: activating on {caster.CharacterName}");
                     activatable.IsOn = true;
                     activatedGroups.Add(groupKey);
+                    songsActivated++;
                 } catch (Exception ex) {
                     Main.Error(ex, $"combat start: activating song {songBuff.Name}");
                 }
@@ -451,11 +467,11 @@ namespace BuffIt2TheLimit {
             TargetWrapper[] targets = Bubble.Group.Select(u => new TargetWrapper(u)).ToArray();
             var unitBuffs = Bubble.Group.Select(u => new UnitBuffData(u)).ToDictionary(bd => bd.Unit.UniqueId);
             List<CastTask> tasks = new();
-            Dictionary<UnitEntityData, int> remainingArcanistPool = new();
             Dictionary<Kingmaker.Items.ItemEntity, int> remainingRodCharges = new();
             int actuallyCast = 0;
+            int skippedAlreadyActive = 0;
 
-            foreach (var buff in State.BuffList.Where(b => !b.IsSong && b.CastOnCombatStart && b.Fulfilled > 0)) {
+            foreach (var buff in combatStartBuffs.Where(b => !b.IsSong && b.Fulfilled > 0)) {
                 try {
                     foreach (var (target, caster) in buff.ActualCastQueue) {
                         var forTarget = unitBuffs[target];
@@ -463,13 +479,20 @@ namespace BuffIt2TheLimit {
                         if (buff.IsMass) {
                             bool anyTargetMissingBuff = Bubble.Group.Any(u =>
                                 buff.UnitWants(u) && !buff.BuffsApplied.IsPresent(unitBuffs[u.UniqueId], buff.IgnoreForOverwriteCheck));
-                            if (!anyTargetMissingBuff && !State.OverwriteBuff) continue;
+                            if (!anyTargetMissingBuff && !State.OverwriteBuff) {
+                                skippedAlreadyActive++;
+                                continue;
+                            }
                         } else if (buff.BuffsApplied.IsPresent(forTarget, buff.IgnoreForOverwriteCheck) && !State.OverwriteBuff) {
+                            skippedAlreadyActive++;
                             continue;
                         }
 
                         var spellToCast = caster.spell;
-                        if (spellToCast == null && caster.SourceType != BuffSourceType.Song) continue;
+                        if (spellToCast == null && caster.SourceType != BuffSourceType.Song) {
+                            Main.Log($"  {buff.Name}: spellToCast is null (sourceType={caster.SourceType})");
+                            continue;
+                        }
 
                         var task = new CastTask {
                             SpellToCast = spellToCast,
@@ -507,11 +530,20 @@ namespace BuffIt2TheLimit {
                 }
             }
 
+            // Combat log message (same pattern as Execute)
+            var messageString = $"Combat Start: {"log.applied".i8()} {actuallyCast + songsActivated} ({"log.skipped".i8()} {skippedAlreadyActive})";
+            Main.Log(messageString);
+
             if (tasks.Count > 0) {
                 var engine = new AnimatedExecutionEngine();
                 var castingCoroutine = engine.CreateSpellCastRoutine(tasks);
                 BubbleBuffGlobalController.Instance.StartCoroutine(castingCoroutine);
-                Main.Log($"Combat start: casting {actuallyCast} buffs (animated)");
+            }
+
+            if (actuallyCast + songsActivated > 0) {
+                var message = new CombatLogMessage(messageString, Color.blue, PrefixIcon.RightArrow);
+                var messageLog = LogThreadService.Instance.m_Logs[LogChannelType.Common].First(x => x is MessageLogThread);
+                messageLog.AddMessage(message);
             }
         }
     }

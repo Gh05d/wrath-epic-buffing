@@ -1,0 +1,80 @@
+<h2>BuffGroup Zuordnung — Buttons vs. Checkboxen</h2>
+<p class="subtitle">So sieht der Bereich im Buff-Detail-Panel aus (actionBarSection)</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Aktuell: Exclusive ButtonGroup</div>
+    <div class="mockup-body" style="background: #2a1f14; padding: 16px; font-family: serif;">
+      <!-- Simulated buff detail area -->
+      <div style="color: #c4a882; font-size: 13px; margin-bottom: 8px;">Shield — Abjuration</div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <div style="flex: 1; padding: 8px 4px; text-align: center; background: #5a3d1a; border: 2px solid #8b6914; color: #ffd666; font-size: 13px; border-radius: 3px; font-weight: bold;">Normal</div>
+        <div style="flex: 1; padding: 8px 4px; text-align: center; background: #3a2810; border: 1px solid #5a4020; color: #9a8060; font-size: 13px; border-radius: 3px;">Important</div>
+        <div style="flex: 1; padding: 8px 4px; text-align: center; background: #3a2810; border: 1px solid #5a4020; color: #9a8060; font-size: 13px; border-radius: 3px;">Quick</div>
+      </div>
+      <div style="color: #7a6a50; font-size: 11px; font-style: italic;">↑ Nur einer aktiv — exklusiv</div>
+      <div style="margin-top: 10px; border-top: 1px solid #4a3520; padding-top: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px; color: #c4a882; font-size: 12px; margin-bottom: 4px;">
+          <div style="width: 14px; height: 14px; border: 1px solid #8b6914; background: #5a3d1a; display: flex; align-items: center; justify-content: center; font-size: 10px;">✓</div>
+          Use Spells
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; color: #c4a882; font-size: 12px;">
+          <div style="width: 14px; height: 14px; border: 1px solid #5a4020; background: #3a2810;"></div>
+          Use Scrolls
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Neu: Checkboxen (Mehrfachauswahl)</div>
+    <div class="mockup-body" style="background: #2a1f14; padding: 16px; font-family: serif;">
+      <!-- Simulated buff detail area -->
+      <div style="color: #c4a882; font-size: 13px; margin-bottom: 8px;">Shield — Abjuration</div>
+      <div style="display: flex; gap: 12px; padding: 6px 8px; margin-bottom: 12px; background: #33250f; border-radius: 3px;">
+        <label style="display: flex; align-items: center; gap: 6px; color: #ffd666; font-size: 13px; cursor: pointer;">
+          <div style="width: 16px; height: 16px; border: 2px solid #8b6914; background: #5a3d1a; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 2px; color: #ffd666;">✓</div>
+          Normal
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; color: #9a8060; font-size: 13px; cursor: pointer;">
+          <div style="width: 16px; height: 16px; border: 1px solid #5a4020; background: #3a2810; border-radius: 2px;"></div>
+          Important
+        </label>
+        <label style="display: flex; align-items: center; gap: 6px; color: #ffd666; font-size: 13px; cursor: pointer;">
+          <div style="width: 16px; height: 16px; border: 2px solid #8b6914; background: #5a3d1a; display: flex; align-items: center; justify-content: center; font-size: 11px; border-radius: 2px; color: #ffd666;">✓</div>
+          Quick
+        </label>
+      </div>
+      <div style="color: #7a6a50; font-size: 11px; font-style: italic;">↑ Normal + Quick angehakt — Buff in beiden Gruppen</div>
+      <div style="margin-top: 10px; border-top: 1px solid #4a3520; padding-top: 8px;">
+        <div style="display: flex; align-items: center; gap: 6px; color: #c4a882; font-size: 12px; margin-bottom: 4px;">
+          <div style="width: 14px; height: 14px; border: 1px solid #8b6914; background: #5a3d1a; display: flex; align-items: center; justify-content: center; font-size: 10px;">✓</div>
+          Use Spells
+        </div>
+        <div style="display: flex; align-items: center; gap: 6px; color: #c4a882; font-size: 12px;">
+          <div style="width: 14px; height: 14px; border: 1px solid #5a4020; background: #3a2810;"></div>
+          Use Scrolls
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top: 24px;">
+  <div class="pros">
+    <h4>Checkboxen</h4>
+    <ul>
+      <li>Gleicher Platz wie die Buttons</li>
+      <li>Konsistent mit den anderen Toggles darunter (Use Spells, Use Scrolls)</li>
+      <li>Mehrfachauswahl sofort erkennbar</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>Beachten</h4>
+    <ul>
+      <li>Bestehende ButtonGroup-Klasse wird hier nicht mehr genutzt</li>
+      <li>Braucht eigenes Toggle-Handling statt ButtonGroup.Selected</li>
+      <li>Alle unchecked = Buff in keiner Gruppe (gewollt)</li>
+    </ul>
+  </div>
+</div>

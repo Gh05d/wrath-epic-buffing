@@ -1632,9 +1632,11 @@ namespace BuffIt2TheLimit {
                 if (b != null) { b.UseExtendRod = val; if (b.SavedState != null) b.SavedState.UseExtendRod = val; state.Save(); }
             });
 
-            // Combat Start toggle — on left side, below extend rod
-            var useCombatStartObj = MakeSourceToggle("use.combatstart".i8());
-            useCombatStartObj.transform.SetParent(prioSideObj.transform, false);
+            // Combat Start toggle — in spellInfoSection, always visible when a buff is selected
+            var useCombatStartObj = MakeToggle(togglePrefab, spellInfoSection.transform, 0.55f, 0.5f, "use.combatstart".i8(), "combat-start-toggle");
+            useCombatStartObj.AddComponent<LayoutElement>().ignoreLayout = true;
+            useCombatStartObj.Rect().pivot = new Vector2(0, 0.5f);
+            useCombatStartObj.SetActive(false);
             var useCombatStartToggle = useCombatStartObj.GetComponentInChildren<ToggleWorkaround>();
 
             useCombatStartToggle.onValueChanged.AddListener(val => {
@@ -1769,6 +1771,7 @@ namespace BuffIt2TheLimit {
 
                 groupRect.gameObject.SetActive(hasBuff);
                 hideSpell.SetActive(hasBuff);
+                useCombatStartObj.SetActive(hasBuff);
                 expandSpellPopout.SetActive(hasBuff);
                 if (!hasBuff) {
                     isExpanded = false;
@@ -2236,7 +2239,15 @@ namespace BuffIt2TheLimit {
 
     class ServiceWindowWatcher : IUIEventHandler {
         public void HandleUIEvent(UIEventType type) {
-            GlobalBubbleBuffer.Instance.SpellbookController?.Hide();
+            var controller = GlobalBubbleBuffer.Instance.SpellbookController;
+            if (controller == null) return;
+
+            if (controller.Buffing) {
+                // Navigated away while in buff mode — do a proper exit
+                controller.ToggleBuffMode();
+            } else {
+                controller.Hide();
+            }
         }
     }
 
@@ -3495,20 +3506,22 @@ namespace BuffIt2TheLimit {
         public void HandleCutsceneStopped(CutscenePlayerData cutscene) { }
 
         public void HandlePartyCombatStateChanged(bool inCombat) {
-            bool allow = !inCombat || GlobalBubbleBuffer.Instance.SpellbookController.state.AllowInCombat;
-            GlobalBubbleBuffer.Instance.Buttons.ForEach(b => b.Interactable = allow);
+            try {
+                var controller = GlobalBubbleBuffer.Instance?.SpellbookController;
+                bool allow = !inCombat || (controller?.state?.AllowInCombat ?? false);
+                GlobalBubbleBuffer.Instance?.Buttons?.ForEach(b => {
+                    if (b != null) b.Interactable = allow;
+                });
+            } catch (Exception ex) {
+                Main.Error(ex, "HandlePartyCombatStateChanged: buttons");
+            }
 
             if (inCombat) {
-                BubbleBuffGlobalController.Instance.StartCoroutine(CombatStartBuffCoroutine());
-            }
-        }
-
-        private System.Collections.IEnumerator CombatStartBuffCoroutine() {
-            yield return null; // Wait one frame for combat state to fully initialize
-            try {
-                GlobalBubbleBuffer.Instance.SpellbookController?.ExecuteCombatStart();
-            } catch (Exception ex) {
-                Main.Error(ex, "combat start auto-cast");
+                try {
+                    GlobalBubbleBuffer.Instance?.SpellbookController?.ExecuteCombatStart();
+                } catch (Exception ex) {
+                    Main.Error(ex, "HandlePartyCombatStateChanged: combat start");
+                }
             }
         }
     }
