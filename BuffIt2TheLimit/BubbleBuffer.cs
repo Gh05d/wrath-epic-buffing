@@ -1632,11 +1632,9 @@ namespace BuffIt2TheLimit {
                 if (b != null) { b.UseExtendRod = val; if (b.SavedState != null) b.SavedState.UseExtendRod = val; state.Save(); }
             });
 
-            // Combat Start toggle — in spellInfoSection, always visible when a buff is selected
-            var useCombatStartObj = MakeToggle(togglePrefab, spellInfoSection.transform, 0.55f, 0.5f, "use.combatstart".i8(), "combat-start-toggle");
-            useCombatStartObj.AddComponent<LayoutElement>().ignoreLayout = true;
-            useCombatStartObj.Rect().pivot = new Vector2(0, 0.5f);
-            useCombatStartObj.SetActive(false);
+            // Combat Start toggle — on left side, below extend rod
+            var useCombatStartObj = MakeSourceToggle("use.combatstart".i8());
+            useCombatStartObj.transform.SetParent(prioSideObj.transform, false);
             var useCombatStartToggle = useCombatStartObj.GetComponentInChildren<ToggleWorkaround>();
 
             useCombatStartToggle.onValueChanged.AddListener(val => {
@@ -1771,7 +1769,6 @@ namespace BuffIt2TheLimit {
 
                 groupRect.gameObject.SetActive(hasBuff);
                 hideSpell.SetActive(hasBuff);
-                useCombatStartObj.SetActive(hasBuff);
                 expandSpellPopout.SetActive(hasBuff);
                 if (!hasBuff) {
                     isExpanded = false;
@@ -1827,7 +1824,12 @@ namespace BuffIt2TheLimit {
 
                 bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
                 int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
-                sourceControlObj.SetActive(!isEquipmentCategory && (sourceCount > 1 || hasSpellProviders));
+                bool hasSourceControls = !isEquipmentCategory && (sourceCount > 1 || hasSpellProviders);
+                sourceControlObj.SetActive(true); // Always show — contains combat start toggle
+                // Hide source-specific controls when they don't apply (songs, equipment-only)
+                toggleSideObj.SetActive(hasSourceControls);
+                prioLabelObj.SetActive(hasSourceControls);
+                useExtendRodObj.SetActive(hasSourceControls);
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
