@@ -416,6 +416,104 @@ namespace BuffIt2TheLimit {
             var messageLog = LogThreadService.Instance.m_Logs[LogChannelType.Common].First(x => x is MessageLogThread);
             messageLog.AddMessage(message);
         }
+
+        public void ExecuteCombatStart() {
+            Main.Verbose("Begin combat-start buff execution");
+
+            // Recalculate for all groups
+            State.Recalculate(false);
+
+            // Phase 0: Activate songs marked for combat start
+            var activatedGroups = new HashSet<(ActivatableAbilityGroup, string)>();
+            foreach (var songBuff in State.BuffList.Where(b => b.IsSong && b.CastOnCombatStart && b.Fulfilled > 0)) {
+                try {
+                    var activatable = songBuff.ActivatableSource;
+                    if (activatable == null || activatable.IsOn) continue;
+
+                    var group = activatable.Blueprint.Group;
+                    var caster = songBuff.CasterQueue.FirstOrDefault()?.who;
+                    if (caster == null) continue;
+
+                    var groupKey = (group, caster.UniqueId);
+                    if (activatedGroups.Contains(groupKey)) continue;
+
+                    if (!activatable.IsAvailable) continue;
+
+                    Main.Verbose($"Combat start: activating song {songBuff.Name} on {caster.CharacterName}");
+                    activatable.IsOn = true;
+                    activatedGroups.Add(groupKey);
+                } catch (Exception ex) {
+                    Main.Error(ex, $"combat start: activating song {songBuff.Name}");
+                }
+            }
+
+            // Phase 1: Cast spells/abilities marked for combat start
+            TargetWrapper[] targets = Bubble.Group.Select(u => new TargetWrapper(u)).ToArray();
+            var unitBuffs = Bubble.Group.Select(u => new UnitBuffData(u)).ToDictionary(bd => bd.Unit.UniqueId);
+            List<CastTask> tasks = new();
+            Dictionary<UnitEntityData, int> remainingArcanistPool = new();
+            Dictionary<Kingmaker.Items.ItemEntity, int> remainingRodCharges = new();
+            int actuallyCast = 0;
+
+            foreach (var buff in State.BuffList.Where(b => !b.IsSong && b.CastOnCombatStart && b.Fulfilled > 0)) {
+                try {
+                    foreach (var (target, caster) in buff.ActualCastQueue) {
+                        var forTarget = unitBuffs[target];
+
+                        if (buff.IsMass) {
+                            bool anyTargetMissingBuff = Bubble.Group.Any(u =>
+                                buff.UnitWants(u) && !buff.BuffsApplied.IsPresent(unitBuffs[u.UniqueId], buff.IgnoreForOverwriteCheck));
+                            if (!anyTargetMissingBuff && !State.OverwriteBuff) continue;
+                        } else if (buff.BuffsApplied.IsPresent(forTarget, buff.IgnoreForOverwriteCheck) && !State.OverwriteBuff) {
+                            continue;
+                        }
+
+                        var spellToCast = caster.spell;
+                        if (spellToCast == null && caster.SourceType != BuffSourceType.Song) continue;
+
+                        var task = new CastTask {
+                            SpellToCast = spellToCast,
+                            PowerfulChange = caster.SourceType == BuffSourceType.Spell && caster.PowerfulChange,
+                            ShareTransmutation = caster.SourceType == BuffSourceType.Spell && caster.ShareTransmutation,
+                            ReservoirCLBuff = caster.SourceType == BuffSourceType.Spell && caster.ReservoirCLBuff,
+                            AzataZippyMagic = caster.SourceType == BuffSourceType.Spell && caster.AzataZippyMagic,
+                            IsDuplicateSpellApplied = false,
+                            SelfCastOnly = caster.SelfCastOnly,
+                            SourceType = caster.SourceType,
+                            SourceItem = caster.SourceItem,
+                            OriginalMetamagicWasNull = spellToCast?.MetamagicData == null,
+                            OriginalMetamagicMask = spellToCast?.MetamagicData?.MetamagicMask ?? (Metamagic)0,
+                        };
+
+                        if (buff.UseExtendRod && caster.SourceType == BuffSourceType.Spell) {
+                            int spellLevel = caster.spell.Spellbook.GetSpellLevel(caster.spell);
+                            var rod = BufferState.FindBestExtendRod(spellLevel, remainingRodCharges);
+                            if (rod != null) {
+                                task.MetamagicRodItem = rod;
+                                remainingRodCharges[rod] = remainingRodCharges[rod] - 1;
+                            }
+                        }
+
+                        task.Target = buff.IsMass
+                            ? targets.FirstOrDefault(t => buff.UnitWants(t.Unit))
+                            : new TargetWrapper(Bubble.GroupById[target]);
+                        task.Caster = caster.who;
+
+                        tasks.Add(task);
+                        actuallyCast++;
+                    }
+                } catch (Exception ex) {
+                    Main.Error(ex, $"combat start: casting buff {buff.Name}");
+                }
+            }
+
+            if (tasks.Count > 0) {
+                var engine = new AnimatedExecutionEngine();
+                var castingCoroutine = engine.CreateSpellCastRoutine(tasks);
+                BubbleBuffGlobalController.Instance.StartCoroutine(castingCoroutine);
+                Main.Log($"Combat start: casting {actuallyCast} buffs (animated)");
+            }
+        }
     }
     //castTask.Retentions.Any
     public class CastTask {

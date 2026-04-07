@@ -2037,6 +2037,10 @@ namespace BuffIt2TheLimit {
             BubbleBuffGlobalController.Instance.Invoke(nameof(BubbleBuffGlobalController.EndSuppression), 1.0f);
         }
 
+        internal void ExecuteCombatStart() {
+            Executor.ExecuteCombatStart();
+        }
+
 
 
         internal void RevalidateSpells() {
@@ -3493,6 +3497,19 @@ namespace BuffIt2TheLimit {
         public void HandlePartyCombatStateChanged(bool inCombat) {
             bool allow = !inCombat || GlobalBubbleBuffer.Instance.SpellbookController.state.AllowInCombat;
             GlobalBubbleBuffer.Instance.Buttons.ForEach(b => b.Interactable = allow);
+
+            if (inCombat) {
+                BubbleBuffGlobalController.Instance.StartCoroutine(CombatStartBuffCoroutine());
+            }
+        }
+
+        private System.Collections.IEnumerator CombatStartBuffCoroutine() {
+            yield return null; // Wait one frame for combat state to fully initialize
+            try {
+                GlobalBubbleBuffer.Instance.SpellbookController?.ExecuteCombatStart();
+            } catch (Exception ex) {
+                Main.Error(ex, "combat start auto-cast");
+            }
         }
     }
 
