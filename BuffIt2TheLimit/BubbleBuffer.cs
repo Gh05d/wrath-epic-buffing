@@ -1632,6 +1632,16 @@ namespace BuffIt2TheLimit {
                 if (b != null) { b.UseExtendRod = val; if (b.SavedState != null) b.SavedState.UseExtendRod = val; state.Save(); }
             });
 
+            // Combat Start toggle — on left side, below extend rod
+            var useCombatStartObj = MakeSourceToggle("use.combatstart".i8());
+            useCombatStartObj.transform.SetParent(prioSideObj.transform, false);
+            var useCombatStartToggle = useCombatStartObj.GetComponentInChildren<ToggleWorkaround>();
+
+            useCombatStartToggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.CastOnCombatStart = val; if (b.SavedState != null) b.SavedState.CastOnCombatStart = val; state.Save(); }
+            });
+
             const float groupHeight = 90f;
             var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", castersSection.transform);
             view.castersHolder = groupHolder;
@@ -1810,6 +1820,7 @@ namespace BuffIt2TheLimit {
 
                 // Extend Rod toggle — always visible when source controls are shown
                 useExtendRodToggle.isOn = buff.UseExtendRod;
+                useCombatStartToggle.isOn = buff.CastOnCombatStart;
 
                 bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
                 int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
