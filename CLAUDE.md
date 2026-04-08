@@ -95,6 +95,9 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`OwlcatButton` via `AddComponent` doesn't render**: Needs internal layer structure. Use `MakeButton()` with `buttonPrefab` (static field set in `CreateWindow`) for game-styled buttons.
 - **ScrollRect needs raycast target for wheel events**: Add transparent `Image` with `raycastTarget = true` to the Viewport. Without it, only drag-scroll works.
 - **`GlobalBubbleBuffer.Buttons` references go stale after save/load**: The `Buttons` list contains OwlcatButton references that become destroyed Unity objects when the UI is reinstalled. Always null-guard individual buttons in `ForEach` lambdas. In EventBus handlers, separate UI operations from game logic in distinct try-catch blocks so a stale button doesn't block other functionality.
+- **`ActivatableAbility.IsOn = true` does NOT start the ability**: Setting `IsOn` only flips the `m_IsOn` flag and calls `OnDidTurnOn()`. The ability won't actually activate (apply buffs, consume resources) until `TryStart()` is called. Always call `if (!activatable.IsStarted) activatable.TryStart();` after setting `IsOn = true`.
+- **No per-round EventBus events in RTWP mode**: `ITurnBasedModeHandler.HandleRoundStarted` only fires in turn-based mode. `CombatController.StartRound()` and `TickTime()` are also turn-based only. For RTWP round tracking, use `Game.Instance.Player.GameTime` (1 round = 6 seconds) checked from `MonoBehaviour.Update()`.
+- **Prefer manual Harmony patching for private methods**: `[HarmonyPatch]` attribute on publicized-private methods can silently fail. Use `AccessTools.Method(type, "MethodName")` + `harmony.Patch()` with explicit success/failure logging for reliable patching.
 
 ## Debug Keybinds (DEBUG builds only)
 
