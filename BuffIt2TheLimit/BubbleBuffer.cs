@@ -3607,30 +3607,34 @@ namespace BuffIt2TheLimit {
     }
 
     internal class RoundLimitHandler : IPartyCombatHandler {
-        private readonly Dictionary<BlueprintGuid, int> activationRounds = new();
+        private const float SecondsPerRound = 6f;
+        private readonly Dictionary<BlueprintGuid, float> activationTimes = new();
 
         public void TrackActivation(BlueprintGuid guid) {
-            int round = Game.Instance.TurnBasedCombatController?.RoundNumber ?? 0;
-            Main.Log($"[RoundLimit] TrackActivation: guid={guid}, round={round}");
-            activationRounds[guid] = round;
+            float elapsed = Game.Instance.TurnBasedCombatController?.TimeSinceStart ?? 0f;
+            Main.Log($"[RoundLimit] TrackActivation: guid={guid}, elapsed={elapsed:F1}s");
+            activationTimes[guid] = elapsed;
         }
 
         /// <summary>
-        /// Called from Harmony postfix on CombatController.StartRound().
-        /// Works in both RTWP and Turn-Based mode.
+        /// Called from Harmony postfix on CombatController.TickTime().
+        /// Checks elapsed game time against round limits. Works in RTWP and Turn-Based.
         /// </summary>
-        public void OnRoundStarted() {
-            int round = Game.Instance.TurnBasedCombatController?.RoundNumber ?? 0;
-            Main.Log($"[RoundLimit] OnRoundStarted: round={round}, tracked={activationRounds.Count}");
-            if (activationRounds.Count == 0) return;
+        public void OnTick() {
+            if (activationTimes.Count == 0) return;
+
+            var combat = Game.Instance.TurnBasedCombatController;
+            if (combat == null) return;
+            float elapsed = combat.TimeSinceStart;
 
             var controller = GlobalBubbleBuffer.Instance?.SpellbookController;
             if (controller?.state?.BuffList == null) return;
 
             var toRemove = new List<BlueprintGuid>();
-            foreach (var kvp in activationRounds) {
+            foreach (var kvp in activationTimes) {
                 var guid = kvp.Key;
                 var activatedAt = kvp.Value;
+                float timePassed = elapsed - activatedAt;
 
                 var buff = controller.state.BuffList.FirstOrDefault(b =>
                     b.IsSong && b.ActivatableSource?.Blueprint.AssetGuid == guid);
@@ -3640,46 +3644,47 @@ namespace BuffIt2TheLimit {
                     continue;
                 }
 
-                if (buff.DeactivateAfterRounds > 0 && round - activatedAt >= buff.DeactivateAfterRounds) {
-                    Main.Log($"Round limit reached for {buff.Name}: {round - activatedAt} rounds (limit={buff.DeactivateAfterRounds}), deactivating");
+                float limitSeconds = buff.DeactivateAfterRounds * SecondsPerRound;
+                if (buff.DeactivateAfterRounds > 0 && timePassed >= limitSeconds) {
+                    Main.Log($"Round limit reached for {buff.Name}: {timePassed:F1}s elapsed (limit={buff.DeactivateAfterRounds} rounds = {limitSeconds:F0}s), deactivating");
                     buff.ActivatableSource.IsOn = false;
                     toRemove.Add(guid);
                 }
             }
 
             foreach (var guid in toRemove) {
-                activationRounds.Remove(guid);
+                activationTimes.Remove(guid);
             }
         }
 
         public void HandlePartyCombatStateChanged(bool inCombat) {
             if (!inCombat) {
-                activationRounds.Clear();
+                activationTimes.Clear();
             }
         }
     }
 
     static class RoundLimitPatcher {
-        public static void PatchStartRound(HarmonyLib.Harmony harmony) {
+        public static void Apply(HarmonyLib.Harmony harmony) {
             try {
-                var targetMethod = AccessTools.Method(typeof(TurnBased.Controllers.CombatController), "StartRound");
+                var targetMethod = AccessTools.Method(typeof(TurnBased.Controllers.CombatController), "TickTime");
                 if (targetMethod == null) {
-                    Main.Log("[RoundLimit] ERROR: Could not find CombatController.StartRound via AccessTools");
+                    Main.Log("[RoundLimit] ERROR: Could not find CombatController.TickTime via AccessTools");
                     return;
                 }
-                var postfix = new HarmonyMethod(AccessTools.Method(typeof(RoundLimitPatcher), nameof(StartRoundPostfix)));
+                var postfix = new HarmonyMethod(AccessTools.Method(typeof(RoundLimitPatcher), nameof(TickTimePostfix)));
                 harmony.Patch(targetMethod, postfix: postfix);
-                Main.Log("[RoundLimit] Successfully patched CombatController.StartRound");
+                Main.Log("[RoundLimit] Successfully patched CombatController.TickTime");
             } catch (Exception ex) {
-                Main.Error(ex, "RoundLimit: patching StartRound");
+                Main.Error(ex, "RoundLimit: patching TickTime");
             }
         }
 
-        static void StartRoundPostfix() {
+        static void TickTimePostfix() {
             try {
-                GlobalBubbleBuffer.RoundLimitWatcher?.OnRoundStarted();
+                GlobalBubbleBuffer.RoundLimitWatcher?.OnTick();
             } catch (Exception ex) {
-                Main.Error(ex, "RoundLimit: StartRound postfix");
+                Main.Error(ex, "RoundLimit: TickTime postfix");
             }
         }
     }

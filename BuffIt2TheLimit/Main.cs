@@ -129,7 +129,7 @@ namespace BuffIt2TheLimit {
             }
 
             harmony.PatchAll();
-            RoundLimitPatcher.PatchStartRound(harmony);
+            RoundLimitPatcher.Apply(harmony);
 
             GlobalBubbleBuffer.Install();
 
