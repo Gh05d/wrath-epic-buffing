@@ -3659,9 +3659,23 @@ namespace BuffIt2TheLimit {
         }
     }
 
-    [HarmonyPatch(typeof(TurnBased.Controllers.CombatController), nameof(TurnBased.Controllers.CombatController.StartRound))]
-    static class CombatController_StartRound_Patch {
-        static void Postfix() {
+    static class RoundLimitPatcher {
+        public static void PatchStartRound(HarmonyLib.Harmony harmony) {
+            try {
+                var targetMethod = AccessTools.Method(typeof(TurnBased.Controllers.CombatController), "StartRound");
+                if (targetMethod == null) {
+                    Main.Log("[RoundLimit] ERROR: Could not find CombatController.StartRound via AccessTools");
+                    return;
+                }
+                var postfix = new HarmonyMethod(AccessTools.Method(typeof(RoundLimitPatcher), nameof(StartRoundPostfix)));
+                harmony.Patch(targetMethod, postfix: postfix);
+                Main.Log("[RoundLimit] Successfully patched CombatController.StartRound");
+            } catch (Exception ex) {
+                Main.Error(ex, "RoundLimit: patching StartRound");
+            }
+        }
+
+        static void StartRoundPostfix() {
             try {
                 GlobalBubbleBuffer.RoundLimitWatcher?.OnRoundStarted();
             } catch (Exception ex) {
