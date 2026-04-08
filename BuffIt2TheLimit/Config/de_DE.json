@@ -112,5 +112,7 @@
   "reserve.toggle.tooltip": "Alle rekrutierten Begleiter anzeigen, auch wenn sie nicht in der aktiven Gruppe sind",
   "reserve.portrait.tooltip": "Nicht in aktiver Gruppe",
   "use.combatstart": "Cast on combat start",
-  "use.combatstart.tooltip": "Automatically cast this buff when combat begins"
+  "use.combatstart.tooltip": "Automatically cast this buff when combat begins",
+  "deactivate.after.rounds": "Deactivate after:",
+  "deactivate.after.rounds.tooltip": "Deaktiviert diese Ability automatisch nach N Kampfrunden. 0 = kein Limit."
 }

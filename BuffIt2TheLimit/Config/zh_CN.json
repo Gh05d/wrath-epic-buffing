@@ -69,5 +69,7 @@
   "reserve.toggle.tooltip": "Show all recruited companions, including those not in the active party",
   "reserve.portrait.tooltip": "Not in active party",
   "use.combatstart": "Cast on combat start",
-  "use.combatstart.tooltip": "Automatically cast this buff when combat begins"
+  "use.combatstart.tooltip": "Automatically cast this buff when combat begins",
+  "deactivate.after.rounds": "Deactivate after:",
+  "deactivate.after.rounds.tooltip": "Automatically deactivate this ability after N combat rounds. 0 = no limit."
 }
