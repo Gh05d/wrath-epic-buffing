@@ -3606,16 +3606,22 @@ namespace BuffIt2TheLimit {
         }
     }
 
-    internal class RoundLimitHandler : ITurnBasedModeHandler, IPartyCombatHandler {
-        private int currentRound;
+    internal class RoundLimitHandler : IPartyCombatHandler {
         private readonly Dictionary<BlueprintGuid, int> activationRounds = new();
 
         public void TrackActivation(BlueprintGuid guid) {
-            activationRounds[guid] = currentRound;
+            int round = Game.Instance.TurnBasedCombatController?.RoundNumber ?? 0;
+            Main.Log($"[RoundLimit] TrackActivation: guid={guid}, round={round}");
+            activationRounds[guid] = round;
         }
 
-        public void HandleRoundStarted(int round) {
-            currentRound = round;
+        /// <summary>
+        /// Called from Harmony postfix on CombatController.StartRound().
+        /// Works in both RTWP and Turn-Based mode.
+        /// </summary>
+        public void OnRoundStarted() {
+            int round = Game.Instance.TurnBasedCombatController?.RoundNumber ?? 0;
+            Main.Log($"[RoundLimit] OnRoundStarted: round={round}, tracked={activationRounds.Count}");
             if (activationRounds.Count == 0) return;
 
             var controller = GlobalBubbleBuffer.Instance?.SpellbookController;
@@ -3649,15 +3655,19 @@ namespace BuffIt2TheLimit {
         public void HandlePartyCombatStateChanged(bool inCombat) {
             if (!inCombat) {
                 activationRounds.Clear();
-                currentRound = 0;
             }
         }
+    }
 
-        // ITurnBasedModeHandler — unused methods
-        public void HandleSurpriseRoundStarted() { }
-        public void HandleTurnStarted(UnitEntityData unit) { }
-        public void HandleUnitControlChanged(UnitEntityData unit) { }
-        public void HandleUnitNotSurprised(UnitEntityData unit, RuleSkillCheck check) { }
+    [HarmonyPatch(typeof(TurnBased.Controllers.CombatController), nameof(TurnBased.Controllers.CombatController.StartRound))]
+    static class CombatController_StartRound_Patch {
+        static void Postfix() {
+            try {
+                GlobalBubbleBuffer.RoundLimitWatcher?.OnRoundStarted();
+            } catch (Exception ex) {
+                Main.Error(ex, "RoundLimit: StartRound postfix");
+            }
+        }
     }
 
     static class BubbleBlueprints {
