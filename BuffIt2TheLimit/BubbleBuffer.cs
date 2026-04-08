@@ -1644,6 +1644,79 @@ namespace BuffIt2TheLimit {
                 if (b != null) { b.CastOnCombatStart = val; if (b.SavedState != null) b.SavedState.CastOnCombatStart = val; state.Save(); }
             });
 
+            // Round Limit spinner — on left side, below combat start toggle
+            var (roundLimitObj, roundLimitRect) = UIHelpers.Create("RoundLimitSpinner", prioSideObj.transform);
+            var roundLimitLE = roundLimitObj.AddComponent<LayoutElement>();
+            roundLimitLE.preferredHeight = 28;
+            roundLimitLE.flexibleWidth = 1;
+
+            var roundLimitHLG = roundLimitObj.AddComponent<HorizontalLayoutGroup>();
+            roundLimitHLG.spacing = 4;
+            roundLimitHLG.childControlWidth = true;
+            roundLimitHLG.childControlHeight = true;
+            roundLimitHLG.childForceExpandWidth = false;
+            roundLimitHLG.childForceExpandHeight = false;
+            roundLimitHLG.childAlignment = TextAnchor.MiddleLeft;
+
+            // Label
+            var (roundLimitLabelObj, _) = UIHelpers.Create("Label", roundLimitObj.transform);
+            var roundLimitLabelLE = roundLimitLabelObj.AddComponent<LayoutElement>();
+            roundLimitLabelLE.preferredWidth = 110;
+            var roundLimitLabel = roundLimitLabelObj.AddComponent<TextMeshProUGUI>();
+            roundLimitLabel.text = "deactivate.after.rounds".i8();
+            roundLimitLabel.fontSize = 13;
+            roundLimitLabel.color = new Color(0.2f, 0.15f, 0.1f, 1f);
+            roundLimitLabel.alignment = TextAlignmentOptions.Left;
+            roundLimitLabel.enableWordWrapping = false;
+
+            // Minus button
+            var roundLimitMinus = GameObject.Instantiate(expandButtonPrefab, roundLimitObj.transform);
+            roundLimitMinus.SetActive(true);
+            roundLimitMinus.Rect().localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            roundLimitMinus.Rect().SetRotate2D(90);
+            var roundLimitMinusLE = roundLimitMinus.AddComponent<LayoutElement>();
+            roundLimitMinusLE.preferredWidth = 20;
+            roundLimitMinusLE.preferredHeight = 20;
+            var roundLimitMinusBtn = roundLimitMinus.GetComponent<OwlcatButton>();
+
+            // Value display
+            var (roundLimitValueObj, _) = UIHelpers.Create("Value", roundLimitObj.transform);
+            var roundLimitValueLE = roundLimitValueObj.AddComponent<LayoutElement>();
+            roundLimitValueLE.preferredWidth = 30;
+            var roundLimitValueText = roundLimitValueObj.AddComponent<TextMeshProUGUI>();
+            roundLimitValueText.text = "\u221E";
+            roundLimitValueText.fontSize = 16;
+            roundLimitValueText.color = new Color(0.2f, 0.15f, 0.1f, 1f);
+            roundLimitValueText.alignment = TextAlignmentOptions.Center;
+
+            // Plus button
+            var roundLimitPlus = GameObject.Instantiate(expandButtonPrefab, roundLimitObj.transform);
+            roundLimitPlus.SetActive(true);
+            roundLimitPlus.Rect().localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            roundLimitPlus.Rect().SetRotate2D(-90);
+            var roundLimitPlusLE = roundLimitPlus.AddComponent<LayoutElement>();
+            roundLimitPlusLE.preferredWidth = 20;
+            roundLimitPlusLE.preferredHeight = 20;
+            var roundLimitPlusBtn = roundLimitPlus.GetComponent<OwlcatButton>();
+
+            roundLimitMinusBtn.OnLeftClick.AddListener(() => {
+                var b = view.Selected;
+                if (b == null || b.DeactivateAfterRounds <= 0) return;
+                b.DeactivateAfterRounds--;
+                if (b.SavedState != null) b.SavedState.DeactivateAfterRounds = b.DeactivateAfterRounds;
+                roundLimitValueText.text = b.DeactivateAfterRounds == 0 ? "\u221E" : b.DeactivateAfterRounds.ToString();
+                state.Save();
+            });
+
+            roundLimitPlusBtn.OnLeftClick.AddListener(() => {
+                var b = view.Selected;
+                if (b == null) return;
+                b.DeactivateAfterRounds++;
+                if (b.SavedState != null) b.SavedState.DeactivateAfterRounds = b.DeactivateAfterRounds;
+                roundLimitValueText.text = b.DeactivateAfterRounds.ToString();
+                state.Save();
+            });
+
             const float groupHeight = 90f;
             var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", castersSection.transform);
             view.castersHolder = groupHolder;
@@ -1823,6 +1896,7 @@ namespace BuffIt2TheLimit {
                 // Extend Rod toggle — always visible when source controls are shown
                 useExtendRodToggle.isOn = buff.UseExtendRod;
                 useCombatStartToggle.isOn = buff.CastOnCombatStart;
+                roundLimitValueText.text = buff.DeactivateAfterRounds == 0 ? "\u221E" : buff.DeactivateAfterRounds.ToString();
 
                 bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
                 int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
@@ -1832,6 +1906,7 @@ namespace BuffIt2TheLimit {
                 toggleSideObj.SetActive(hasSourceControls);
                 prioLabelObj.SetActive(hasSourceControls);
                 useExtendRodObj.SetActive(hasSourceControls);
+                roundLimitObj.SetActive(buff.IsSong);
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
