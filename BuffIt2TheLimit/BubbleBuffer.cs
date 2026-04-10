@@ -2071,6 +2071,17 @@ namespace BuffIt2TheLimit {
                         buff.SetUnitWants(me, false);
                     } else {
                         buff.SetUnitWants(me, true);
+                        // Mutual exclusivity: if this activatable belongs to a group, un-want any other activatable in the same group for this unit
+                        if (buff.IsActivatable && buff.ActivatableGroup != Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityGroup.None) {
+                            foreach (var other in state.BuffList) {
+                                if (other == buff) continue;
+                                if (!other.IsActivatable) continue;
+                                if (other.ActivatableGroup != buff.ActivatableGroup) continue;
+                                if (other.UnitWants(me)) {
+                                    other.SetUnitWants(me, false);
+                                }
+                            }
+                        }
                     }
 
                     try {
