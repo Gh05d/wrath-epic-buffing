@@ -313,7 +313,8 @@ namespace BuffIt2TheLimit {
 
                             var spellBlueprint = usableBp.Ability;
                             if (spellBlueprint == null) {
-                                Main.Verbose($"        SKIP: Ability is null (Type: {usableBp.Type})", "state");
+                                // Items with null Ability are handled by the activatable scan (they grant ActivatableAbilities)
+                                Main.Verbose($"        SKIP: Ability is null (Type: {usableBp.Type}) — handled by activatable scan", "state");
                                 continue;
                             }
 
@@ -353,8 +354,18 @@ namespace BuffIt2TheLimit {
                     UnitEntityData dude = Group[characterIndex];
                     foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
                         var blueprint = activatable.Blueprint;
+                        var srcItem = activatable.SourceItem;
 
-                        // Skip activatables without resource cost (Power Attack, Wings, etc.)
+                        if (srcItem != null) {
+                            // Item-backed activatable (metamagic rods, quivers, etc.) — goes to Equipment tab
+                            if (!SavedState.EquipmentEnabled) continue;
+                            if (srcItem.Charges <= 0) continue;
+                            Main.Verbose($"      Adding equipment activatable: {blueprint.Name} from {srcItem.Name} for {dude.CharacterName}", "state");
+                            AddActivatable(dude, activatable, characterIndex, Category.Equipment, srcItem);
+                            continue;
+                        }
+
+                        // Class activatables: skip ones without resource cost (Power Attack, Wings, etc.)
                         bool hasResourceLogic = blueprint.GetComponent<Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityResourceLogic>() != null;
 
                         if (PerformanceGroups.Contains(blueprint.Group)) {
@@ -709,7 +720,7 @@ namespace BuffIt2TheLimit {
             ActivatableAbilityGroup.AzataMythicPerformance
         };
 
-        public void AddActivatable(UnitEntityData dude, ActivatableAbility activatable, int charIndex, Category category) {
+        public void AddActivatable(UnitEntityData dude, ActivatableAbility activatable, int charIndex, Category category, ItemEntity sourceItem = null) {
             var blueprint = activatable.Blueprint;
             var key = new BuffKey(blueprint.AssetGuid);
 
@@ -720,9 +731,15 @@ namespace BuffIt2TheLimit {
             var buff = new BubbleBuff(activatable);
             buff.Category = category;
 
-            var sourceType = category == Category.Song ? BuffSourceType.Song : BuffSourceType.Activatable;
+            BuffSourceType sourceType;
+            if (category == Category.Song) sourceType = BuffSourceType.Song;
+            else if (sourceItem != null) sourceType = BuffSourceType.Equipment;
+            else sourceType = BuffSourceType.Activatable;
 
-            var credits = new ReactiveProperty<int>(activatable.ResourceCount ?? 1);
+            // Item-backed activatables use the item's charges; class activatables use ResourceCount
+            int initialCredits = sourceItem != null ? sourceItem.Charges : (activatable.ResourceCount ?? 1);
+
+            var credits = new ReactiveProperty<int>(initialCredits);
             var provider = new BuffProvider(credits) {
                 who = dude,
                 spent = 0,
@@ -732,7 +749,7 @@ namespace BuffIt2TheLimit {
                 baseSpell = null,
                 CharacterIndex = charIndex,
                 SourceType = sourceType,
-                SourceItem = null
+                SourceItem = sourceItem
             };
             buff.CasterQueue.Add(provider);
 
