@@ -292,6 +292,13 @@ namespace BuffIt2TheLimit {
                 FadeOut(Root);
                 Root.SetActive(false);
             }
+            // Reset toggle button text — Hide() is called from every "exit buff mode" path
+            // (button click, ESC, service window navigation). Without this, ESC leaves the
+            // button stuck on "buffexit" until the next manual click.
+            if (ToggleButton != null) {
+                var label = ToggleButton.GetComponentInChildren<TextMeshProUGUI>();
+                if (label != null) label.text = "buffsetup".i8();
+            }
         }
 
         internal void EnsurePartyViewHidden() {
