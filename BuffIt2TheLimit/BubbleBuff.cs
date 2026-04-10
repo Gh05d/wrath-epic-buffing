@@ -99,7 +99,7 @@ namespace BuffIt2TheLimit {
         private string metaMagicRendered = null;
         private string MetaMagicFlags {
             get {
-                if (IsSong || Metamagics == null)
+                if (IsActivatable || Metamagics == null)
                     return "";
                 if (metaMagicRendered == null) {
                     metaMagicRendered = "[";
@@ -116,11 +116,11 @@ namespace BuffIt2TheLimit {
         }
 
 
-        public string Name => IsSong ? ActivatableSource.Blueprint.Name
+        public string Name => IsActivatable ? ActivatableSource.Blueprint.Name
             : Key.Archmage ? "Archmage Armor"
             : Spell.Name;
-        public string NameMeta => IsSong ? Name : $"{Spell.Name} {MetaMagicFlags}";
-        public Sprite Icon => IsSong ? ActivatableSource.Blueprint.Icon : Spell?.Blueprint?.Icon;
+        public string NameMeta => IsActivatable ? Name : $"{Spell.Name} {MetaMagicFlags}";
+        public Sprite Icon => IsActivatable ? ActivatableSource.Blueprint.Icon : Spell?.Blueprint?.Icon;
 
 
         public bool UnitWants(UnitEntityData unit) => wanted.Contains(unit.UniqueId);
@@ -605,8 +605,8 @@ namespace BuffIt2TheLimit {
             spell.TargetAnchor == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityTargetAnchor.Owner;
 
         public bool CanTarget(string targetId) {
-            if (SourceType == BuffSourceType.Song)
-                return targetId == who.UniqueId; // Songs activate on the caster only
+            if (SourceType == BuffSourceType.Song || SourceType == BuffSourceType.Activatable)
+                return targetId == who.UniqueId; // Activatable abilities target the caster only
 
             if (ArchmageArmor)
                 return targetId == who.UniqueId;
