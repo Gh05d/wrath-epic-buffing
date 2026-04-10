@@ -348,21 +348,27 @@ namespace BuffIt2TheLimit {
             }
 
             try {
-                if (SavedState.SongsEnabled) {
-                    for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                        UnitEntityData dude = Group[characterIndex];
-                        foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
-                            var blueprint = activatable.Blueprint;
-                            if (!SongGroups.Contains(blueprint.Group))
-                                continue;
+                for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
+                    UnitEntityData dude = Group[characterIndex];
+                    foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
+                        var blueprint = activatable.Blueprint;
 
+                        // Skip activatables without resource cost (Power Attack, Wings, etc.)
+                        bool hasResourceLogic = blueprint.GetComponent<Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityResourceLogic>() != null;
+
+                        if (PerformanceGroups.Contains(blueprint.Group)) {
+                            if (!SavedState.SongsEnabled) continue;
                             Main.Verbose($"      Adding song: {blueprint.Name} for {dude.CharacterName}", "state");
-                            AddSong(dude, activatable, characterIndex);
+                            AddActivatable(dude, activatable, characterIndex, Category.Song);
+                        } else if (hasResourceLogic) {
+                            if (!SavedState.ActivatablesEnabled) continue;
+                            Main.Verbose($"      Adding activatable: {blueprint.Name} (group={blueprint.Group}) for {dude.CharacterName}", "state");
+                            AddActivatable(dude, activatable, characterIndex, Category.Ability);
                         }
                     }
                 }
             } catch (Exception ex) {
-                Main.Error(ex, "finding songs");
+                Main.Error(ex, "finding activatable abilities");
             }
 
             //foreach (var rejectKey in SpellsWithBeneficialBuffs.Where(kv => kv.Value.EmptyIfNull().Empty()).Select(kv => kv.Key)) {
@@ -687,12 +693,12 @@ namespace BuffIt2TheLimit {
         }
 
 
-        private static readonly HashSet<ActivatableAbilityGroup> SongGroups = new() {
+        private static readonly HashSet<ActivatableAbilityGroup> PerformanceGroups = new() {
             ActivatableAbilityGroup.BardicPerformance,
             ActivatableAbilityGroup.AzataMythicPerformance
         };
 
-        public void AddSong(UnitEntityData dude, ActivatableAbility activatable, int charIndex) {
+        public void AddActivatable(UnitEntityData dude, ActivatableAbility activatable, int charIndex, Category category) {
             var blueprint = activatable.Blueprint;
             var key = new BuffKey(blueprint.AssetGuid);
 
@@ -701,6 +707,9 @@ namespace BuffIt2TheLimit {
             }
 
             var buff = new BubbleBuff(activatable);
+            buff.Category = category;
+
+            var sourceType = category == Category.Song ? BuffSourceType.Song : BuffSourceType.Activatable;
 
             var credits = new ReactiveProperty<int>(activatable.ResourceCount ?? 1);
             var provider = new BuffProvider(credits) {
@@ -711,7 +720,7 @@ namespace BuffIt2TheLimit {
                 spell = null,
                 baseSpell = null,
                 CharacterIndex = charIndex,
-                SourceType = BuffSourceType.Song,
+                SourceType = sourceType,
                 SourceItem = null
             };
             buff.CasterQueue.Add(provider);
