@@ -293,8 +293,8 @@ namespace BuffIt2TheLimit {
         }
 
         public void Validate() {
-            if (IsSong) {
-                ValidateSong();
+            if (IsActivatable) {
+                ValidateActivatable();
                 return;
             }
             if (IsMass) {
@@ -406,7 +406,7 @@ namespace BuffIt2TheLimit {
             }
         }
 
-        public void ValidateSong() {
+        public void ValidateActivatable() {
             if (ActivatableSource == null) return;
             ActualCastQueue = new List<(string, BuffProvider)>();
 
@@ -419,14 +419,14 @@ namespace BuffIt2TheLimit {
             }
 
             if (!ActivatableSource.IsAvailable) {
-                Main.Verbose($"Song {Name}: not available (resources or restrictions)");
+                Main.Verbose($"Activatable {Name}: not available (resources or restrictions)");
                 return;
             }
 
             if (CasterQueue.Count == 0) return;
 
             var caster = CasterQueue[0];
-            // Mark all wanted targets as given (songs are party-wide)
+            // Mark all wanted targets as given (activatables are self/party-wide)
             foreach (var target in wanted) {
                 given.Add(target);
             }
@@ -457,7 +457,7 @@ namespace BuffIt2TheLimit {
         }
 
         internal void SortProviders() {
-            if (IsSong) return;
+            if (IsActivatable) return;
             var globalPriority = GlobalBubbleBuffer.Instance?.SpellbookController?.state?.SavedState?.GlobalSourcePriority
                 ?? SourcePriority.SpellsScrollsPotions;
             var effectivePriority = SourcePriorityOverride >= 0
