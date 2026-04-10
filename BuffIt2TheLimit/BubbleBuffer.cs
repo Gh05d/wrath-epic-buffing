@@ -1903,7 +1903,7 @@ namespace BuffIt2TheLimit {
                 toggleSideObj.SetActive(hasSourceControls);
                 prioLabelObj.SetActive(hasSourceControls);
                 useExtendRodObj.SetActive(hasSourceControls);
-                roundLimitObj.SetActive(buff.IsSong);
+                roundLimitObj.SetActive(buff.IsActivatable);
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
@@ -2946,11 +2946,11 @@ namespace BuffIt2TheLimit {
             view.ChildObject("Icon/IconImage").GetComponent<Image>().color = buff.Key.Archmage ? Color.yellow : Color.white;
             view.ChildObject("Icon/FrameImage").GetComponent<Image>().color = buff.Key.Archmage ? Color.yellow : Color.white;
 
-            if (buff.IsSong) {
+            if (buff.IsActivatable) {
                 view.ChildObject("School/SchoolLabel").GetComponent<TextMeshProUGUI>().text = "";
                 view.ChildObject("Metamagic").SetActive(false);
-                var songTooltip = new Kingmaker.UI.MVVM._VM.Tooltip.Templates.TooltipTemplateActivatableAbility(buff.ActivatableSource);
-                TooltipHelper.SetTooltip(button, songTooltip);
+                var activatableTooltip = new Kingmaker.UI.MVVM._VM.Tooltip.Templates.TooltipTemplateActivatableAbility(buff.ActivatableSource);
+                TooltipHelper.SetTooltip(button, activatableTooltip);
                 return;
             }
 
