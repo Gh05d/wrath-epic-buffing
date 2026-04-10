@@ -204,16 +204,17 @@ namespace BuffIt2TheLimit.Handlers {
                                 Main.Error(ex, "Applying Extend Rod metamagic");
                             }
                         } else {
-                            // No rod for this cast — clean any leaked Extend from a prior handler
+                            // No rod for this cast — clean any leaked Extend from a prior handler's
+                            // rod application on the same SpellToCast. Only touch SpellToCast.MetamagicData
+                            // (shared state between CastTasks), NOT Context.m_Params. Context is per-rule
+                            // instance and may contain metamagic added by other mods (e.g. Dragon's
+                            // auto-extend feats) — overwriting it would break cross-mod compatibility.
                             try {
                                 if (_castTask.OriginalMetamagicWasNull) {
                                     _castTask.SpellToCast.MetamagicData = null;
                                 } else if (_castTask.SpellToCast.MetamagicData != null) {
                                     _castTask.SpellToCast.MetamagicData.Clear();
                                     _castTask.SpellToCast.MetamagicData.Add(_castTask.OriginalMetamagicMask);
-                                }
-                                if (Context?.m_Params != null) {
-                                    Context.m_Params.Metamagic = _castTask.OriginalMetamagicMask;
                                 }
                             } catch (Exception ex) {
                                 Main.Verbose($"Extend leak cleanup: {ex.Message}");
