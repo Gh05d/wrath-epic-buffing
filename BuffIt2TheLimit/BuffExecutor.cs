@@ -185,8 +185,9 @@ namespace BuffIt2TheLimit {
                     if (caster == null) continue;
 
                     // Mutual exclusivity: only one per ActivatableAbilityGroup per caster
+                    // Group.None means "no exclusivity" — independent abilities can all activate
                     var groupKey = (group, caster.UniqueId);
-                    if (activatedGroups.Contains(groupKey)) {
+                    if (group != ActivatableAbilityGroup.None && activatedGroups.Contains(groupKey)) {
                         Main.Log($"Activatable {actBuff.Name}: skipped — another {group} ability already activated for {caster.CharacterName}");
                         continue;
                     }
@@ -200,7 +201,8 @@ namespace BuffIt2TheLimit {
                     activatable.IsOn = true;
                     if (!activatable.IsStarted)
                         activatable.TryStart();
-                    activatedGroups.Add(groupKey);
+                    if (group != ActivatableAbilityGroup.None)
+                        activatedGroups.Add(groupKey);
                     if (actBuff.DeactivateAfterRounds > 0)
                         GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
                 } catch (Exception ex) {
@@ -453,8 +455,9 @@ namespace BuffIt2TheLimit {
                     var caster = actBuff.CasterQueue.FirstOrDefault()?.who;
                     if (caster == null) continue;
 
+                    // Group.None means "no exclusivity" — independent abilities can all activate
                     var groupKey = (group, caster.UniqueId);
-                    if (activatedGroups.Contains(groupKey)) continue;
+                    if (group != ActivatableAbilityGroup.None && activatedGroups.Contains(groupKey)) continue;
 
                     if (!activatable.IsAvailable) {
                         Main.Log($"  Activatable {actBuff.Name}: not available");
@@ -465,7 +468,8 @@ namespace BuffIt2TheLimit {
                     activatable.IsOn = true;
                     if (!activatable.IsStarted)
                         activatable.TryStart();
-                    activatedGroups.Add(groupKey);
+                    if (group != ActivatableAbilityGroup.None)
+                        activatedGroups.Add(groupKey);
                     activatablesActivated++;
                     if (actBuff.DeactivateAfterRounds > 0)
                         GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
