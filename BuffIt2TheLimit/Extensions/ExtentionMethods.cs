@@ -241,8 +241,15 @@ namespace BuffIt2TheLimit.Extensions {
             }
 
             var nonInfra = buff.ComponentsArray.Where(c => !InfrastructureComponents.Contains(c.GetType())).ToList();
-            bool result = nonInfra.Count > 0;
-            return result;
+            if (nonInfra.Count > 0) return true;
+
+            // Fallback: purely visual buffs (e.g. Light cantrip) have no gameplay components but
+            // apply a visual effect via FxOnStart. Accept them so users can buff allies/pets with them.
+            if (buff.FxOnStart != null && !string.IsNullOrEmpty(buff.FxOnStart.AssetId)) {
+                return true;
+            }
+
+            return false;
         }
 
         public static BlueprintAbility DeTouchify(this BlueprintAbility spell) {
