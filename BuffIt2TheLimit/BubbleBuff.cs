@@ -99,7 +99,7 @@ namespace BuffIt2TheLimit {
         private string metaMagicRendered = null;
         private string MetaMagicFlags {
             get {
-                if (IsSong || Metamagics == null)
+                if (IsActivatable || Metamagics == null)
                     return "";
                 if (metaMagicRendered == null) {
                     metaMagicRendered = "[";
@@ -116,11 +116,11 @@ namespace BuffIt2TheLimit {
         }
 
 
-        public string Name => IsSong ? ActivatableSource.Blueprint.Name
+        public string Name => IsActivatable ? ActivatableSource.Blueprint.Name
             : Key.Archmage ? "Archmage Armor"
             : Spell.Name;
-        public string NameMeta => IsSong ? Name : $"{Spell.Name} {MetaMagicFlags}";
-        public Sprite Icon => IsSong ? ActivatableSource.Blueprint.Icon : Spell?.Blueprint?.Icon;
+        public string NameMeta => IsActivatable ? Name : $"{Spell.Name} {MetaMagicFlags}";
+        public Sprite Icon => IsActivatable ? ActivatableSource.Blueprint.Icon : Spell?.Blueprint?.Icon;
 
 
         public bool UnitWants(UnitEntityData unit) => wanted.Contains(unit.UniqueId);
@@ -145,12 +145,13 @@ namespace BuffIt2TheLimit {
         public BubbleBuff(Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbility activatable) {
             this.ActivatableSource = activatable;
             this.Spell = null;
-            this.IsSong = true;
+            this.IsActivatable = true;
             var blueprint = activatable.Blueprint;
             this.NameLower = blueprint.Name.ToLower();
             this.Key = new BuffKey(blueprint.AssetGuid);
             this.Category = Category.Song;
             this.BuffsApplied = new AbilityCombinedEffects(Enumerable.Empty<IBeneficialEffect>());
+            this.ActivatableGroup = blueprint.Group;
         }
 
         public Action OnUpdate = null;
@@ -166,8 +167,10 @@ namespace BuffIt2TheLimit {
         public bool UseExtendRod;
         public bool CastOnCombatStart;
         public int DeactivateAfterRounds;
-        public bool IsSong;
+        public bool IsActivatable;
+        public bool IsSong => IsActivatable && Category == Category.Song;
         public Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbility ActivatableSource;
+        public Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityGroup ActivatableGroup;
 
         public void AddProvider(UnitEntityData provider, Spellbook book, AbilityData spell, AbilityData baseSpell, IReactiveProperty<int> credits, bool newCredit, int creditClamp, int u, BuffSourceType sourceType = BuffSourceType.Spell, Kingmaker.Items.ItemEntity sourceItem = null) {
             if (this.book == null) {
@@ -290,8 +293,8 @@ namespace BuffIt2TheLimit {
         }
 
         public void Validate() {
-            if (IsSong) {
-                ValidateSong();
+            if (IsActivatable) {
+                ValidateActivatable();
                 return;
             }
             if (IsMass) {
@@ -403,7 +406,7 @@ namespace BuffIt2TheLimit {
             }
         }
 
-        public void ValidateSong() {
+        public void ValidateActivatable() {
             if (ActivatableSource == null) return;
             ActualCastQueue = new List<(string, BuffProvider)>();
 
@@ -416,14 +419,14 @@ namespace BuffIt2TheLimit {
             }
 
             if (!ActivatableSource.IsAvailable) {
-                Main.Verbose($"Song {Name}: not available (resources or restrictions)");
+                Main.Verbose($"Activatable {Name}: not available (resources or restrictions)");
                 return;
             }
 
             if (CasterQueue.Count == 0) return;
 
             var caster = CasterQueue[0];
-            // Mark all wanted targets as given (songs are party-wide)
+            // Mark all wanted targets as given (activatables are self/party-wide)
             foreach (var target in wanted) {
                 given.Add(target);
             }
@@ -454,7 +457,7 @@ namespace BuffIt2TheLimit {
         }
 
         internal void SortProviders() {
-            if (IsSong) return;
+            if (IsActivatable) return;
             var globalPriority = GlobalBubbleBuffer.Instance?.SpellbookController?.state?.SavedState?.GlobalSourcePriority
                 ?? SourcePriority.SpellsScrollsPotions;
             var effectivePriority = SourcePriorityOverride >= 0
@@ -597,12 +600,13 @@ namespace BuffIt2TheLimit {
 
         public bool SelfCastOnly =>
             SourceType == BuffSourceType.Song ||
+            SourceType == BuffSourceType.Activatable ||
             SourceType == BuffSourceType.Potion ||
             spell.TargetAnchor == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityTargetAnchor.Owner;
 
         public bool CanTarget(string targetId) {
-            if (SourceType == BuffSourceType.Song)
-                return targetId == who.UniqueId; // Songs activate on the caster only
+            if (SourceType == BuffSourceType.Song || SourceType == BuffSourceType.Activatable)
+                return targetId == who.UniqueId; // Activatable abilities target the caster only
 
             if (ArchmageArmor)
                 return targetId == who.UniqueId;

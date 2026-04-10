@@ -783,6 +783,16 @@ namespace BuffIt2TheLimit {
                 });
             }
 
+            {
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-activatables-enabled".i8());
+                toggle.isOn = state.SavedState.ActivatablesEnabled;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.SavedState.ActivatablesEnabled = enabled;
+                    state.InputDirty = true;
+                    state.Save(true);
+                });
+            }
+
             // UMD Retries (label + buttons)
             {
                 var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
@@ -1903,7 +1913,7 @@ namespace BuffIt2TheLimit {
                 toggleSideObj.SetActive(hasSourceControls);
                 prioLabelObj.SetActive(hasSourceControls);
                 useExtendRodObj.SetActive(hasSourceControls);
-                roundLimitObj.SetActive(buff.IsSong);
+                roundLimitObj.SetActive(buff.IsActivatable);
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
@@ -2061,6 +2071,17 @@ namespace BuffIt2TheLimit {
                         buff.SetUnitWants(me, false);
                     } else {
                         buff.SetUnitWants(me, true);
+                        // Mutual exclusivity: if this activatable belongs to a group, un-want any other activatable in the same group for this unit
+                        if (buff.IsActivatable && buff.ActivatableGroup != Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityGroup.None) {
+                            foreach (var other in state.BuffList) {
+                                if (other == buff) continue;
+                                if (!other.IsActivatable) continue;
+                                if (other.ActivatableGroup != buff.ActivatableGroup) continue;
+                                if (other.UnitWants(me)) {
+                                    other.SetUnitWants(me, false);
+                                }
+                            }
+                        }
                     }
 
                     try {
@@ -2832,7 +2853,8 @@ namespace BuffIt2TheLimit {
         Scroll,
         Potion,
         Equipment,
-        Song
+        Song,
+        Activatable
     }
 
     public enum UmdMode {
@@ -2945,11 +2967,11 @@ namespace BuffIt2TheLimit {
             view.ChildObject("Icon/IconImage").GetComponent<Image>().color = buff.Key.Archmage ? Color.yellow : Color.white;
             view.ChildObject("Icon/FrameImage").GetComponent<Image>().color = buff.Key.Archmage ? Color.yellow : Color.white;
 
-            if (buff.IsSong) {
+            if (buff.IsActivatable) {
                 view.ChildObject("School/SchoolLabel").GetComponent<TextMeshProUGUI>().text = "";
                 view.ChildObject("Metamagic").SetActive(false);
-                var songTooltip = new Kingmaker.UI.MVVM._VM.Tooltip.Templates.TooltipTemplateActivatableAbility(buff.ActivatableSource);
-                TooltipHelper.SetTooltip(button, songTooltip);
+                var activatableTooltip = new Kingmaker.UI.MVVM._VM.Tooltip.Templates.TooltipTemplateActivatableAbility(buff.ActivatableSource);
+                TooltipHelper.SetTooltip(button, activatableTooltip);
                 return;
             }
 
@@ -3636,7 +3658,7 @@ namespace BuffIt2TheLimit {
                 float timePassed = gameTime - activatedAt;
 
                 var buff = controller.state.BuffList.FirstOrDefault(b =>
-                    b.IsSong && b.ActivatableSource?.Blueprint.AssetGuid == guid);
+                    b.IsActivatable && b.ActivatableSource?.Blueprint.AssetGuid == guid);
 
                 if (buff == null || buff.ActivatableSource == null) {
                     toRemove.Add(guid);

@@ -157,7 +157,8 @@ namespace BuffIt2TheLimit {
                                     creditClamp: int.MaxValue,
                                     charIndex: characterIndex,
                                     archmageArmor: false,
-                                    category: Category.Ability);
+                                    category: Category.Ability,
+                                    sourceItem: sourceItem);
                         } else if (SavedState.EquipmentEnabled
                                    && !(sourceItem.Blueprint is BlueprintItemEquipmentUsable)) {
                             // Equipped item abilities (staves, etc.) — not quickslot items
@@ -312,7 +313,8 @@ namespace BuffIt2TheLimit {
 
                             var spellBlueprint = usableBp.Ability;
                             if (spellBlueprint == null) {
-                                Main.Verbose($"        SKIP: Ability is null (Type: {usableBp.Type})", "state");
+                                // Items with null Ability are handled by the activatable scan (they grant ActivatableAbilities)
+                                Main.Verbose($"        SKIP: Ability is null (Type: {usableBp.Type}) — handled by activatable scan", "state");
                                 continue;
                             }
 
@@ -348,21 +350,37 @@ namespace BuffIt2TheLimit {
             }
 
             try {
-                if (SavedState.SongsEnabled) {
-                    for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                        UnitEntityData dude = Group[characterIndex];
-                        foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
-                            var blueprint = activatable.Blueprint;
-                            if (!SongGroups.Contains(blueprint.Group))
-                                continue;
+                for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
+                    UnitEntityData dude = Group[characterIndex];
+                    foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
+                        var blueprint = activatable.Blueprint;
+                        var srcItem = activatable.SourceItem;
 
+                        if (srcItem != null) {
+                            // Item-backed activatable (metamagic rods, quivers, etc.) — goes to Equipment tab
+                            if (!SavedState.EquipmentEnabled) continue;
+                            if (srcItem.Charges <= 0) continue;
+                            Main.Verbose($"      Adding equipment activatable: {blueprint.Name} from {srcItem.Name} for {dude.CharacterName}", "state");
+                            AddActivatable(dude, activatable, characterIndex, Category.Equipment, srcItem);
+                            continue;
+                        }
+
+                        // Class activatables: skip ones without resource cost (Power Attack, Wings, etc.)
+                        bool hasResourceLogic = blueprint.GetComponent<Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityResourceLogic>() != null;
+
+                        if (PerformanceGroups.Contains(blueprint.Group)) {
+                            if (!SavedState.SongsEnabled) continue;
                             Main.Verbose($"      Adding song: {blueprint.Name} for {dude.CharacterName}", "state");
-                            AddSong(dude, activatable, characterIndex);
+                            AddActivatable(dude, activatable, characterIndex, Category.Song);
+                        } else if (hasResourceLogic) {
+                            if (!SavedState.ActivatablesEnabled) continue;
+                            Main.Verbose($"      Adding activatable: {blueprint.Name} (group={blueprint.Group}) for {dude.CharacterName}", "state");
+                            AddActivatable(dude, activatable, characterIndex, Category.Ability);
                         }
                     }
                 }
             } catch (Exception ex) {
-                Main.Error(ex, "finding songs");
+                Main.Error(ex, "finding activatable abilities");
             }
 
             //foreach (var rejectKey in SpellsWithBeneficialBuffs.Where(kv => kv.Value.EmptyIfNull().Empty()).Select(kv => kv.Key)) {
@@ -655,16 +673,26 @@ namespace BuffIt2TheLimit {
             if (BuffsByKey.TryGetValue(key, out var buff)) {
                 buff.AddProvider(dude, book, spell, baseSpell, credits, newCredit, clamp, charIndex, sourceType, sourceItem);
             } else {
+                // Only relax the filter for genuine class abilities (no sourceItem).
+                // Item-backed abilities (metamagic rods, midnight bolts, etc.) belong to Equipment,
+                // not the Ability tab — they should never hit the self-target fallback.
+                bool isClassAbility = category == Category.Ability && sourceItem == null;
+
                 if (!SpellsWithBeneficialBuffs.TryGetValue(spell.Blueprint.AssetGuid.m_Guid, out var abilityEffect)) {
-                    var beneficial = spell.Blueprint.GetBeneficialBuffs();
+                    var beneficial = spell.Blueprint.GetBeneficialBuffs(skipDamageFilter: isClassAbility);
                     abilityEffect = new AbilityCombinedEffects(beneficial);
                     SpellsWithBeneficialBuffs[spell.Blueprint.AssetGuid.m_Guid] = abilityEffect;
                     SpellNames[spell.Blueprint.AssetGuid.m_Guid] = spell.Name;
                 }
 
                 if (abilityEffect.Empty) {
-                    Main.Verbose($"Rejecting {spell.Name} because it has no applied effects", "rejection");
-                    return;
+                    // Fallback for self-target class abilities (e.g. Dimension Strike) that have no detectable buff effects
+                    if (isClassAbility && spell.TargetAnchor == Kingmaker.UnitLogic.Abilities.Blueprints.AbilityTargetAnchor.Owner) {
+                        Main.Verbose($"Allowing self-target ability {spell.Name} despite no detected effects", "state");
+                    } else {
+                        Main.Verbose($"Rejecting {spell.Name} because it has no applied effects", "rejection");
+                        return;
+                    }
                 }
 
 
@@ -687,12 +715,12 @@ namespace BuffIt2TheLimit {
         }
 
 
-        private static readonly HashSet<ActivatableAbilityGroup> SongGroups = new() {
+        private static readonly HashSet<ActivatableAbilityGroup> PerformanceGroups = new() {
             ActivatableAbilityGroup.BardicPerformance,
             ActivatableAbilityGroup.AzataMythicPerformance
         };
 
-        public void AddSong(UnitEntityData dude, ActivatableAbility activatable, int charIndex) {
+        public void AddActivatable(UnitEntityData dude, ActivatableAbility activatable, int charIndex, Category category, ItemEntity sourceItem = null) {
             var blueprint = activatable.Blueprint;
             var key = new BuffKey(blueprint.AssetGuid);
 
@@ -701,8 +729,17 @@ namespace BuffIt2TheLimit {
             }
 
             var buff = new BubbleBuff(activatable);
+            buff.Category = category;
 
-            var credits = new ReactiveProperty<int>(activatable.ResourceCount ?? 1);
+            BuffSourceType sourceType;
+            if (category == Category.Song) sourceType = BuffSourceType.Song;
+            else if (sourceItem != null) sourceType = BuffSourceType.Equipment;
+            else sourceType = BuffSourceType.Activatable;
+
+            // Item-backed activatables use the item's charges; class activatables use ResourceCount
+            int initialCredits = sourceItem != null ? sourceItem.Charges : (activatable.ResourceCount ?? 1);
+
+            var credits = new ReactiveProperty<int>(initialCredits);
             var provider = new BuffProvider(credits) {
                 who = dude,
                 spent = 0,
@@ -711,8 +748,8 @@ namespace BuffIt2TheLimit {
                 spell = null,
                 baseSpell = null,
                 CharacterIndex = charIndex,
-                SourceType = BuffSourceType.Song,
-                SourceItem = null
+                SourceType = sourceType,
+                SourceItem = sourceItem
             };
             buff.CasterQueue.Add(provider);
 

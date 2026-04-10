@@ -98,6 +98,7 @@
   "shortcut.openbuffmenu": "Open buff menu shortcut:",
   "cat.Songs": "Songs",
   "setting-songs-enabled": "Song-Aktivierung aktivieren",
+  "setting-activatables-enabled": "Aktivierbare Fähigkeiten aktivieren",
   "song.rounds-remaining": "Verbleibende Runden: {0}",
   "tooltip.source.spell": "Spell — {0} (Level {1})",
   "tooltip.source.scroll": "Scroll — {0}",

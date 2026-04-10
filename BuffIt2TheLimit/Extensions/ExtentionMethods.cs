@@ -252,19 +252,21 @@ namespace BuffIt2TheLimit.Extensions {
                 return spell;
         }
 
-        public static IEnumerable<IBeneficialEffect> GetBeneficialBuffs(this BlueprintAbility spell, int level = 0) {
+        public static IEnumerable<IBeneficialEffect> GetBeneficialBuffs(this BlueprintAbility spell, int level = 0, bool skipDamageFilter = false) {
             LogVerbose(level, $"getting buffs for spell: {spell.Name}");
             spell = spell.DeTouchify();
             LogVerbose(level, $"detouchified-to: {spell.Name}");
             if (spell.TryGetComponent<AbilityEffectRunAction>(out var runAction)) {
                 var actions = runAction.Actions.Actions.Where(a => a != null).ToList();
 
-                // Skip spells whose primary purpose is healing or damage
-                // Use FlattenAllActions to catch nested heal/damage inside Conditionals
-                var allActions = actions.FlattenAllActions();
-                bool hasHealOrDamage = allActions.Any(a => a is ContextActionHealTarget || a is ContextActionDealDamage);
-                if (hasHealOrDamage) {
-                    return new IBeneficialEffect[] { };
+                if (!skipDamageFilter) {
+                    // Skip spells whose primary purpose is healing or damage
+                    // Use FlattenAllActions to catch nested heal/damage inside Conditionals
+                    var allActions = actions.FlattenAllActions();
+                    bool hasHealOrDamage = allActions.Any(a => a is ContextActionHealTarget || a is ContextActionDealDamage);
+                    if (hasHealOrDamage) {
+                        return new IBeneficialEffect[] { };
+                    }
                 }
 
                 return actions.SelectMany(a => a.GetBeneficialBuffs(level + 1));
