@@ -60,6 +60,7 @@
   "settings": "Settings",
   "settings-toggle": "Toggle the Buff It 2 The Limit settings panel",
   "setting-verbose": "Use full animation casting",
+  "setting-skip-combat-anim": "Skip animations on combat start",
   "setting-in-combat": "Allow buffing in combat",
   "setting-overwritebuff": "Ignore existing buffs",
   "setting-scrolls-enabled": "Enable scroll usage",

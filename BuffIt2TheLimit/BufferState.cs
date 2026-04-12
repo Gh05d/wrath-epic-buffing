@@ -617,6 +617,13 @@ namespace BuffIt2TheLimit {
                 Save(true);
             }
         }
+        public bool SkipAnimationsOnCombatStart {
+            get => SavedState.SkipAnimationsOnCombatStart;
+            set {
+                SavedState.SkipAnimationsOnCombatStart = value;
+                Save(true);
+            }
+        }
 
         //private static Dictionary<Guid, List<ContextActionApplyBuff>> CachedBuffEffects;
 

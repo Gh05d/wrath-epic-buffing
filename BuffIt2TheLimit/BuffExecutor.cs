@@ -550,7 +550,9 @@ namespace BuffIt2TheLimit {
             Main.Log(messageString);
 
             if (tasks.Count > 0) {
-                var engine = new AnimatedExecutionEngine();
+                IBuffExecutionEngine engine = State.SkipAnimationsOnCombatStart
+                    ? new InstantExecutionEngine()
+                    : new AnimatedExecutionEngine();
                 var castingCoroutine = engine.CreateSpellCastRoutine(tasks);
                 BubbleBuffGlobalController.Instance.StartCoroutine(castingCoroutine);
             }

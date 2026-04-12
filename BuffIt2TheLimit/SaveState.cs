@@ -28,6 +28,8 @@ namespace BuffIt2TheLimit {
         [JsonProperty]
         public bool VerboseCasting;
         [JsonProperty]
+        public bool SkipAnimationsOnCombatStart;
+        [JsonProperty]
         public bool AllowInCombat;
         [JsonProperty]
         public bool OverwriteBuff;

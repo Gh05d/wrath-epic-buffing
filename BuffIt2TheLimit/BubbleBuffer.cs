@@ -748,6 +748,14 @@ namespace BuffIt2TheLimit {
                 });
             }
 
+            {
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-skip-combat-anim".i8());
+                toggle.isOn = state.SkipAnimationsOnCombatStart;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.SkipAnimationsOnCombatStart = enabled;
+                });
+            }
+
             // === Scroll/Potion Settings ===
 
             {
