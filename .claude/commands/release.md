@@ -5,7 +5,7 @@
 - Remote: `fork`
 - Repo: `Gh05d/wrath-epic-buffing`
 - Mod-Name: `Buff It 2 The Limit`
-- Nexus-URL: `https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195`
+- Nexus-URL: `https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/948`
 - csproj: `BuffIt2TheLimit/BuffIt2TheLimit.csproj`
 - Info.json: `BuffIt2TheLimit/Info.json`
 - Repository.json: `Repository.json`
@@ -227,9 +227,40 @@ Nexus:  Automatisch hochgeladen via GitHub Action (Status: <success/failure>)
 
 Falls die GitHub Action fehlgeschlagen ist, zeige den manuellen Nexus-Upload-Link:
 ```
-Nexus Upload (manuell): https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195?tab=files
+Nexus Upload (manuell): https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/948?tab=files
 ZIP: BuffIt2TheLimit/bin/BuffIt2TheLimit-X.Y.Z.zip
 ```
+
+---
+
+## Schritt 9: Discord Post
+
+Generiere die fertige Discord-Nachricht zum Copy-Pasten in Owlcat's `#mod-updates`-Kanal. Nutze die **identischen** „What's New"-Bullets, die in Schritt 3 erzeugt wurden — nicht neu formulieren.
+
+Falls die Bullet-Liste leer wäre (z.B. nur `chore:`-Commits seit letztem Tag), verwende stattdessen den Platzhalter-Bullet `- Maintenance release`.
+
+Ausgabeformat im Terminal (exakt so, inkl. Delimiter-Zeilen):
+
+```
+=== Discord Post (alles zwischen den Zeilen kopieren) ===
+**Buff It 2 The Limit vX.Y.Z**
+
+- <bullet 1>
+- <bullet 2>
+- ...
+
+GitHub: https://github.com/Gh05d/wrath-epic-buffing/releases/tag/vX.Y.Z
+Nexus: https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/948
+=== End Discord Post ===
+```
+
+Regeln:
+
+- Mod-Name + Version in einer Zeile fett (`**...**`), danach eine Leerzeile.
+- Bullets mit `- ` prefix, genau wie in den GitHub-Release-Notes aus Schritt 3.
+- Beide Links als reine URLs (kein Markdown-Link-Syntax) — Discord erzeugt automatisch Previews.
+- Keine „Installation" oder „Requirements" Sektionen — Discord-Post bleibt kurz, Details sind auf Nexus.
+- Schritt 9 ist rein informativ: schlägt er fehl, ist das Release bereits durch (Tag gepushed, GitHub Release live, Nexus Action läuft). Nicht abbrechen, nicht rückgängig machen.
 
 ---
 
