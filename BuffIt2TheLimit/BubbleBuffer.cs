@@ -1176,7 +1176,7 @@ namespace BuffIt2TheLimit {
             }
 
             var spellInfoSection = MakeSection("spell-info-section", 1.2f, 40);
-            var sourceControlsSection = MakeSection("source-controls-section", 0.5f, 30);
+            var sourceControlsSection = MakeSection("source-controls-section", 0.5f, 110);
             var castersSection = MakeSection("casters-section", 3f, 60);
             var targetsSection = MakeSection("targets-section", 3f, 60);
             _targetsSection = targetsSection.transform;
@@ -1626,16 +1626,18 @@ namespace BuffIt2TheLimit {
             var prioLabelRect = prioLabelObj.GetComponent<RectTransform>();
             prioLabelRect.SetParent(prioSideObj.transform, false);
             var prioLE = prioLabelObj.AddComponent<LayoutElement>();
+            prioLE.minHeight = 24;
             prioLE.preferredHeight = 24;
             prioLE.flexibleWidth = 1;
+            prioLE.layoutPriority = 2; // Override TMP's ILayoutElement default
             var prioOverrideText = prioLabelObj.AddComponent<TextMeshProUGUI>();
             prioOverrideText.text = $"{"setting-source-priority".i8()}: {"priority.useglobal".i8()}";
             prioOverrideText.fontSize = 16;
             prioOverrideText.color = new Color(0.2f, 0.15f, 0.1f, 1f);
             prioOverrideText.alignment = TextAlignmentOptions.Left;
             prioOverrideText.fontStyle = FontStyles.Underline;
-            prioOverrideText.enableWordWrapping = true;
-            prioOverrideText.overflowMode = TextOverflowModes.Truncate;
+            prioOverrideText.enableWordWrapping = false;
+            prioOverrideText.overflowMode = TextOverflowModes.Ellipsis;
             prioOverrideText.raycastTarget = true;
             var prioButton = prioLabelObj.AddComponent<Button>();
             prioButton.transition = Selectable.Transition.None;
@@ -1929,6 +1931,7 @@ namespace BuffIt2TheLimit {
                 prioLabelObj.SetActive(hasSourceControls);
                 useExtendRodObj.SetActive(hasSourceControls);
                 roundLimitObj.SetActive(buff.IsActivatable);
+
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 

@@ -354,7 +354,8 @@ namespace BuffIt2TheLimit {
 
                         var task = new CastTask {
                             SlottedSpell = caster.SlottedSpell,
-                            Target = new TargetWrapper(forTarget.Unit),
+                            // Mass/burst spells center on caster — avoid movement-to-target interrupts
+                            Target = buff.IsMass ? new TargetWrapper(caster.who) : new TargetWrapper(forTarget.Unit),
                             Caster = caster.who,
                             SpellToCast = spellToCast,
                             PowerfulChange = caster.SourceType == BuffSourceType.Spell && caster.PowerfulChange,
@@ -536,8 +537,9 @@ namespace BuffIt2TheLimit {
                             }
                         }
 
+                        // Mass/burst spells center on caster — avoid movement-to-target interrupts at combat start
                         task.Target = buff.IsMass
-                            ? targets.FirstOrDefault(t => buff.UnitWants(t.Unit))
+                            ? new TargetWrapper(caster.who)
                             : new TargetWrapper(Bubble.GroupById[target]);
                         task.Caster = caster.who;
 

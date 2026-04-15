@@ -23,11 +23,11 @@ namespace BuffIt2TheLimit {
 
                 // Trigger the RuleCastSpell
                 return Rulebook.Trigger<RuleCastSpell>(new(task.SpellToCast, task.Target));
-            } 
+            }
             catch (Exception ex) {
                 Main.Error(ex, "Instant Engine Casting");
                 return null;
-            } 
+            }
         }
 
         public IEnumerator CreateSpellCastRoutine(List<CastTask> tasks) {
