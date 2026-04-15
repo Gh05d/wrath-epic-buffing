@@ -1285,6 +1285,12 @@ namespace BuffIt2TheLimit {
             expandSpellPopout.GetComponent<OwlcatButton>().Interactable = true;
             expandSpellPopout.SetActive(true);
             bool isExpanded = false;
+            // Pivot at top-center so the popout grows DOWN from the anchor.
+            // Default pivot (0.5, 0.5) centered the popout on anchor Y=0.96,
+            // which pushed the top half above detailsRect and over the
+            // Encyclopedia panel — clicks on the top 1-2 effect toggles were
+            // swallowed by the encyclopedia raycast.
+            spellPopout.Rect().pivot = new Vector2(0.5f, 1f);
             spellPopout.Rect().SetAnchor(0.9, 0.96);
             spellPopout.Rect().anchoredPosition = new Vector2(-20, 0);
             UpdateSpellPopout();
@@ -1304,6 +1310,25 @@ namespace BuffIt2TheLimit {
             expandSpellPopoutButton.OnLeftClick.AddListener(() => {
                 Main.Safely(() => {
                     isExpanded = !isExpanded;
+                    UpdateSpellPopout();
+                });
+            });
+
+            // Close (X) button inside the popout — the original chevron toggle is
+            // covered by the expanded popout and unreachable while it's open.
+            var closePopoutBtn = MakeButton("X", spellPopout.transform);
+            closePopoutBtn.AddComponent<LayoutElement>().ignoreLayout = true;
+            closePopoutBtn.Rect().anchorMin = new Vector2(1, 1);
+            closePopoutBtn.Rect().anchorMax = new Vector2(1, 1);
+            closePopoutBtn.Rect().pivot = new Vector2(1, 1);
+            closePopoutBtn.Rect().sizeDelta = new Vector2(44, 40);
+            closePopoutBtn.Rect().anchoredPosition = new Vector2(-6, -6);
+            closePopoutBtn.SetActive(true);
+            var closePopoutOwl = closePopoutBtn.GetComponentInChildren<OwlcatButton>();
+            closePopoutOwl.Interactable = true;
+            closePopoutOwl.OnLeftClick.AddListener(() => {
+                Main.Safely(() => {
+                    isExpanded = false;
                     UpdateSpellPopout();
                 });
             });
