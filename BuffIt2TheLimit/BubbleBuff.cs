@@ -252,7 +252,12 @@ namespace BuffIt2TheLimit {
             foreach (var caster in CasterQueue) {
                 if (caster == null) continue;
 
-                caster.AddCredits(caster.spent);
+                // For item-backed providers (Scroll/Potion/Equipment) the real inventory is
+                // already authoritative via BufferState.RefreshItemStock(); refunding here would
+                // re-add credits that were actually consumed by Inventory.Remove()/Charges--.
+                if (!caster.IsItemSource) {
+                    caster.AddCredits(caster.spent);
+                }
                 caster.spent = 0;
                 caster.MaxCap = caster.AvailableCreditsNoCap;
             }
@@ -638,6 +643,16 @@ namespace BuffIt2TheLimit {
         internal void ChargeCredits(int v) {
             credits.Value -= v;
         }
+
+        // Used by BufferState.RefreshItemStock to hard-reset credits to match actual inventory.
+        internal void ResetCredits(int v) {
+            credits.Value = v;
+        }
+
+        internal bool IsItemSource =>
+            SourceType == BuffSourceType.Scroll
+            || SourceType == BuffSourceType.Potion
+            || SourceType == BuffSourceType.Equipment;
 
         public bool RequiresUmdCheck {
             get {

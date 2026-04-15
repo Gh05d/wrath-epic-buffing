@@ -37,9 +37,14 @@ namespace BuffIt2TheLimit {
 
         public Action OnRecalculated;
 
+        // Shared credits per item blueprint for inventory-based items (scrolls/potions/wands from main inventory).
+        // Used by RefreshItemStock() to re-sync credits.Value with real inventory counts on every Recalculate.
+        private readonly Dictionary<BlueprintItemEquipmentUsable, ReactiveProperty<int>> _sharedItemCredits = new();
+
         public void RecalculateAvailableBuffs(List<UnitEntityData> Group) {
             Dirty = true;
             BuffsByKey.Clear();
+            _sharedItemCredits.Clear();
 
             Main.Verbose("Recalculating full state");
 
@@ -215,6 +220,7 @@ namespace BuffIt2TheLimit {
                         if (isPotion) {
                             int totalCount = itemGroup.Sum(item => item.Count);
                             var sharedCredits = new ReactiveProperty<int>(totalCount);
+                            _sharedItemCredits[blueprint] = sharedCredits;
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
@@ -239,6 +245,7 @@ namespace BuffIt2TheLimit {
                         } else if (isScroll) {
                             int totalCount = itemGroup.Sum(item => item.Count);
                             var sharedCredits = new ReactiveProperty<int>(totalCount);
+                            _sharedItemCredits[blueprint] = sharedCredits;
                             int scrollDC = 20 + blueprint.CasterLevel;
 
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
@@ -268,6 +275,7 @@ namespace BuffIt2TheLimit {
                             int totalCharges = itemGroup.Sum(item => item.Charges);
                             if (totalCharges <= 0) continue;
                             var wandCredits = new ReactiveProperty<int>(totalCharges);
+                            _sharedItemCredits[blueprint] = wandCredits;
                             int wandDC = 20 + blueprint.CasterLevel;
 
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
@@ -445,6 +453,45 @@ namespace BuffIt2TheLimit {
             this.SavedState = save;
         }
 
+        // Re-sync cached item credits with the real game inventory.
+        // Runs every Recalculate because BubbleBuff.Invalidate() would otherwise refund credits
+        // for items that were actually consumed by Inventory.Remove()/Charges-- in the previous
+        // cast cycle, causing credits.Value to drift positive relative to real inventory over time.
+        private void RefreshItemStock() {
+            try {
+                foreach (var kv in _sharedItemCredits) {
+                    var bp = kv.Key;
+                    var credits = kv.Value;
+                    int total = 0;
+                    foreach (var item in Game.Instance.Player.Inventory) {
+                        if (item.Blueprint != bp) continue;
+                        total += bp.Type == UsableItemType.Wand ? item.Charges : item.Count;
+                    }
+                    credits.Value = total;
+                }
+            } catch (Exception ex) {
+                Main.Error(ex, "RefreshItemStock (shared inventory items)");
+            }
+
+            if (BuffList == null) return;
+
+            try {
+                foreach (var buff in BuffList) {
+                    foreach (var caster in buff.CasterQueue) {
+                        if (caster == null) continue;
+                        if (caster.SourceType != BuffSourceType.Equipment) continue;
+                        if (caster.SourceItem == null) continue;
+                        // Skip shared-credits providers (inventory wands handled above).
+                        if (caster.SourceItem.Blueprint is BlueprintItemEquipmentUsable ubp && _sharedItemCredits.ContainsKey(ubp)) continue;
+                        if (!caster.SourceItem.IsSpendCharges) continue;
+                        caster.ResetCredits(caster.SourceItem.Charges);
+                    }
+                }
+            } catch (Exception ex) {
+                Main.Error(ex, "RefreshItemStock (per-item quickslot equipment)");
+            }
+        }
+
         internal void Recalculate(bool updateUi, BuffGroup? priorityGroup = null) {
             Bubble.RefreshGroup();
             var group = Bubble.ConfigGroup;
@@ -452,6 +499,8 @@ namespace BuffIt2TheLimit {
                 AbilityCache.Revalidate();
                 RecalculateAvailableBuffs(group);
             }
+
+            RefreshItemStock();
 
             var ordered = priorityGroup.HasValue
                 ? BuffList.OrderByDescending(b => b.InGroups.Contains(priorityGroup.Value))
