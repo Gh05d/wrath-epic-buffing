@@ -120,7 +120,8 @@ namespace BuffIt2TheLimit {
             : Key.Archmage ? "Archmage Armor"
             : Spell.Name;
         public string NameMeta => IsActivatable ? Name : $"{Spell.Name} {MetaMagicFlags}";
-        public Sprite Icon => IsActivatable ? ActivatableSource.Blueprint.Icon : Spell?.Blueprint?.Icon;
+        public Sprite Icon => IsActivatable ? ActivatableSource.Blueprint.Icon
+            : (Spell?.MagicHackData != null ? Spell.Icon : Spell?.Blueprint?.Icon);
 
 
         public bool UnitWants(UnitEntityData unit) => wanted.Contains(unit.UniqueId);
