@@ -808,16 +808,6 @@ namespace BuffIt2TheLimit {
                 });
             }
 
-            {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-toggles-enabled".i8());
-                toggle.isOn = state.SavedState.TogglesEnabled;
-                toggle.onValueChanged.AddListener(enabled => {
-                    state.SavedState.TogglesEnabled = enabled;
-                    state.InputDirty = true;
-                    state.Save(true);
-                });
-            }
-
             // UMD Retries (label + buttons)
             {
                 var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);

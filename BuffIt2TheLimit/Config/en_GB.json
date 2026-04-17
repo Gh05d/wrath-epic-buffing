@@ -109,7 +109,6 @@
   "setting-songs-enabled": "Enable song activation",
   "setting-activatables-enabled": "Enable activatable abilities",
   "cat.Toggles": "Toggles",
-  "setting-toggles-enabled": "Enable free-toggle abilities (Power Attack, Shifter Claws, Monk stances, etc.)",
   "song.rounds-remaining": "Rounds remaining: {0}",
   "tooltip.source.spell": "Spell — {0} (Level {1})",
   "tooltip.source.scroll": "Scroll — {0}",
