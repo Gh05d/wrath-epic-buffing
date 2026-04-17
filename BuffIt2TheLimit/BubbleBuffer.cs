@@ -1039,6 +1039,7 @@ namespace BuffIt2TheLimit {
             CurrentCategory.Add(Category.Ability, "cat.Abilities".i8(), GlobalBubbleBuffer.tabAbilitiesIcon);
             CurrentCategory.Add(Category.Equipment, "cat.Equipment".i8(), GlobalBubbleBuffer.tabEquipmentIcon);
             CurrentCategory.Add(Category.Song, "cat.Songs".i8(), GlobalBubbleBuffer.tabSongsIcon);
+            CurrentCategory.Add(Category.Toggle, "cat.Toggles".i8(), GlobalBubbleBuffer.tabTogglesIcon);
 
 
             ShowShort.BindToView(showShort);
