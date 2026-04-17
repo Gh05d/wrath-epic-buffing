@@ -2882,7 +2882,8 @@ namespace BuffIt2TheLimit {
         Buff,
         Ability,
         Equipment,
-        Song
+        Song,
+        Toggle
     }
 
     public enum BuffGroup {
