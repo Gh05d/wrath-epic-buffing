@@ -24,6 +24,7 @@ using Kingmaker.UnitLogic.Abilities.Blueprints;
 using Kingmaker.UnitLogic;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.UnitLogic.ActivatableAbilities;
+using Kingmaker.Craft;
 
 namespace BuffIt2TheLimit {
 
@@ -216,6 +217,12 @@ namespace BuffIt2TheLimit {
                         if (isWand && !SavedState.EquipmentEnabled) continue;
 
                         var firstItem = itemGroup.First();
+                        // Crafted items (CraftedItemPart) override blueprint CL/SL/DC.
+                        // Mirrors game's own ItemStatHelper.GetCasterLevel/GetSpellLevel/GetDC.
+                        var crafted = firstItem.Get<CraftedItemPart>();
+                        int effectiveCL = crafted?.CasterLevel ?? blueprint.CasterLevel;
+                        int effectiveSL = crafted?.SpellLevel ?? blueprint.SpellLevel;
+                        int effectiveDC = crafted?.AbilityDC ?? (20 + blueprint.CasterLevel);
 
                         if (isPotion) {
                             int totalCount = itemGroup.Sum(item => item.Count);
@@ -224,8 +231,8 @@ namespace BuffIt2TheLimit {
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
-                                    OverrideCasterLevel = blueprint.CasterLevel,
-                                    OverrideSpellLevel = blueprint.SpellLevel,
+                                    OverrideCasterLevel = effectiveCL,
+                                    OverrideSpellLevel = effectiveSL,
                                 };
                                 Main.Verbose($"      Adding potion buff: {spellBlueprint.Name} for {dude.CharacterName}", "state");
 
@@ -246,15 +253,15 @@ namespace BuffIt2TheLimit {
                             int totalCount = itemGroup.Sum(item => item.Count);
                             var sharedCredits = new ReactiveProperty<int>(totalCount);
                             _sharedItemCredits[blueprint] = sharedCredits;
-                            int scrollDC = 20 + blueprint.CasterLevel;
+                            int scrollDC = effectiveDC;
 
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
                                 if (!CanUseItemWithUmd(dude, spellBlueprint, scrollDC)) continue;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
-                                    OverrideCasterLevel = blueprint.CasterLevel,
-                                    OverrideSpellLevel = blueprint.SpellLevel,
+                                    OverrideCasterLevel = effectiveCL,
+                                    OverrideSpellLevel = effectiveSL,
                                 };
                                 Main.Verbose($"      Adding scroll buff: {spellBlueprint.Name} for {dude.CharacterName}", "state");
 
@@ -276,15 +283,15 @@ namespace BuffIt2TheLimit {
                             if (totalCharges <= 0) continue;
                             var wandCredits = new ReactiveProperty<int>(totalCharges);
                             _sharedItemCredits[blueprint] = wandCredits;
-                            int wandDC = 20 + blueprint.CasterLevel;
+                            int wandDC = effectiveDC;
 
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
                                 if (!CanUseItemWithUmd(dude, spellBlueprint, wandDC)) continue;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
-                                    OverrideCasterLevel = blueprint.CasterLevel,
-                                    OverrideSpellLevel = blueprint.SpellLevel,
+                                    OverrideCasterLevel = effectiveCL,
+                                    OverrideSpellLevel = effectiveSL,
                                 };
                                 Main.Verbose($"      Adding wand buff: {spellBlueprint.Name} from {blueprint.Name} for {dude.CharacterName}", "state");
 
@@ -343,9 +350,10 @@ namespace BuffIt2TheLimit {
                             }
 
                             var credits = new ReactiveProperty<int>(charges);
+                            var quickCrafted = itemEntity.Get<CraftedItemPart>();
                             var abilityData = new AbilityData(spellBlueprint, dude) {
-                                OverrideCasterLevel = usableBp.CasterLevel,
-                                OverrideSpellLevel = usableBp.SpellLevel,
+                                OverrideCasterLevel = quickCrafted?.CasterLevel ?? usableBp.CasterLevel,
+                                OverrideSpellLevel = quickCrafted?.SpellLevel ?? usableBp.SpellLevel,
                             };
 
                             Main.Verbose($"      Adding equipment buff: {spellBlueprint.Name} from {usableBp.Name} for {dude.CharacterName}", "state");
