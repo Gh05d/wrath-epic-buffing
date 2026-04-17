@@ -212,6 +212,7 @@ JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resourc
 - **`UsableItemType.Scroll/Potion`**: In player inventory. Stack count = credits. Consumed via `Inventory.Remove()`.
 - **QuickSlot items** (`dude.Body.QuickSlots`): Equipment like rods, special items. Many have `Ability = null` (metamagic rods). Charges consumed via `SourceItem.Charges--`.
 - **Equipped item abilities** (`dude.Abilities.RawFacts` with `SourceItem != null`): Staves and worn items. Filtered by `!(Blueprint is BlueprintItemEquipmentUsable)` to avoid double-counting QuickSlot items.
+- **`Kingmaker.Items.ItemStatHelper`**: Canonical game-side accessor for per-item stats. `GetCasterLevel(ItemEntity)` / `GetSpellLevel(ItemEntity)` / `GetDC(ItemEntity)` check `CraftedItemPart` first, fall back to blueprint, and (for `GetDC`) apply ScrollMastery/WandMastery/EldritchWandMastery feats. Mirror this pattern for any runtime item-stat read — reading `blueprint.X` alone misses crafted overrides AND mastery feats. Mastery-feat DC handling is currently not replicated in the mod's scroll/wand DC (`20 + effectiveCL`); may need attention if players report UMD checks being too hard with mastery feats active.
 
 ### ActivatableAbility API (Songs/Performances)
 
