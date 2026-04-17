@@ -412,6 +412,49 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        // Explains why Validate would reject this caster, without side effects.
+        // Used by Combat Start diagnostics to surface silent rejections in Player.log.
+        internal string DiagnoseCaster(BuffProvider caster) {
+            if (caster == null) return "caster=null";
+            var activePartyIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
+
+            if (IsActivatable) {
+                if (ActivatableSource == null) return "activatable source=null";
+                if (ActivatableSource.IsOn) return "already on";
+                if (!ActivatableSource.IsAvailable) return "not available (resources/restrictions)";
+                return "ok";
+            }
+
+            if (!activePartyIds.Contains(caster.who.UniqueId)) return $"caster '{caster.who?.CharacterName}' not in active party";
+
+            switch (caster.SourceType) {
+                case BuffSourceType.Spell when !UseSpells: return "UseSpells=false";
+                case BuffSourceType.Scroll when !UseScrolls: return "UseScrolls=false";
+                case BuffSourceType.Potion when !UsePotions: return "UsePotions=false";
+                case BuffSourceType.Equipment when !UseEquipment: return "UseEquipment=false";
+            }
+
+            if (caster.spell == null && caster.SourceType != BuffSourceType.Song) return "spell=null";
+
+            int creditsNeeded = caster.spell != null ? CreditsNeeded(caster.spell) : 1;
+            if (caster.AvailableCredits < creditsNeeded) return $"credits {caster.AvailableCredits} < needed {creditsNeeded}";
+
+            if (caster.SlottedSpell != null && !caster.SlottedSpell.IsAvailable) return "SlottedSpell not available";
+
+            foreach (var t in wanted) {
+                if (!activePartyIds.Contains(t)) continue;
+                if (caster.CanTarget(t)) return "ok";
+            }
+            if (wanted.Count == 0) return "no wanted targets set";
+            return "no wanted target reachable (CanTarget=false for all)";
+        }
+
+        internal string FormatCaster(BuffProvider caster) {
+            if (caster == null) return "<null>";
+            string itemInfo = caster.SourceItem != null ? $"[{caster.SourceItem.Name}]" : "";
+            return $"{caster.who?.CharacterName ?? "<null>"} {caster.SourceType}{itemInfo} credits={caster.AvailableCredits}";
+        }
+
         public void ValidateActivatable() {
             if (ActivatableSource == null) return;
             ActualCastQueue = new List<(string, BuffProvider)>();

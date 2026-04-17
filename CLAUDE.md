@@ -10,8 +10,6 @@ Buff It 2 The Limit (formerly BubbleBuffs) is a Unity mod for **Pathfinder: Wrat
 ~/.dotnet/dotnet build BuffIt2TheLimit/BuffIt2TheLimit.csproj -p:SolutionDir=$(pwd)/
 ```
 
-> **Note:** `dotnet` is not on PATH — always use `~/.dotnet/dotnet`.
-
 **Setup:** The build requires the game's managed DLLs. The csproj references them via `$(WrathInstallDir)/Wrath_Data/Managed/`. This is resolved in order:
 1. `GamePath.props` in repo root (auto-generated or manual)
 2. Auto-detection from `Player.log` (Windows only, uses `findstr`)
@@ -58,8 +56,6 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 
 ## Gotchas
 
-- **`-p:SolutionDir` required on Linux**: Without it, `GamePath.props` import fails silently and all 1400+ DLL references break. Always pass it.
-- **`findstr` warnings**: The csproj auto-detection target uses Windows `findstr`. On Linux this produces a harmless warning — ignore it.
 - **Upstream PRs often forked from old versions**: The upstream repo (factubsio/BubbleBuffs) is inactive. External PRs target `fork` (Gh05d) and are typically based on pre-fork commits, missing our additions (mass spell logic, extend rod, etc.). Rebase onto master before reviewing — this resolves most "missing feature" issues. After rebase+merge, GitHub won't auto-close the PR (different SHAs) — close manually with `gh pr close`.
 - **`.NET Framework 4.8.1` missing APIs**: `Dictionary.GetValueOrDefault()` doesn't exist. Use `TryGetValue` instead. Other missing APIs: `Index`/`Range` syntax, `IAsyncEnumerable`, `Span<T>` in many contexts.
 - **Newtonsoft.Json version is old (game-bundled)**: No generic `JsonConverter<T>`. Use non-generic `JsonConverter` base class with `CanConvert(Type)` override instead.
@@ -94,12 +90,16 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **`RuleCastSpell` clones `AbilityParams` in constructor**: `Context = spell.CreateExecutionContext(target)` → `m_Params = @params.Clone()` runs BEFORE `OnBeforeEventAboutToTrigger`. Modifying `SpellToCast.MetamagicData` in the handler alone won't affect duration/DC calculations — must also set `Context.m_Params.Metamagic`.
 - **`MetamagicData.Clear()` zeros all fields, `Add()` only restores flags**: `Clear()` resets `MetamagicMask`, `SpellLevelCost`, AND `HeightenLevel` to 0. `Add(Metamagic)` only sets flag bits — it does NOT restore `SpellLevelCost` or `HeightenLevel`. When restoring metamagic state after mutation, always restore all three fields. `SpellToCast` is a shared cached reference — corrupting it permanently affects all future `Spellbook.GetSpellLevel()` reads.
 - **Blueprint action tree extraction**: To check what actions a spell uses: `ssh deck-direct "unzip -p '<game-path>/blueprints.zip' '<blueprint-path>.jbp'"` piped through `python3 -m json.tool`. Parse `Components[0].Actions.Actions` recursively for the action types. The `blueprints.zip` is at the game install root, not in subdirectories.
+- **Magic Deceiver fused spells (MagicHack system)**: Fused spells use template `BlueprintAbility` shells (`MagicHackDefaultSlot1-10`, `MagicHackTouchSlot1-10`) with empty actions/icons. Actual data lives in `AbilityData.MagicHackData` (`Spell1`, `Spell2`, `Name`, `DeliverBlueprint`, `SpellLevel`). The game engine routes `Name`, `Icon`, `CanTargetAlly`, `CanTargetEnemies`, `TargetAnchor` through `GetDeliverBlueprint()` which returns `MagicHackData.DeliverBlueprint` for fused spells. The `MagicDeceiverSpellbook` is `Spontaneous: true, IsArcanist: false, AllSpellsKnown: true` with its own curated spell list (mostly offensive — no standard buffs like Haste/Shield). Fused spells are stored via `Spellbook.AddCustomSpell()`.
+- **Archetype spellbooks can override `IsArcanist`**: `MagicDeceiverSpellbook` sets `IsArcanist: false` despite being an Arcanist archetype. Don't assume Arcanist archetypes use the Arcanist scanning branch — always check the spellbook blueprint's flags.
 - **Weapon enchantment spells use `EnhanceWeapon` action**: Magic Weapon, Keen Edge, Magic Fang and similar spells all use `Conditional` → `EnhanceWeapon` + `ContextActionApplyBuff`. Handled by `EnhanceWeaponEffect` in `IBeneficialEffect.cs`. If a new weapon enchantment spell is reported missing, check for this pattern first.
 - **`UnitUseAbility.CreateCastCommand` rejects synthetic AbilityData**: Equipment/scroll/potion items use `new AbilityData(blueprint, caster)` which isn't in the caster's ability list. The game's command system silently rejects it. `AnimatedExecutionEngine` falls back to `Rulebook.Trigger` for non-spell CastTasks. `InstantExecutionEngine` always uses `Rulebook.Trigger` so it works for all source types.
 - **Verify deploys by comparing DLL timestamps**: After `./deploy.sh`, compare local `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` vs `ssh deck-direct "ls -la '<game-path>/Mods/BuffIt2TheLimit/BuffIt2TheLimit.dll'"`. File size and date must match. Game must be restarted to load the new DLL.
+- **Info.json byte-count is ambiguous**: versions like `1.11.10` and `1.11.11` have the same character count → identical file size. Always `grep Version Info.json`, never compare via `ls -la` alone.
+- **UMM hot-reload only works in DEBUG builds**: `[EnableReloading]` on `Main` is `#if DEBUG`. Release builds need a full game restart after `deploy.sh`. Verify what's actually loaded via `grep "Version '" Player.log | tail -1` before drawing conclusions from in-game testing.
 - **Debug Unity UI positions with `GetWorldCorners()`**: When UI elements appear mispositioned, add `Main.Log` calls with `RectTransform.GetWorldCorners()` to compare actual pixel positions at runtime. Anchor math from code is error-prone — verify empirically via Player.log. For "why is this child outside its parent" bugs, walk the parent chain with `transform.parent` and log each level's worldW/worldH + anchorMin/Max/sizeDelta — reveals which ancestor clamps the size.
 - **Combat-start disrupts `Unit.Commands.Run()` queue**: At combat initialization the game re-orders/cancels pending UnitCommands. `AnimatedExecutionEngine` casts via `CreateCastCommand` → `Commands.Run` — these queued casts can silently drop at combat start, especially when the cast requires move-to-target. Mitigations: target the caster (no movement), use `InstantExecutionEngine` (goes via `Rulebook.Trigger`, bypasses queue), or target a self-centered AoE anchor. The cast log will say `cmd=OK` but the spell never fires.
-- **`Game.Instance.Player.RemoteCompanions`** is the correct API for benched-but-available companions. `AllCharacters` includes dead, ex-companions, and summons. `RemoteCompanions` includes pets — filter with `unit.Get<UnitPartPet>() != null`.
+- **`Game.Instance.Player.RemoteCompanions`** is the correct API for benched-but-available companions. `AllCharacters` includes dead, ex-companions, and summons. `RemoteCompanions` includes pets — filter with `unit.Get<UnitPartPet>() != null`. It's `IEnumerable`, not `ICollection` — use `.Count()` (LINQ), not `.Count` property (CS0428 "cannot convert method group to int").
 - **`IsInGame` semantics**: `False` = benched/remote companion (not in scene), `True` = in scene (active party + summons). Counterintuitive — benched companions are NOT "in game".
 - **`spell.CanTarget()` rejects out-of-scene units**: The game's ability targeting system requires targets to be in the current scene. For config-only targeting (reserve companions), bypass this check.
 - **Don't destroy UI elements during their click callbacks**: `GameObject.Destroy` (deferred) and `DestroyImmediate` both corrupt Unity's EventSystem mid-click. Let `ShowBuffWindow` handle rebuilds via its size-mismatch detection instead.
@@ -122,6 +122,10 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 - **Shift+I** — Reinstall UI + recalculate buffs (hot-reload during development)
 - **Shift+B** — Reload the entire mod
 - **Shift+R** — Debug helper (currently adds a test item)
+
+## Combat-Start Diagnostics
+
+`ExecuteCombatStart` emits structured `[CSD]`-tagged lines on every combat start (release-safe `Main.Log`, not `Verbose`): mod version + `SkipAnim` setting, active/reserve party, per-buff `Marked/Fulfilled/Queue/CasterQueue` counts, per-caster rejection reason when `Fulfilled=0`, Phase0 (activatables) + Phase1 (spells) queue events with caster → target, final engine choice + task count. Grep workflow: `ssh deck-direct "grep -a '\[CSD\]' '<Player.log>' | tail -80"`. `BubbleBuff.DiagnoseCaster(provider)` mirrors `Validate`/`ValidateMass` checks without side effects — extend it when adding new source-type filters so rejections stay grep-able.
 
 ## Architecture
 

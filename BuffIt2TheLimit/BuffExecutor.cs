@@ -430,17 +430,50 @@ namespace BuffIt2TheLimit {
         }
 
         public void ExecuteCombatStart() {
-            Main.Log("Combat start: begin auto-cast");
+            Main.Log("[CSD] === Combat Start ===");
 
             // Recalculate for all groups
             State.Recalculate(false);
 
-            // Diagnostic: count buffs with CastOnCombatStart
+            // Header: mod version, engine choice, party composition
+            try {
+                string version = ModSettings.ModEntry?.Info?.Version ?? "?";
+                int activeCount = Bubble.Group?.Count ?? -1;
+                int reserveCount = Game.Instance?.Player?.RemoteCompanions != null ? Game.Instance.Player.RemoteCompanions.Count() : -1;
+                Main.Log($"[CSD] Mod={version} SkipAnim={State.SkipAnimationsOnCombatStart} Active={activeCount} Reserve={reserveCount}");
+                if (Bubble.Group != null) {
+                    Main.Log($"[CSD] ActiveParty: {string.Join(", ", Bubble.Group.Select(u => u.CharacterName))}");
+                }
+            } catch (Exception ex) {
+                Main.Error(ex, "[CSD] header");
+            }
+
             var allBuffs = State.BuffList.ToList();
             var combatStartBuffs = allBuffs.Where(b => b.CastOnCombatStart).ToList();
-            Main.Log($"Combat start: {combatStartBuffs.Count} buffs marked (of {allBuffs.Count} total)");
+            Main.Log($"[CSD] Marked={combatStartBuffs.Count} (of {allBuffs.Count} total)");
             foreach (var b in combatStartBuffs) {
-                Main.Log($"  - {b.Name}: IsActivatable={b.IsActivatable}, Fulfilled={b.Fulfilled}, ActualCastQueue={b.ActualCastQueue?.Count ?? -1}");
+                int queue = b.ActualCastQueue?.Count ?? -1;
+                Main.Log($"[CSD] Buff '{b.Name}' IsActivatable={b.IsActivatable} Fulfilled={b.Fulfilled}/{b.Requested} Queue={queue} CasterQueue={b.CasterQueue.Count}");
+
+                // When something failed to be queued, dump per-caster rejection reasons.
+                bool noProgress = queue <= 0 || (b.IsActivatable && b.Fulfilled == 0);
+                if (noProgress) {
+                    if (b.CasterQueue.Count == 0) {
+                        Main.Log("[CSD]   (no casters in queue — scan didn't find any provider)");
+                    } else {
+                        foreach (var c in b.CasterQueue) {
+                            string reason;
+                            try { reason = b.DiagnoseCaster(c); }
+                            catch (Exception ex) { reason = $"<diagnose threw: {ex.Message}>"; }
+                            Main.Log($"[CSD]   reject {b.FormatCaster(c)} → {reason}");
+                        }
+                    }
+                } else if (b.ActualCastQueue != null) {
+                    foreach (var (targetId, caster) in b.ActualCastQueue) {
+                        string targetName = Bubble.GroupById.TryGetValue(targetId, out var t) ? t.CharacterName : targetId;
+                        Main.Log($"[CSD]   queued: {b.FormatCaster(caster)} → {targetName}{(b.IsMass ? " (mass)" : "")}");
+                    }
+                }
             }
 
             // Phase 0: Activate activatable abilities marked for combat start
@@ -450,24 +483,30 @@ namespace BuffIt2TheLimit {
                 try {
                     var activatable = actBuff.ActivatableSource;
                     if (activatable == null || activatable.IsOn) {
-                        Main.Log($"  Activatable {actBuff.Name}: skipped (null={activatable == null}, already on={activatable?.IsOn})");
+                        Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' (null={activatable == null}, already-on={activatable?.IsOn})");
                         continue;
                     }
 
                     var group = activatable.Blueprint.Group;
                     var caster = actBuff.CasterQueue.FirstOrDefault()?.who;
-                    if (caster == null) continue;
-
-                    // Group.None means "no exclusivity" — independent abilities can all activate
-                    var groupKey = (group, caster.UniqueId);
-                    if (group != ActivatableAbilityGroup.None && activatedGroups.Contains(groupKey)) continue;
-
-                    if (!activatable.IsAvailable) {
-                        Main.Log($"  Activatable {actBuff.Name}: not available");
+                    if (caster == null) {
+                        Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' (no caster in queue)");
                         continue;
                     }
 
-                    Main.Log($"  Activatable {actBuff.Name}: activating on {caster.CharacterName}");
+                    // Group.None means "no exclusivity" — independent abilities can all activate
+                    var groupKey = (group, caster.UniqueId);
+                    if (group != ActivatableAbilityGroup.None && activatedGroups.Contains(groupKey)) {
+                        Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (group {group} already activated)");
+                        continue;
+                    }
+
+                    if (!activatable.IsAvailable) {
+                        Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (not available: resources/restrictions)");
+                        continue;
+                    }
+
+                    Main.Log($"[CSD] Phase0 activate '{actBuff.Name}' on {caster.CharacterName}");
                     activatable.IsOn = true;
                     if (!activatable.IsStarted)
                         activatable.TryStart();
@@ -498,17 +537,20 @@ namespace BuffIt2TheLimit {
                             bool anyTargetMissingBuff = Bubble.Group.Any(u =>
                                 buff.UnitWants(u) && !buff.BuffsApplied.IsPresent(unitBuffs[u.UniqueId], buff.IgnoreForOverwriteCheck));
                             if (!anyTargetMissingBuff && !State.OverwriteBuff) {
+                                Main.Log($"[CSD] Phase1 skip '{buff.Name}' (mass — all wanted targets already buffed)");
                                 skippedAlreadyActive++;
                                 continue;
                             }
                         } else if (buff.BuffsApplied.IsPresent(forTarget, buff.IgnoreForOverwriteCheck) && !State.OverwriteBuff) {
+                            string tName = Bubble.GroupById.TryGetValue(target, out var tu) ? tu.CharacterName : target;
+                            Main.Log($"[CSD] Phase1 skip '{buff.Name}' on {tName} (already buffed)");
                             skippedAlreadyActive++;
                             continue;
                         }
 
                         var spellToCast = caster.spell;
                         if (spellToCast == null && caster.SourceType != BuffSourceType.Song) {
-                            Main.Log($"  {buff.Name}: spellToCast is null (sourceType={caster.SourceType})");
+                            Main.Log($"[CSD] Phase1 skip '{buff.Name}' (spellToCast=null, sourceType={caster.SourceType})");
                             continue;
                         }
 
@@ -545,20 +587,24 @@ namespace BuffIt2TheLimit {
 
                         tasks.Add(task);
                         actuallyCast++;
+                        string targetName = task.Target?.Unit?.CharacterName ?? "<point>";
+                        string rodTag = task.MetamagicRodItem != null ? " +ExtendRod" : "";
+                        Main.Log($"[CSD] Phase1 queue '{buff.Name}' {caster.who.CharacterName} → {targetName} ({caster.SourceType}{rodTag})");
                     }
                 } catch (Exception ex) {
-                    Main.Error(ex, $"combat start: casting buff {buff.Name}");
+                    Main.Error(ex, $"[CSD] Phase1 exception for '{buff.Name}'");
                 }
             }
 
             // Combat log message (same pattern as Execute)
             var messageString = $"Combat Start: {"log.applied".i8()} {actuallyCast + activatablesActivated} ({"log.skipped".i8()} {skippedAlreadyActive})";
-            Main.Log(messageString);
+            Main.Log($"[CSD] Summary activatables={activatablesActivated} spell-tasks={tasks.Count} skipped-already-active={skippedAlreadyActive}");
 
             if (tasks.Count > 0) {
                 IBuffExecutionEngine engine = State.SkipAnimationsOnCombatStart
-                    ? new InstantExecutionEngine()
+                    ? (IBuffExecutionEngine)new InstantExecutionEngine()
                     : new AnimatedExecutionEngine();
+                Main.Log($"[CSD] Engine={engine.GetType().Name} dispatching {tasks.Count} tasks");
                 var castingCoroutine = engine.CreateSpellCastRoutine(tasks);
                 BubbleBuffGlobalController.Instance.StartCoroutine(castingCoroutine);
             }
