@@ -32,6 +32,8 @@ namespace BuffIt2TheLimit {
         [JsonProperty]
         public bool AllowInCombat;
         [JsonProperty]
+        public bool BypassArcaneSpellFailure;
+        [JsonProperty]
         public bool OverwriteBuff;
         [JsonProperty]
         public SourcePriority GlobalSourcePriority = SourcePriority.SpellsScrollsPotions;

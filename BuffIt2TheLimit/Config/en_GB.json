@@ -62,6 +62,7 @@
   "setting-verbose": "Use full animation casting",
   "setting-skip-combat-anim": "Skip animations on combat start",
   "setting-in-combat": "Allow buffing in combat",
+  "setting-bypass-asf": "Bypass arcane spell failure when prebuffing",
   "setting-overwritebuff": "Ignore existing buffs",
   "setting-scrolls-enabled": "Enable scroll usage",
   "setting-potions-enabled": "Enable potion usage",

@@ -134,8 +134,10 @@ namespace BuffIt2TheLimit {
 
         public void EndSuppression() { UnitBuffPartView.EndSuppresion(); }
 
-        public void CastSpells(List<CastTask> tasks) {
-            var castingCoroutine = Engine.CreateSpellCastRoutine(tasks);
+        public void CastSpells(List<CastTask> tasks, bool armorBypass = false) {
+            IEnumerator castingCoroutine = Engine.CreateSpellCastRoutine(tasks);
+            if (armorBypass)
+                castingCoroutine = BuffExecutor.WithArmorBypass(castingCoroutine);
             StartCoroutine(castingCoroutine);
         }
 
@@ -146,6 +148,21 @@ namespace BuffIt2TheLimit {
     }
     public class BuffExecutor {
         public BufferState State;
+
+        // Active while the mod's own cast coroutine is running.
+        // Read by ArcaneSpellFailurePatch to gate the ASF bypass.
+        public static int ArmorBypassActive;
+
+        public static IEnumerator WithArmorBypass(IEnumerator inner) {
+            ArmorBypassActive++;
+            try {
+                while (inner.MoveNext()) {
+                    yield return inner.Current;
+                }
+            } finally {
+                ArmorBypassActive--;
+            }
+        }
 
         public BuffExecutor(BufferState state) {
             State = state;
@@ -417,7 +434,8 @@ namespace BuffIt2TheLimit {
                 }
             }
 
-            BubbleBuffGlobalController.Instance.CastSpells(tasks);
+            bool armorBypass = State.BypassArcaneSpellFailure && !Game.Instance.Player.IsInCombat;
+            BubbleBuffGlobalController.Instance.CastSpells(tasks, armorBypass);
 
             string title = buffGroup.i8();
             var messageString = $"{title} {"log.applied".i8()} {actuallyCast}/{attemptedCasts} ({"log.skipped".i8()} {skippedCasts})";

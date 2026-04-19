@@ -679,6 +679,14 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        public bool BypassArcaneSpellFailure {
+            get => SavedState.BypassArcaneSpellFailure;
+            set {
+                SavedState.BypassArcaneSpellFailure = value;
+                Save(true);
+            }
+        }
+
         public bool OverwriteBuff {
             get => SavedState.OverwriteBuff;
             set {

@@ -733,6 +733,14 @@ namespace BuffIt2TheLimit {
             }
 
             {
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-bypass-asf".i8());
+                toggle.isOn = state.BypassArcaneSpellFailure;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.BypassArcaneSpellFailure = enabled;
+                });
+            }
+
+            {
                 var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-overwritebuff".i8());
                 toggle.isOn = state.OverwriteBuff;
                 toggle.onValueChanged.AddListener(enabled => {

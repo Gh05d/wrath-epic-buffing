@@ -55,6 +55,7 @@
   "remove-all": "Buff überall entfernen",
   "add-all": "Buff überall einsetzen",
   "setting-skip-combat-anim": "Animationen bei Combat-Start überspringen",
+  "setting-bypass-asf": "Zauberpatzer umgehen bei Prebuffing",
   "setting-scrolls-enabled": "Schriftrollennutzung aktivieren",
   "setting-potions-enabled": "Tranknutzung aktivieren",
   "setting-umd-retries": "UMD max. Versuche",
