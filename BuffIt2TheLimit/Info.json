@@ -10,5 +10,5 @@
     "Repository": "https://raw.githubusercontent.com/Gh05d/wrath-epic-buffing/master/Repository.json",
     "Requirements": [],
     "LoadAfter": ["EnhancedInventory"],
-    "Version": "1.13.0"
+    "Version": "1.13.1"
 }
