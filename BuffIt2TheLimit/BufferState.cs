@@ -384,6 +384,23 @@ namespace BuffIt2TheLimit {
                         var blueprint = activatable.Blueprint;
                         var srcItem = activatable.SourceItem;
 
+                        // Variant-parent activatables (ActivatableAbilityVariants, ActivatableAbilitySet):
+                        // parent's m_Buff is an empty placeholder; effect lives on per-variant conversions the
+                        // player must pick manually. Skip these — ShiftersFury is handled specially at activation
+                        // time via ShiftersFuryPart.AppliedFacts (see BuffExecutor.ResolveActivationTarget).
+                        if (activatable.ConversionsProvider != null && !(activatable.ConversionsProvider is ShiftersFury)) {
+                            Main.Verbose($"      SKIP variant-parent activatable: {blueprint.Name} for {dude.CharacterName}", "rejection");
+                            continue;
+                        }
+
+                        // Runtime/hidden conversions (e.g. ShiftersFury per-weapon variants) also appear in
+                        // RawFacts. They share the parent's DisplayName so would double up in the Toggle tab.
+                        // The parent entry handles them via BuffExecutor.ResolveActivationTarget at activation.
+                        if (blueprint.IsRuntimeOnly || blueprint.HiddenInUI) {
+                            Main.Verbose($"      SKIP runtime/hidden activatable: {blueprint.Name} for {dude.CharacterName}", "rejection");
+                            continue;
+                        }
+
                         if (srcItem != null) {
                             if (!SavedState.EquipmentEnabled) continue;
                             if (srcItem.Charges <= 0) continue;
