@@ -215,15 +215,18 @@ namespace BuffIt2TheLimit {
             State.Recalculate(false, buffGroup);
 
             // Phase 0: Activate activatable abilities before casting buffs.
-            // Variant-parent activatables (ConversionsProvider != null, e.g. Shifter's Fury) must run
-            // LAST within this phase: their real activation target (ShiftersFuryPart.AppliedFacts) only
-            // materialises after a form-change activatable like Chimera Aspect has populated natural
-            // weapons on the unit. OrderBy is stable, so non-variant entries keep their reverse order.
+            // Order matters — ShiftersFury's real activation target (AppliedFacts) only materialises
+            // after a form-change activatable (Chimeric Aspect, etc.) has populated natural weapons.
+            // Three priority buckets (OrderBy is stable, so within a bucket .Reverse() order holds):
+            //   0: normal activatables (Rage, Bardic Performance, …)
+            //   1: Pattern-B parents with sub-selections (Chimeric Aspect — activates the form)
+            //   2: Shifter's Fury (needs AppliedFacts from the form to exist first)
             var activatedGroups = new HashSet<(ActivatableAbilityGroup, string)>();
             foreach (var actBuff in State.BuffList
                 .Where(b => b.IsActivatable && b.InGroups.Contains(buffGroup) && b.Fulfilled > 0)
                 .Reverse()
-                .OrderBy(b => b.ActivatableSource?.ConversionsProvider != null ? 1 : 0)) {
+                .OrderBy(b => b.ActivatableSource?.ConversionsProvider is ShiftersFury ? 2
+                           : b.ActivatableSource?.ConversionsProvider != null ? 1 : 0)) {
                 try {
                     var activatable = actBuff.ActivatableSource;
                     if (activatable == null) {
@@ -545,7 +548,8 @@ namespace BuffIt2TheLimit {
             foreach (var actBuff in combatStartBuffs
                 .Where(b => b.IsActivatable && b.Fulfilled > 0)
                 .Reverse()
-                .OrderBy(b => b.ActivatableSource?.ConversionsProvider != null ? 1 : 0)) {
+                .OrderBy(b => b.ActivatableSource?.ConversionsProvider is ShiftersFury ? 2
+                           : b.ActivatableSource?.ConversionsProvider != null ? 1 : 0)) {
                 try {
                     var activatable = actBuff.ActivatableSource;
                     if (activatable == null) {

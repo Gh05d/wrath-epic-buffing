@@ -381,17 +381,27 @@ namespace BuffIt2TheLimit {
                 for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                     UnitEntityData dude = Group[characterIndex];
 
-                    // Collect blueprint GUIDs of every ActivatableAbility that is a variant-conversion of some
-                    // ConversionsProvider parent on this unit. The engine installs those conversions into
-                    // RawFacts alongside their parent — we want to keep only the parent entry to avoid
-                    // duplicate Toggle-tab rows with the same DisplayName. Do NOT filter by IsRuntimeOnly or
-                    // HiddenInUI alone: Chimera Aspects, Greater Chimera Aspects, and similar mutual-exclusive
-                    // class features set those flags too and must remain scannable.
-                    var knownConversions = new HashSet<BlueprintGuid>();
+                    // Two distinct uses of IActivatableAbilityConversionsProvider exist:
+                    //
+                    //   Pattern A — Menu stub (Shifter's Fury):
+                    //     parent has ActivationDisable → CanTurnOn()=false → IsOn=true is a no-op.
+                    //     Real effect lives on conversions (ShiftersFuryPart.AppliedFacts, weapon variants).
+                    //     Per-weapon conversion blueprints share the parent's DisplayName, so they must be
+                    //     deduplicated from the Toggle tab. Activation routes through ResolveActivationTarget.
+                    //
+                    //   Pattern B — Activatable with sub-selections (Chimeric / Greater / Final Aspect):
+                    //     parent is a real activatable (ResourceLogic, no ActivationDisable) that the player
+                    //     toggles on/off directly. Conversions are additional per-form toggles (Bear, Boar, …)
+                    //     with their own distinct DisplayNames — BOTH the parent and the children belong in
+                    //     the UI. Do NOT deduplicate these conversions.
+                    //
+                    // Distinguishing check: blueprint.GetComponent<ActivationDisable>() != null → Pattern A.
+                    var shifterFuryConversions = new HashSet<BlueprintGuid>();
                     foreach (var candidate in dude.ActivatableAbilities.RawFacts) {
-                        if (candidate.ConversionsProvider == null) continue;
-                        foreach (var conv in candidate.GetConversions()) {
-                            if (conv?.Blueprint != null) knownConversions.Add(conv.Blueprint.AssetGuid);
+                        if (candidate.ConversionsProvider is ShiftersFury) {
+                            foreach (var conv in candidate.GetConversions()) {
+                                if (conv?.Blueprint != null) shifterFuryConversions.Add(conv.Blueprint.AssetGuid);
+                            }
                         }
                     }
 
@@ -399,19 +409,19 @@ namespace BuffIt2TheLimit {
                         var blueprint = activatable.Blueprint;
                         var srcItem = activatable.SourceItem;
 
-                        // Variant-parent activatables (ActivatableAbilityVariants, ActivatableAbilitySet):
-                        // parent's m_Buff is an empty placeholder; effect lives on per-variant conversions the
-                        // player must pick manually. Skip these — ShiftersFury is handled specially at activation
-                        // time via ShiftersFuryPart.AppliedFacts (see BuffExecutor.ResolveActivationTarget).
-                        if (activatable.ConversionsProvider != null && !(activatable.ConversionsProvider is ShiftersFury)) {
-                            Main.Verbose($"      SKIP variant-parent activatable: {blueprint.Name} for {dude.CharacterName}", "rejection");
+                        // Pattern A menu-stub parents: activation is a no-op because ActivationDisable
+                        // pins CanTurnOn() to false. Shifter's Fury is the special case that stays
+                        // scannable — BuffExecutor.ResolveActivationTarget dispatches it onto its
+                        // per-weapon conversion at activation time.
+                        if (blueprint.GetComponent<ActivationDisable>() != null
+                            && !(activatable.ConversionsProvider is ShiftersFury)) {
+                            Main.Verbose($"      SKIP activation-disabled parent: {blueprint.Name} for {dude.CharacterName}", "rejection");
                             continue;
                         }
 
-                        // Filter variant-conversions of ConversionsProvider parents present on this unit
-                        // (e.g. ShifterFuryWeaponList per-weapon copies) to prevent duplicate entries.
-                        if (knownConversions.Contains(blueprint.AssetGuid)) {
-                            Main.Verbose($"      SKIP variant-conversion: {blueprint.Name} for {dude.CharacterName}", "rejection");
+                        // Deduplicate Shifter's Fury per-weapon conversions — they share the parent's name.
+                        if (shifterFuryConversions.Contains(blueprint.AssetGuid)) {
+                            Main.Verbose($"      SKIP Shifter's Fury conversion: {blueprint.Name} for {dude.CharacterName}", "rejection");
                             continue;
                         }
 
