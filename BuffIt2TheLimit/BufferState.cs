@@ -548,6 +548,16 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        internal int ClearAllAssignments() {
+            int cleared = 0;
+            foreach (var buff in BuffsByKey.Values) {
+                if (buff.Requested > 0) cleared++;
+                buff.ClearAllAssignments();
+            }
+            Recalculate(true);
+            return cleared;
+        }
+
         internal void Recalculate(bool updateUi, BuffGroup? priorityGroup = null) {
             Bubble.RefreshGroup();
             var group = Bubble.ConfigGroup;

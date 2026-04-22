@@ -546,6 +546,11 @@ namespace BuffIt2TheLimit {
             notWanted.Clear();
         }
 
+        internal void ClearAllAssignments() {
+            wanted.Clear();
+            notWanted.Clear();
+        }
+
         internal void AdjustCap(int casterIndex, int v) {
             var caster = CasterQueue[casterIndex];
             if (caster.CustomCap == -1) {

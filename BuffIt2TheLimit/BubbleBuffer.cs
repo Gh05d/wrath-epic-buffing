@@ -26,6 +26,7 @@ using Newtonsoft.Json;
 using Owlcat.Runtime.UI.Controls.Button;
 using Owlcat.Runtime.UI.Utility;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -906,6 +907,41 @@ namespace BuffIt2TheLimit {
             MakeKeybindRow(panel.transform, "shortcut.openbuffmenu".i8(),
                 () => state.GetOpenBuffMenuShortcut(),
                 binding => state.SetOpenBuffMenuShortcut(binding));
+
+            // Clear All Assignments — two-click confirmation
+            {
+                var clearButton = MakeButton("settings-clear-all".i8(), panel.transform);
+                var clearText = clearButton.GetComponentInChildren<TextMeshProUGUI>();
+                var clearBtn = clearButton.GetComponentInChildren<OwlcatButton>();
+                clearBtn.SetTooltip(
+                    new TooltipTemplateSimple("settings-clear-all".i8(), "settings-clear-all-tooltip".i8()),
+                    new TooltipConfig { InfoCallPCMethod = InfoCallPCMethod.None });
+
+                float confirmDeadline = -1f;
+                Coroutine revertCo = null;
+
+                IEnumerator RevertAfter(float seconds) {
+                    yield return new WaitForSecondsRealtime(seconds);
+                    clearText.text = "settings-clear-all".i8();
+                    confirmDeadline = -1f;
+                    revertCo = null;
+                }
+
+                clearBtn.OnLeftClick.AddListener(() => {
+                    if (Time.unscaledTime <= confirmDeadline) {
+                        if (revertCo != null) StopCoroutine(revertCo);
+                        int cleared = state.ClearAllAssignments();
+                        clearText.text = string.Format("settings-clear-all-done".i8(), cleared);
+                        confirmDeadline = -1f;
+                        revertCo = StartCoroutine(RevertAfter(2f));
+                    } else {
+                        if (revertCo != null) StopCoroutine(revertCo);
+                        clearText.text = "settings-clear-all-confirm".i8();
+                        confirmDeadline = Time.unscaledTime + 3f;
+                        revertCo = StartCoroutine(RevertAfter(3f));
+                    }
+                });
+            }
 
             var b = toggleSettings.GetComponent<OwlcatButton>();
             b.SetTooltip(new TooltipTemplateSimple("settings".i8(), "settings-toggle".i8()), new TooltipConfig {
