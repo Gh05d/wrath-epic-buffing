@@ -704,27 +704,60 @@ namespace BuffIt2TheLimit {
             var panel = GameObject.Instantiate(actionBarView.m_DragSlot.m_ConvertedView.gameObject, toggleSettings.transform);
             panel.DestroyComponents<ActionBarConvertedPCView>();
             panel.DestroyComponents<GridLayoutGroup>();
+            panel.DestroyComponents<ContentSizeFitter>();
             panel.SetActive(false);
             panel.Rect().SetAnchor(0, 1);
-            panel.Rect().sizeDelta = new Vector2(100, 200);
             panel.Rect().pivot = new Vector2(1, 0);
-            panel.Rect().anchoredPosition = Vector3.zero;
             panel.Rect().anchoredPosition = new Vector2(-3, 3);
-
-            var popGrid = panel.AddComponent<GridLayoutGroup>();
-            popGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            popGrid.constraintCount = 1;
             int width = 450;
             if (Language.Locale == Locale.deDE)
                 width = 550;
+            panel.Rect().sizeDelta = new Vector2(width + 25, 500);
+
+            var scrollRect = panel.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.scrollSensitivity = 30f;
+
+            var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+            viewport.transform.SetParent(panel.transform, false);
+            var vpRT = viewport.GetComponent<RectTransform>();
+            vpRT.anchorMin = Vector2.zero;
+            vpRT.anchorMax = Vector2.one;
+            vpRT.offsetMin = Vector2.zero;
+            vpRT.offsetMax = Vector2.zero;
+            var vpImage = viewport.GetComponent<Image>();
+            vpImage.color = new Color(0, 0, 0, 0);
+            vpImage.raycastTarget = true;
+
+            var scrollContentObj = new GameObject("Content", typeof(RectTransform));
+            scrollContentObj.transform.SetParent(viewport.transform, false);
+            var contentRT = scrollContentObj.GetComponent<RectTransform>();
+            contentRT.anchorMin = new Vector2(0, 1);
+            contentRT.anchorMax = new Vector2(1, 1);
+            contentRT.pivot = new Vector2(0.5f, 1);
+            contentRT.anchoredPosition = Vector2.zero;
+            contentRT.sizeDelta = Vector2.zero;
+
+            var popGrid = scrollContentObj.AddComponent<GridLayoutGroup>();
+            popGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            popGrid.constraintCount = 1;
             popGrid.cellSize = new Vector2(width, 40);
             popGrid.padding.left = 25;
             popGrid.padding.top = 12;
-            popGrid.padding.bottom = 50;
-            popGrid.startCorner = GridLayoutGroup.Corner.LowerLeft;
+            popGrid.padding.bottom = 12;
+            popGrid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+
+            var fitter = scrollContentObj.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            scrollRect.viewport = vpRT;
+            scrollRect.content = contentRT;
+
+            Transform scrollContent = scrollContentObj.transform;
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-in-combat".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-in-combat".i8());
                 toggle.isOn = state.AllowInCombat;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.AllowInCombat = enabled;
@@ -734,7 +767,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-bypass-asf".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-bypass-asf".i8());
                 toggle.isOn = state.BypassArcaneSpellFailure;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.BypassArcaneSpellFailure = enabled;
@@ -742,7 +775,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-overwritebuff".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-overwritebuff".i8());
                 toggle.isOn = state.OverwriteBuff;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.OverwriteBuff = enabled;
@@ -750,7 +783,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-verbose".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-verbose".i8());
                 toggle.isOn = state.VerboseCasting;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.VerboseCasting = enabled;
@@ -758,7 +791,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-skip-combat-anim".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-skip-combat-anim".i8());
                 toggle.isOn = state.SkipAnimationsOnCombatStart;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SkipAnimationsOnCombatStart = enabled;
@@ -768,7 +801,7 @@ namespace BuffIt2TheLimit {
             // === Scroll/Potion Settings ===
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-scrolls-enabled".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-scrolls-enabled".i8());
                 toggle.isOn = state.SavedState.ScrollsEnabled;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SavedState.ScrollsEnabled = enabled;
@@ -778,7 +811,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-potions-enabled".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-potions-enabled".i8());
                 toggle.isOn = state.SavedState.PotionsEnabled;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SavedState.PotionsEnabled = enabled;
@@ -788,7 +821,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-equipment-enabled".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-equipment-enabled".i8());
                 toggle.isOn = state.SavedState.EquipmentEnabled;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SavedState.EquipmentEnabled = enabled;
@@ -798,7 +831,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-songs-enabled".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-songs-enabled".i8());
                 toggle.isOn = state.SavedState.SongsEnabled;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SavedState.SongsEnabled = enabled;
@@ -808,7 +841,7 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, panel.transform, "setting-activatables-enabled".i8());
+                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-activatables-enabled".i8());
                 toggle.isOn = state.SavedState.ActivatablesEnabled;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SavedState.ActivatablesEnabled = enabled;
@@ -819,7 +852,7 @@ namespace BuffIt2TheLimit {
 
             // UMD Retries (label + buttons)
             {
-                var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
+                var labelObj = GameObject.Instantiate(togglePrefab, scrollContent);
                 labelObj.DestroyComponents<ToggleWorkaround>();
                 labelObj.DestroyChildren("Background");
                 labelObj.SetActive(true);
@@ -827,7 +860,7 @@ namespace BuffIt2TheLimit {
                 label.text = $"{"setting-umd-retries".i8()}: {state.SavedState.UmdRetries}";
 
                 var buttonHolder = new GameObject("umd-retries-buttons", typeof(RectTransform));
-                buttonHolder.transform.SetParent(panel.transform);
+                buttonHolder.transform.SetParent(scrollContent);
                 var hlg = buttonHolder.AddComponent<HorizontalLayoutGroup>();
                 hlg.childForceExpandWidth = false;
                 hlg.spacing = 5;
@@ -860,14 +893,14 @@ namespace BuffIt2TheLimit {
                     _ => "?"
                 };
 
-                var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
+                var labelObj = GameObject.Instantiate(togglePrefab, scrollContent);
                 labelObj.DestroyComponents<ToggleWorkaround>();
                 labelObj.DestroyChildren("Background");
                 labelObj.SetActive(true);
                 var umdText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
                 umdText.text = $"{"setting-umd-mode".i8()}: {GetUmdModeText()}";
 
-                var cycleButton = MakeButton(">", panel.transform);
+                var cycleButton = MakeButton(">", scrollContent);
                 cycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                     state.SavedState.UmdMode = (UmdMode)(((int)state.SavedState.UmdMode + 1) % 3);
                     umdText.text = $"{"setting-umd-mode".i8()}: {GetUmdModeText()}";
@@ -878,14 +911,14 @@ namespace BuffIt2TheLimit {
 
             // Source Priority cycle button
             {
-                var labelObj = GameObject.Instantiate(togglePrefab, panel.transform);
+                var labelObj = GameObject.Instantiate(togglePrefab, scrollContent);
                 labelObj.DestroyComponents<ToggleWorkaround>();
                 labelObj.DestroyChildren("Background");
                 labelObj.SetActive(true);
                 var prioText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
                 prioText.text = $"{"setting-source-priority".i8()}: {SourcePriorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
 
-                var prioCycleButton = MakeButton(">", panel.transform);
+                var prioCycleButton = MakeButton(">", scrollContent);
                 prioCycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
                     state.SavedState.GlobalSourcePriority = (SourcePriority)(((int)state.SavedState.GlobalSourcePriority + 1) % 6);
                     prioText.text = $"{"setting-source-priority".i8()}: {SourcePriorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
@@ -898,19 +931,19 @@ namespace BuffIt2TheLimit {
             foreach (BuffGroup group in Enum.GetValues(typeof(BuffGroup))) {
                 var groupCopy = group;
                 var key = $"shortcut.{group.ToString().ToLower()}";
-                MakeKeybindRow(panel.transform, key.i8(),
+                MakeKeybindRow(scrollContent, key.i8(),
                     () => state.GetShortcut(groupCopy),
                     binding => state.SetShortcut(groupCopy, binding));
             }
 
             // Open buff menu shortcut
-            MakeKeybindRow(panel.transform, "shortcut.openbuffmenu".i8(),
+            MakeKeybindRow(scrollContent, "shortcut.openbuffmenu".i8(),
                 () => state.GetOpenBuffMenuShortcut(),
                 binding => state.SetOpenBuffMenuShortcut(binding));
 
             // Clear All Assignments — two-click confirmation
             {
-                var clearButton = MakeButton("settings-clear-all".i8(), panel.transform);
+                var clearButton = MakeButton("settings-clear-all".i8(), scrollContent);
                 var clearText = clearButton.GetComponentInChildren<TextMeshProUGUI>();
                 var clearBtn = clearButton.GetComponentInChildren<OwlcatButton>();
                 clearBtn.SetTooltip(
@@ -951,6 +984,7 @@ namespace BuffIt2TheLimit {
             b.OnLeftClick.AddListener(() => {
                 panel.SetActive(!panel.activeSelf);
                 b.IsPressed = panel.activeSelf;
+                if (panel.activeSelf) scrollRect.verticalNormalizedPosition = 1f;
             });
         }
 
