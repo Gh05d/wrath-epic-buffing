@@ -23,6 +23,7 @@ using Kingmaker.UnitLogic.Mechanics.Components;
 using Kingmaker.UnitLogic.Abilities.Blueprints;
 using Kingmaker.UnitLogic;
 using Kingmaker.Blueprints.Classes;
+using Kingmaker.Blueprints.Classes.Spells;
 using Kingmaker.UnitLogic.ActivatableAbilities;
 using Kingmaker.Craft;
 
@@ -98,6 +99,7 @@ namespace BuffIt2TheLimit {
                                 }
                             }
                         } else if (book.Blueprint.Spontaneous) {
+                            bool isMagicDeceiver = book.Blueprint.GetComponent<MagicHackSpellbookComponent>() != null;
                             for (int level = 1; level <= book.LastSpellbookLevel; level++) {
                                 ReactiveProperty<int> credits = new ReactiveProperty<int>(book.GetSpellsPerDay(level));
                                 foreach (var spell in book.GetKnownSpells(level)) {
@@ -121,6 +123,30 @@ namespace BuffIt2TheLimit {
                                             newCredit: false,
                                             creditClamp: int.MaxValue,
                                             charIndex: characterIndex);
+                                }
+                            }
+                            // Magic Deceiver fused spells live in m_CustomSpells indexed by
+                            // MagicHackData.SpellLevel = max(component levels). The level can
+                            // exceed LastSpellbookLevel (a 6th-tier fusion on a level-9 caster
+                            // whose SpellsPerDay table caps lower) and the existing loop misses
+                            // those slots. Re-walk the whole array; AddProvider deduplicates
+                            // entries already discovered above.
+                            if (isMagicDeceiver && book.m_CustomSpells != null) {
+                                for (int level = 1; level < book.m_CustomSpells.Length; level++) {
+                                    var bucket = book.m_CustomSpells[level];
+                                    if (bucket == null || bucket.Count == 0) continue;
+                                    ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
+                                    foreach (var spell in bucket) {
+                                        Main.Verbose($"      Adding fused spell at level {level}: {spell.Name}/{dude.CharacterName}", "state");
+                                        AddBuff(dude: dude,
+                                                book: book,
+                                                spell: spell,
+                                                baseSpell: null,
+                                                credits: credits,
+                                                newCredit: false,
+                                                creditClamp: int.MaxValue,
+                                                charIndex: characterIndex);
+                                    }
                                 }
                             }
                         } else {
