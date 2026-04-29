@@ -376,3 +376,6 @@ FodyWeavers.xsd
 .worktrees/
 .env
 .superpowers/
+
+# codegraph index (per-machine, regenerable)
+.codegraph/
