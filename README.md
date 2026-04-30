@@ -2,17 +2,20 @@
 
 A fork of [factubsio's BubbleBuffs](https://github.com/factubsio/BubbleBuffs) — the buff automation mod for **Pathfinder: Wrath of the Righteous**, now continued as **Buff It 2 The Limit**.
 
-## What's Different
+## Highlights
 
-This fork continues development with new features:
-
-- **Unified buff sources** — Spells, scrolls, and potions merged into a single "Buffs" tab. One entry per buff regardless of source, with inline source-type controls (checkboxes + priority).
-- **Equipment support** — Activatable quickslot items (staves, rods) and wands from inventory as buff sources in a dedicated "Equipment" tab. Wands use the same UMD logic as scrolls.
-- **Redesigned details panel** — Vertical split layout with flex-weighted sections: spell info, source controls, caster/target portraits, and action bar. Add/Remove buttons positioned next to target portraits. Portraits auto-shrink to fit available space.
-- **Source-type overlays** — Game-native icons on caster portraits showing whether they're casting from spell, scroll, potion, or equipment.
-- **Quick open button** — HUD button to directly open the buff configuration menu without navigating through the spellbook screen first.
-- **Renamed buff groups** — "Normal Buffs", "Quick Buffs", "Important Buffs" (clearer labels).
-- **Equipment charge handling** — Proper charge consumption for equipment items and fix for false "out of charges" errors on single-charge items.
+- **All buff sources in one place** — Spells, scrolls, potions, wands, and activatable equipment (staves, rods) live in a unified Buffs tab with one entry per buff regardless of source. Inline source-type controls + priority ordering. Wands use UMD logic like scrolls.
+- **Toggles, songs and activatables** — Bardic Performance, Inspire Courage, Hunter's Bond and other free-toggle / song / activatable abilities are first-class buff sources. Round-limit auto-deactivation, mutual exclusivity within the same activation group, and proper handling of form-change abilities (Shifter's Fury, Chimeric Aspect).
+- **Cast on Combat Start** — Mark buffs to fire automatically when combat begins. Optional Skip-Animations mode casts instantly so you don't lose the surprise round to animation time.
+- **Reserve companion support** — Configure buffs for characters who aren't in your active party. When they swap in, their buff configuration travels with them.
+- **Smart casting** — Extend Rod metamagic auto-pick, Bypass Arcane Spell Failure when prebuffing out of combat, Brownfur Transmuter (Share Transmutation), Azata Zippy Magic, Powerful Change, Magic Deceiver fused spells, Magic Weapon (EnhanceWeapon), and crafted-item caster levels all handled correctly.
+- **Multi-group assignment** — One buff can belong to Normal, Quick, and Important groups simultaneously.
+- **Customizable keyboard shortcuts** — Bind each buff group and the buff menu to a keyboard shortcut with modifier-key support.
+- **Quick open button** — HUD button jumps straight into buff configuration without navigating the spellbook.
+- **Redesigned details panel** — Vertical split layout with spell info, source controls, scrollable caster/target portraits with reserve separator, and an action bar.
+- **Source-type overlays** — Game-native icons on caster portraits showing spell, scroll, potion or equipment source.
+- **Sort-by-name toggle** — Optional alphabetical buff ordering, persisted across save reloads and area transitions.
+- **Improved buff filtering** — Better detection of beneficial vs harmful spells via descriptor checks, nested action analysis, and equipment-item recognition.
 
 ## About
 
