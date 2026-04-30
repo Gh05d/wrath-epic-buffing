@@ -20,6 +20,10 @@ Buff It 2 The Limit adds an in-game option to spellbooks to create buff routines
 
 Original mod by [factubsio](https://github.com/factubsio/BubbleBuffs) — download the original from [Nexus Mods](https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195).
 
+## Known mod interactions
+
+- **BubbleTweak animation speedup + animated casting**: When BubbleTweak's "Increase Animation Speed" is active and Buff It 2 The Limit is set to use full cast animations, some casts can be dropped silently. The sped-up animation can finish the underlying `UnitCommand` before the spell rule actually fires, so the buff never lands even though the cast was queued. Workaround: enable **Skip animations** in this mod, or disable BubbleTweak's animation-speed multiplier for casting. The combat-log "applied" count reports actually-fired casts so you can spot the mismatch.
+
 ## Development Setup
 
 1. Clone this repository

@@ -141,6 +141,17 @@ namespace BuffIt2TheLimit {
             StartCoroutine(castingCoroutine);
         }
 
+        // Same as CastSpells but emits the user-facing combat-log message AFTER the
+        // casting coroutine completes, using the actual fired-cast count rather than
+        // the queue size. Avoids overstating success when commands get dropped (e.g.
+        // animation-speed mods truncate UnitCommands before RuleCastSpell triggers).
+        internal void CastSpellsAndLog(List<CastTask> tasks, bool armorBypass, string title, int attempted, int skipped, TooltipTemplateBuffer tooltip) {
+            IEnumerator castingCoroutine = Engine.CreateSpellCastRoutine(tasks);
+            if (armorBypass)
+                castingCoroutine = BuffExecutor.WithArmorBypass(castingCoroutine);
+            StartCoroutine(BuffExecutor.WithDeferredLog(castingCoroutine, tasks, title, attempted, skipped, tooltip));
+        }
+
         public static IBuffExecutionEngine Engine =>
             GlobalBubbleBuffer.Instance.SpellbookController.state.VerboseCasting 
                 ? new AnimatedExecutionEngine() 
@@ -161,6 +172,28 @@ namespace BuffIt2TheLimit {
                 }
             } finally {
                 ArmorBypassActive--;
+            }
+        }
+
+        // Walks the casting coroutine to completion, then emits the combat-log
+        // message with `applied = tasks where ActuallyFired` instead of the queue
+        // size. The flag is set in EngineCastingHandler when RuleCastSpell actually
+        // fires, so dropped commands no longer inflate the reported count.
+        internal static IEnumerator WithDeferredLog(IEnumerator inner, List<CastTask> tasks, string title, int attempted, int skipped, TooltipTemplateBuffer tooltip) {
+            while (inner.MoveNext()) {
+                yield return inner.Current;
+            }
+
+            int applied = tasks.Count(t => t.ActuallyFired);
+            var messageString = $"{title} {"log.applied".i8()} {applied}/{attempted} ({"log.skipped".i8()} {skipped})";
+            Main.Verbose(messageString);
+
+            try {
+                var message = new CombatLogMessage(messageString, Color.blue, PrefixIcon.RightArrow, tooltip, true);
+                var messageLog = LogThreadService.Instance.m_Logs[LogChannelType.Common].First(x => x is MessageLogThread);
+                messageLog.AddMessage(message);
+            } catch (Exception ex) {
+                Main.Error(ex, "Emitting combat log message");
             }
         }
 
@@ -281,7 +314,6 @@ namespace BuffIt2TheLimit {
             TargetWrapper[] targets = Bubble.Group.Select(u => new TargetWrapper(u)).ToArray();
             int attemptedCasts = 0;
             int skippedCasts = 0;
-            int actuallyCast = 0;
 
 
             var tooltip = new TooltipTemplateBuffer();
@@ -465,7 +497,6 @@ namespace BuffIt2TheLimit {
                             }
                         }
 
-                        actuallyCast++;
                         thisBuffGood++;
                         thisBuffSourceCounts.TryGetValue(caster.SourceType, out var sc);
                         thisBuffSourceCounts[caster.SourceType] = sc + 1;
@@ -486,16 +517,8 @@ namespace BuffIt2TheLimit {
             }
 
             bool armorBypass = State.BypassArcaneSpellFailure && !Game.Instance.Player.IsInCombat;
-            BubbleBuffGlobalController.Instance.CastSpells(tasks, armorBypass);
-
             string title = buffGroup.i8();
-            var messageString = $"{title} {"log.applied".i8()} {actuallyCast}/{attemptedCasts} ({"log.skipped".i8()} {skippedCasts})";
-            Main.Verbose(messageString);
-
-            var message = new CombatLogMessage(messageString, Color.blue, PrefixIcon.RightArrow, tooltip, true);
-
-            var messageLog = LogThreadService.Instance.m_Logs[LogChannelType.Common].First(x => x is MessageLogThread);
-            messageLog.AddMessage(message);
+            BubbleBuffGlobalController.Instance.CastSpellsAndLog(tasks, armorBypass, title, attemptedCasts, skippedCasts, tooltip);
         }
 
         public void ExecuteCombatStart() {
@@ -728,6 +751,13 @@ namespace BuffIt2TheLimit {
         public Metamagic OriginalMetamagicMask;
         public int OriginalSpellLevelCost;
         public int OriginalHeightenLevel;
+
+        // Set by EngineCastingHandler.OnBeforeEventAboutToTrigger when the matching
+        // RuleCastSpell actually fires. Used to report a truthful applied/attempted
+        // count after the casting coroutine completes — `actuallyCast` at queue time
+        // is just an attempt counter and overstates results when commands get dropped
+        // (e.g. animation-speed mods truncate UnitCommands before the rule triggers).
+        public bool ActuallyFired;
 
         public Retentions Retentions {
             get {

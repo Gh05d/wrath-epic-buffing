@@ -253,7 +253,12 @@ namespace BuffIt2TheLimit.Handlers {
                         if (_spendSpellSlot && _castTask.SourceType == BuffSourceType.Spell) {
                             _castTask.SpellToCast.Spend();
                         }
-                    } 
+
+                        // All cancellation paths above have returned. Once we reach this
+                        // point the rule will execute — record the actual fire so the
+                        // post-coroutine reporter can output a truthful applied count.
+                        _castTask.ActuallyFired = true;
+                    }
                     catch (Exception ex) {
                         Main.Error(ex, "Casting: OnBeforeRulebookEventTrigger");
                     }
