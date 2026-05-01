@@ -3483,34 +3483,19 @@ namespace BuffIt2TheLimit {
             var seen = new HashSet<string>();
             var distinctCasters = new List<int>();
 
+            // Show every distinct caster who has any provider — even self-cast-only ones.
+            // Each caster can still self-cast (target row gates non-self slots), and surfacing
+            // them keeps Banned/CustomCap reachable for personal-range spells.
             for (int i = 0; i < buff.CasterQueue.Count; i++) {
                 var provider = buff.CasterQueue[i];
-                if (seen.Add(provider.who.UniqueId)) {
-                    bool include = false;
-                    for (int j = i; j < buff.CasterQueue.Count; j++) {
-                        var p = buff.CasterQueue[j];
-                        if (p.who != provider.who) continue;
-                        if (!p.SelfCastOnly) { include = true; break; }
-                        // Personal spells are still actionable for Brownfur Transmuter casters
-                        // (Share Transmutation extends arcanist Transmutation personal spells to others)
-                        if (p.SourceType == BuffSourceType.Spell && p.spell != null
-                            && p.spell.IsArcanistSpell
-                            && p.spell.Blueprint.School == Kingmaker.Blueprints.Classes.Spells.SpellSchool.Transmutation
-                            && p.who.HasFact(BubbleBuffSpellbookController.ShareTransmutationFeature)) {
-                            include = true;
-                            break;
-                        }
-                    }
-                    if (include)
-                        distinctCasters.Add(i);
-                }
+                if (seen.Add(provider.who.UniqueId))
+                    distinctCasters.Add(i);
             }
 
             casterPortraitMap = distinctCasters.ToArray();
 
-            bool isSelfOnly = distinctCasters.Count == 0 && buff.CasterQueue.Count > 0;
-            castersHolder.SetActive(!isSelfOnly);
-            selfCastInfoLabel?.gameObject.SetActive(isSelfOnly);
+            castersHolder.SetActive(distinctCasters.Count > 0);
+            selfCastInfoLabel?.gameObject.SetActive(false);
 
             for (int i = 0; i < casterPortraits.Length; i++) {
                 casterPortraits[i].GameObject.SetActive(i < distinctCasters.Count);
