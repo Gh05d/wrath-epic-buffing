@@ -580,6 +580,13 @@ namespace BuffIt2TheLimit {
                 if (buff.Requested > 0) cleared++;
                 buff.ClearAllAssignments();
             }
+            // Mirror the clear into SavedState so a later RecalculateAvailableBuffs()
+            // (triggered by group changes like the reserve toggle) doesn't rehydrate
+            // the stale Wanted set via InitialiseFromSave.
+            foreach (var saved in SavedState.Buffs.Values) {
+                saved.Wanted?.Clear();
+            }
+            Save(true);
             Recalculate(true);
             return cleared;
         }
