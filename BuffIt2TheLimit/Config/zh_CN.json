@@ -37,7 +37,7 @@
 
   "hideability": "隐藏能力",
 
-  "tooltip.results": "结果",
+  "tooltip.results": "施法结果",
   "tooltip.applied": "已应用Buff",
   "tooltip.skipped": "已跳过Buff",
   "tooltip.failed": "施法失败",
