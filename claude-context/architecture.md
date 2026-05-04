@@ -66,9 +66,11 @@ BuffExecutor.ExecuteCombatStart()  →  triggered by EventBus on combat enter
 
 ### Localization
 
-JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resources. Access via `"key".i8()` extension method. English (`en_GB.json`) is the fallback. When adding new UI text, add keys to `en_GB.json` and `de_DE.json` only — the other locales are incomplete and fall back to EN automatically.
-- **Locale files vary in completeness**: `en_GB` and `de_DE` have all keys. `fr_FR`, `ru_RU`, `zh_CN` are shorter and missing many keys added after the initial fork. Don't assume same line numbers or key presence across locales.
-- **Technical UI terms stay English in de_DE**: Gaming/UI terms like "shortcut", "buff group" names (Normal, Quick, Important) should not be translated into German — English reads more naturally in this context.
+JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resources. Access via `"key".i8()` extension method (defined in `BuffIt2TheLimit.Config` — files outside that namespace need `using BuffIt2TheLimit.Config;`). English (`en_GB.json`) is the reference + fallback. **All 5 locales are at full parity** — add new UI text to all 5 files at once to keep them aligned.
+- **Parity check**: `python3 -c "import json; en=json.load(open('BuffIt2TheLimit/Config/en_GB.json',encoding='utf-8-sig')); [print(l, sorted(set(en)-set(json.load(open(f'BuffIt2TheLimit/Config/{l}.json',encoding='utf-8-sig'))))) for l in ['de_DE','fr_FR','ru_RU','zh_CN']]"` — empty lists = parity.
+- **BOM inconsistency**: `zh_CN.json` has no UTF-8 BOM (the others do, post community PR #6 stripped it). `.NET JsonTextReader` is BOM-tolerant so runtime is fine, but Python tooling must use `encoding='utf-8-sig'`.
+- **Technical UI terms stay English in de_DE**: "shortcut", buff group names (Normal/Quick/Important), and source labels (Spell/Scroll/Potion/Equipment) read more naturally in English than translated.
+- **Never hardcode user-facing strings** — always use `.i8()`. The codebase has zero hardcoded user-facing English; if you add a UI string, add it as a localized key first.
 
 ### Asset Loading
 
