@@ -130,5 +130,6 @@
   "use.combatstart": "战斗开始时施放",
   "use.combatstart.tooltip": "当战斗开始时自动施加此Buff",
   "deactivate.after.rounds": "在此之后停用:",
-  "deactivate.after.rounds.tooltip": "在 N 轮战斗后自动停用此能力。0 = 无限制。"
+  "deactivate.after.rounds.tooltip": "在 N 轮战斗后自动停用此能力。0 = 无限制。",
+  "search.placeholder": "搜索..."
 }

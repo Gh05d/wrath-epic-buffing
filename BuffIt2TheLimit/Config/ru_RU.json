@@ -1,16 +1,9 @@
-﻿{
+{
   "buffsetup": "Бафы",
   "buffexit": "Выход",
   "casting": "каст",
   "available": "доступно",
   "available.atwill": "по желанию",
-
-
-
-
-
-
-
   "showhidden": "Показать скрытые",
   "showshort": "Показывать недолгие",
   "showreq": "Показывать примененные",
@@ -33,6 +26,8 @@
   "group.important.tooltip.desc": "Попробовать бафнуть группой (Важные)",
   "group.short.tooltip.header": "Быстрые бафы",
   "group.short.tooltip.desc": "Попробовать бафнуть группой (Быстрые)",
+  "showmap.tooltip.header": "Показать карту островов",
+  "showmap.tooltip.desc": "Отображает карту островов для выбора следующей точки приключения",
 
   "group.normal.log": "Нормальные бафы",
   "group.important.log": "Важные бафы",
@@ -47,6 +42,7 @@
   "tooltip.skipped": "Пропущено бафов",
   "tooltip.failed": "Не удалось бафнуть",
   "noslot": "нет свободного слота заклинания",
+  "noarcanist": "нет доступных очков мистического резерва",
 
   "warn.arcanepool": "  <i>Резерв Арканиста <b>НЕ</b> отслеживается</i>",
 
@@ -57,10 +53,52 @@
   "use.reservoirclbuff": "Использовать бафф уровня кастера в резервуаре арканиста",
   "use.azatazippymagic": "Управление дополнительным усилением магии Azata Zippy",
   "nolimit": "без ограничений",
-  "openbuffs.tooltip.header": "Открыть меню бафов",
-  "openbuffs.tooltip.desc": "Открыть меню настройки Buff It 2 The Limit напрямую",
+
+  "remove-all": "Убрать у всех",
+  "add-all": "Добавить всем",
+
+  "settings": "Настройки",
+  "settings-toggle": "Переключить панель настроек Buff It 2 The Limit",
+  "setting-verbose": "Использовать полные анимации каста",
+  "setting-skip-combat-anim": "Пропускать анимации в начале боя",
+  "setting-in-combat": "Разрешить баффинг в бою",
+  "setting-bypass-asf": "Игнорировать неудачу мистического заклинания при пребафе",
+  "setting-overwritebuff": "Игнорировать существующие баффы",
+  "setting-scrolls-enabled": "Разрешить использование свитков",
+  "setting-potions-enabled": "Разрешить использование зелий",
+  "setting-umd-retries": "UMD: макс. попыток",
+  "setting-umd-mode": "Режим UMD для свитков",
+  "setting-source-priority": "Приоритет источника",
+  "umd.safeonly": "Только безопасные кастеры",
+  "umd.allowifpossible": "Разрешить если СЛ достижима",
+  "umd.alwaystry": "Всегда пробовать",
+  "priority.spells-scrolls-potions": "Заклинания > Свитки > Зелья",
+  "priority.spells-potions-scrolls": "Заклинания > Зелья > Свитки",
+  "priority.scrolls-spells-potions": "Свитки > Заклинания > Зелья",
+  "priority.scrolls-potions-spells": "Свитки > Зелья > Заклинания",
+  "priority.potions-spells-scrolls": "Зелья > Заклинания > Свитки",
+  "priority.potions-scrolls-spells": "Зелья > Свитки > Заклинания",
+  "priority.useglobal": "Использовать глобальное значение",
+  "source.spell": "Заклинание",
+  "source.scroll": "Свиток",
+  "source.potion": "Зелье",
+  "source.equipment": "Снаряжение",
+  "use.spells": "Использовать заклинания",
+  "use.scrolls": "Использовать свитки",
+  "use.potions": "Использовать зелья",
+  "use.equipment": "Использовать снаряжение",
   "use.extendrod": "Использовать жезл Продления",
   "log.extend-rod-applied": "Жезл Продления",
+  "log.umd-failed": "Проверка UMD провалена",
+  "log.umd-retries-exhausted": "Попытки UMD исчерпаны",
+  "log.last-item-consumed": "Последний предмет израсходован",
+  "log.equipment-no-charges": "закончились заряды",
+  "log.equipment-unavailable": "больше недоступно",
+  "setting-equipment-enabled": "Разрешить использование снаряжения",
+  "log.no-scroll-available": "В инвентаре нет свитка {0}",
+  "log.no-potion-available": "В инвентаре нет зелья {0}",
+  "openbuffs.tooltip.header": "Открыть меню бафов",
+  "openbuffs.tooltip.desc": "Открыть меню настройки Buff It 2 The Limit напрямую",
 
   "shortcut.long": "Normal shortcut:",
   "shortcut.quick": "Quick shortcut:",
@@ -71,7 +109,20 @@
   "cat.Songs": "Songs",
   "setting-songs-enabled": "Enable song activation",
   "setting-activatables-enabled": "Enable activatable abilities",
+  "settings-clear-all": "Очистить все назначения",
+  "settings-clear-all-confirm": "Нажмите ещё раз для подтверждения",
+  "settings-clear-all-done": "Очищено бафов: {0}",
+  "settings-clear-all-tooltip": "Удаляет все назначения персонажей со всех бафов. Группы, переключатели источников и другие настройки бафов сохраняются. Требуется два клика.",
+  "cat.Toggles": "Переключатели",
   "song.rounds-remaining": "Rounds remaining: {0}",
+  "tooltip.source.spell": "Заклинание — {0} (Уровень {1})",
+  "tooltip.source.scroll": "Свиток — {0}",
+  "tooltip.source.potion": "Зелье — {0}",
+  "tooltip.source.equipment": "Снаряжение — {0}",
+  "tooltip.source.charges": "Зарядов осталось: {0}",
+  "tooltip.source.stacks": "Осталось: {0}",
+  "tooltip.source.umd": "Требуется Использование Магических Устройств (СЛ {0})",
+  "tooltip.source.selfonly": "Только на себя",
   "reserve.toggle": "Show Reserve",
   "reserve.toggle.hide": "Hide Reserve",
   "reserve.toggle.tooltip": "Show all recruited companions, including those not in the active party",
@@ -79,5 +130,6 @@
   "use.combatstart": "Cast on combat start",
   "use.combatstart.tooltip": "Automatically cast this buff when combat begins",
   "deactivate.after.rounds": "Deactivate after:",
-  "deactivate.after.rounds.tooltip": "Automatically deactivate this ability after N combat rounds. 0 = no limit."
+  "deactivate.after.rounds.tooltip": "Automatically deactivate this ability after N combat rounds. 0 = no limit.",
+  "search.placeholder": "Поиск..."
 }

@@ -130,5 +130,6 @@
   "use.combatstart": "Cast on combat start",
   "use.combatstart.tooltip": "Automatically cast this buff when combat begins",
   "deactivate.after.rounds": "Deactivate after:",
-  "deactivate.after.rounds.tooltip": "Automatically deactivate this ability after N combat rounds. 0 = no limit."
+  "deactivate.after.rounds.tooltip": "Automatically deactivate this ability after N combat rounds. 0 = no limit.",
+  "search.placeholder": "Search..."
 }

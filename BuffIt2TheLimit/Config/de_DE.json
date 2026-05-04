@@ -26,6 +26,8 @@
   "group.important.tooltip.desc": "Als <b>Wichtig<b> konfigurierte Buffs einsetzen.",
   "group.short.tooltip.header": "Schnelle Buffs!",
   "group.short.tooltip.desc": "Als <b>Schnell<b> konfigurierte Buffs einsetzen.",
+  "showmap.tooltip.header": "Inselkarte anzeigen",
+  "showmap.tooltip.desc": "Inselkarte anzeigen, um den nächsten Punkt deines Abenteuers zu wählen",
 
   "group.normal.log": "Normale Buffs!",
   "group.important.log": "Wichtige Buffs!",
@@ -41,6 +43,7 @@
   "tooltip.skipped": "Übersprungene Buffs",
   "tooltip.failed": "Fehlgeschlagene Buffs",
   "noslot": "Keine freien Zauberplätze mehr",
+  "noarcanist": "Keine Arcane Reservoir Punkte verfügbar",
 
   "warn.arcanepool": "  <i>Ressourcen aus dem arkanen Reservoir werden <b>nicht</b> beachtet</i>",
 
@@ -54,8 +57,14 @@
 
   "remove-all": "Buff überall entfernen",
   "add-all": "Buff überall einsetzen",
+
+  "settings": "Einstellungen",
+  "settings-toggle": "Buff It 2 The Limit Einstellungen ein-/ausblenden",
+  "setting-verbose": "Volle Casting-Animationen verwenden",
   "setting-skip-combat-anim": "Animationen bei Combat-Start überspringen",
+  "setting-in-combat": "Buffen im Kampf erlauben",
   "setting-bypass-asf": "Zauberpatzer umgehen bei Prebuffing",
+  "setting-overwritebuff": "Bestehende Buffs ignorieren",
   "setting-scrolls-enabled": "Schriftrollennutzung aktivieren",
   "setting-potions-enabled": "Tranknutzung aktivieren",
   "setting-umd-retries": "UMD max. Versuche",
@@ -122,5 +131,6 @@
   "use.combatstart": "Cast on combat start",
   "use.combatstart.tooltip": "Automatically cast this buff when combat begins",
   "deactivate.after.rounds": "Deactivate after:",
-  "deactivate.after.rounds.tooltip": "Deaktiviert diese Ability automatisch nach N Kampfrunden. 0 = kein Limit."
+  "deactivate.after.rounds.tooltip": "Deaktiviert diese Ability automatisch nach N Kampfrunden. 0 = kein Limit.",
+  "search.placeholder": "Suchen..."
 }

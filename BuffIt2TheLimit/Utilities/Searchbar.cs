@@ -1,4 +1,5 @@
-﻿using Kingmaker;
+﻿using BuffIt2TheLimit.Config;
+using Kingmaker;
 using Kingmaker.UI.MVVM._PCView.CharGen.Phases.FeatureSelector;
 using Owlcat.Runtime.UI.Controls.Button;
 using System;
@@ -78,7 +79,7 @@ namespace BuffIt2TheLimit.Utilities {
 
         public void UpdatePlaceholder()
         {
-            PlaceholderText.text = string.IsNullOrEmpty(InputField.text) ? "Search..." : InputField.text;
+            PlaceholderText.text = string.IsNullOrEmpty(InputField.text) ? "search.placeholder".i8() : InputField.text;
         }
 
         private void OnDropdownButton()
