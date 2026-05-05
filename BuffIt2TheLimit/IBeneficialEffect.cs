@@ -97,18 +97,27 @@ namespace BuffIt2TheLimit {
                     return true;
             }
 
-            if (PrimaryWeaponEnchants != null) {
-                var important = PrimaryWeaponEnchants.Except(ignoreForOverwriteCheck).ToHashSet();
-                foreach (var enchant in unitBuffData.Unit.Body.PrimaryHand.MaybeWeapon.Enchantments) {
-                    if (important.Contains(enchant.BGuid()))
-                        return true;
+            // Magic Weapon / Greater Magic Weapon's m_Enchantment list is the standard
+            // Enhancement1..5 blueprints — those same GUIDs are permanently baked into
+            // any magic weapon item. So an enchant overlap is unreliable when the spell
+            // also applies a unit-side buff (which it always does for these spells).
+            // Use the buff as the canonical marker; only fall back to weapon-enchant
+            // checks when the spell tracks no buffs at all.
+            bool hasBuffMarker = AppliedBuffs != null || AppliedPetBuffs != null;
+            if (!hasBuffMarker) {
+                if (PrimaryWeaponEnchants != null) {
+                    var important = PrimaryWeaponEnchants.Except(ignoreForOverwriteCheck).ToHashSet();
+                    foreach (var enchant in unitBuffData.Unit.Body.PrimaryHand.MaybeWeapon.Enchantments) {
+                        if (important.Contains(enchant.BGuid()))
+                            return true;
+                    }
                 }
-            }
-            if (SecondaryWeaponEnchants != null) {
-                var important = SecondaryWeaponEnchants.Except(ignoreForOverwriteCheck).ToHashSet();
-                foreach (var enchant in unitBuffData.Unit.Body.SecondaryHand.MaybeWeapon.Enchantments) {
-                    if (important.Contains(enchant.BGuid()))
-                        return true;
+                if (SecondaryWeaponEnchants != null) {
+                    var important = SecondaryWeaponEnchants.Except(ignoreForOverwriteCheck).ToHashSet();
+                    foreach (var enchant in unitBuffData.Unit.Body.SecondaryHand.MaybeWeapon.Enchantments) {
+                        if (important.Contains(enchant.BGuid()))
+                            return true;
+                    }
                 }
             }
 
