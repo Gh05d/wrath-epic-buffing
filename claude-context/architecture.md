@@ -92,7 +92,7 @@ JSON files in `Config/` (en_GB, de_DE, fr_FR, ru_RU, zh_CN) are embedded resourc
 - **Scanning**: `dude.ActivatableAbilities.RawFacts` iterates all activatable abilities. Filter by `blueprint.Group` — `BardicPerformance` (1) for Bard/Skald, `AzataMythicPerformance` (28) for Azata.
 - **Activation**: `activatable.IsOn = true` (calls `SetIsOn(true, null)` internally). Pre-check: `!activatable.IsOn && activatable.IsAvailable`.
 - **Resource check**: `activatable.IsAvailable` (combined), `activatable.IsAvailableByResources`, `activatable.ResourceCount` (remaining rounds).
-- **Mutual exclusivity**: Bard and Azata use separate `ActivatableAbilityGroup` values — they CAN run simultaneously. Within each group, only one per character.
+- **Group cap is per-unit and DYNAMIC**: `caster.Get<UnitPartActivatableAbility>().GetGroupSize(group)` = `m_GroupsSizeIncreases[group] + 1`. Default cap=1, but `IncreaseActivatableAbilityGroupSize` components raise it (Aeon mythic gaze at Lv6/Lv10, possibly others). Bard and Azata performances live in SEPARATE groups (can coexist). Never assume "one per group per caster" — query `GetGroupSize` and count current `IsOn` facts in the group (see `BuffExecutor.cs` activation phase).
 - **Tooltip**: Use `new TooltipTemplateActivatableAbility(activatable)` from `Kingmaker.UI.MVVM._VM.Tooltip.Templates` — the game's native tooltip for activatable abilities.
 - **Songs bypass `AddBuff()`**: `GetBeneficialBuffs()` requires `AbilityEffectRunAction` which activatable abilities don't have. Use dedicated `AddSong()` method that constructs `BubbleBuff` directly.
 
