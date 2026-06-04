@@ -573,7 +573,6 @@ namespace BuffIt2TheLimit {
             }
 
             // Phase 0: Activate activatable abilities marked for combat start
-            var activatedGroups = new HashSet<(ActivatableAbilityGroup, string)>();
             int activatablesActivated = 0;
             foreach (var actBuff in combatStartBuffs
                 .Where(b => b.IsActivatable && b.Fulfilled > 0)
@@ -604,11 +603,21 @@ namespace BuffIt2TheLimit {
                         }
 
                         var group = activatable.Blueprint.Group;
-                        // Group.None means "no exclusivity" — independent abilities can all activate
-                        var groupKey = (group, caster.UniqueId);
-                        if (group != ActivatableAbilityGroup.None && activatedGroups.Contains(groupKey)) {
-                            Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (group {group} already activated)");
-                            continue;
+                        // Per-group cap is dynamic: Aeon's mythic gaze (Lv6/Lv10), Master of Many
+                        // Styles, and other IncreaseActivatableAbilityGroupSize content raise it above
+                        // the default of 1. Count live on-state activatables in the group against
+                        // UnitPartActivatableAbility.GetGroupSize instead of capping at one-per-group,
+                        // so a caster who may hold several performances gets all of them on. The count
+                        // is live (IsEffectivelyOn reads IsOn, which we set synchronously below), so it
+                        // already reflects abilities activated earlier in this pass. Group.None = no cap.
+                        if (group != ActivatableAbilityGroup.None) {
+                            int cap = caster.Get<UnitPartActivatableAbility>()?.GetGroupSize(group) ?? 1;
+                            int activeInGroup = caster.ActivatableAbilities.RawFacts
+                                .Count(a => a.Blueprint.Group == group && IsEffectivelyOn(caster, a));
+                            if (activeInGroup >= cap) {
+                                Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (group {group} cap reached {activeInGroup}/{cap})");
+                                continue;
+                            }
                         }
 
                         var target = ResolveActivationTarget(caster, activatable);
@@ -627,8 +636,6 @@ namespace BuffIt2TheLimit {
                         target.IsOn = true;
                         if (!target.IsStarted)
                             target.TryStart();
-                        if (group != ActivatableAbilityGroup.None)
-                            activatedGroups.Add(groupKey);
                         activatablesActivated++;
                         if (actBuff.DeactivateAfterRounds > 0)
                             GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);

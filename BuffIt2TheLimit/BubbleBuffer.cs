@@ -2057,10 +2057,15 @@ namespace BuffIt2TheLimit {
                     powerfulChangeToggle.isOn = who.PowerfulChange;
                     reservoirCLBuffToggle.isOn = who.ReservoirCLBuff;
 
-                    var skidmarkable = who.spell.IsArcanistSpell && who.spell.Blueprint.School == Kingmaker.Blueprints.Classes.Spells.SpellSchool.Transmutation;
+                    // Activatables / songs have no backing spell (who.spell == null) — the arcanist-only
+                    // toggles below dereference it and would NPE. Guard on hasSpell so the popout stays
+                    // usable for songs (Ban + Cap remain functional, the spell toggles just disable).
+                    bool hasSpell = who.spell != null;
+                    var skidmarkable = hasSpell && who.spell.IsArcanistSpell && who.spell.Blueprint.School == Kingmaker.Blueprints.Classes.Spells.SpellSchool.Transmutation;
                     shareTransmutationToggle.interactable = skidmarkable && who.who.HasFact(ShareTransmutationFeature);
                     powerfulChangeToggle.interactable = skidmarkable && who.who.HasFact(PowerfulChangeFeature);
-                    reservoirCLBuffToggle.interactable = (who.spell.IsArcanistSpell || (who.spell.Spellbook.Blueprint == SpellTools.Spellbook.ExploiterWizardSpellbook))
+                    reservoirCLBuffToggle.interactable = hasSpell
+                        && (who.spell.IsArcanistSpell || (who.spell.Spellbook.Blueprint == SpellTools.Spellbook.ExploiterWizardSpellbook))
                         && who.who.HasFact(BubbleBlueprints.ReservoirBaseAbility) && !who.who.Progression.IsArchetype(BubbleBlueprints.PhantasmalMageArchetype);
 
                     shareTransmutationLabel.color = shareTransmutationToggle.interactable ? defaultLabelColor : Color.gray;

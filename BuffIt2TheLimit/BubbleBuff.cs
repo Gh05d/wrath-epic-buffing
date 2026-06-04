@@ -463,20 +463,38 @@ namespace BuffIt2TheLimit {
 
             // Songs (Bardic / Azata Mythic Performance): one performer, mass effect on the party.
             // The wanted set represents listeners; only one caster activates and everyone benefits.
+            //
+            // When the same performance is available on several party members (shared CasterQueue),
+            // pick the performer by scanning for the first ELIGIBLE caster instead of blindly taking
+            // CasterQueue[0]. Eligible = not banned, in the active party, resource available. This is
+            // how the player assigns a shared performance to a specific bard: ban the performers they
+            // don't want on this song, and the remaining one is chosen.
             if (Category == Category.Song) {
-                var caster = CasterQueue[0];
-                var src = caster.ActivatableSource;
-                if (src == null) return;
-                if (src.IsOn) {
-                    foreach (var target in wanted) given.Add(target);
+                var activePartyIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
+
+                BuffProvider performer = null;
+                foreach (var caster in CasterQueue) {
+                    var src = caster.ActivatableSource;
+                    if (src == null) continue;
+                    if (caster.AvailableCredits <= 0) continue;                  // banned or no rounds left
+                    if (!activePartyIds.Contains(caster.who.UniqueId)) continue; // reserve performer can't perform
+
+                    // An eligible performer already singing it satisfies the song — don't add a second.
+                    if (src.IsOn) {
+                        foreach (var target in wanted) given.Add(target);
+                        return;
+                    }
+                    if (performer == null && src.IsAvailable)
+                        performer = caster;
+                }
+
+                if (performer == null) {
+                    Main.Verbose($"Activatable {Name}: no eligible performer (banned / reserve / unavailable)");
                     return;
                 }
-                if (!src.IsAvailable) {
-                    Main.Verbose($"Activatable {Name}: not available (resources or restrictions)");
-                    return;
-                }
+
                 foreach (var target in wanted) given.Add(target);
-                ActualCastQueue.Add((caster.who.UniqueId, caster));
+                ActualCastQueue.Add((performer.who.UniqueId, performer));
                 return;
             }
 
