@@ -693,6 +693,18 @@ namespace BuffIt2TheLimit {
             }
 
 
+            // Per-caster config (ban, cap, arcanist flags) lives only in save.Casters —
+            // it must create AND retain a SavedBuffState even when no target wants the
+            // buff yet, otherwise bans evaporate on the next provider rebuild.
+            bool hasCasterConfig(BubbleBuff buff) => buff.CasterQueue.Any(c =>
+                c.Banned || c.CustomCap != -1 || c.ShareTransmutation || c.PowerfulChange
+                || c.ReservoirCLBuff || c.AzataZippyMagic);
+            // For retention, check the SAVED dict, not the current queue: it also holds
+            // config for providers temporarily absent (scrolls depleted, caster benched).
+            bool hasSavedCasterConfig(SavedBuffState save) => save.Casters.Values.Any(c =>
+                c.Banned || c.Cap != -1 || c.ShareTransmutation || c.PowerfulChange
+                || c.ReservoirCLBuff || c.UseAzataZippyMagic);
+
             if (!shallow) {
                 foreach (var buff in BuffList) {
                     var key = buff.Key;
@@ -700,12 +712,14 @@ namespace BuffIt2TheLimit {
                         updateSavedBuff(buff, save);
                         if (save.Wanted.Empty() && save.IgnoreForOverwriteCheck.Empty()
                             && !buff.HideBecause(HideReason.Blacklisted)
-                            && buff.InGroups.SetEquals(DefaultGroups)) {
+                            && buff.InGroups.SetEquals(DefaultGroups)
+                            && !hasSavedCasterConfig(save)) {
                             SavedState.Buffs.Remove(key);
                         }
                     } else if (buff.Requested > 0 || buff.IgnoreForOverwriteCheck.Count > 0
                                || buff.HideBecause(HideReason.Blacklisted)
-                               || !buff.InGroups.SetEquals(DefaultGroups)) {
+                               || !buff.InGroups.SetEquals(DefaultGroups)
+                               || hasCasterConfig(buff)) {
                         save = new();
                         save.Wanted = new HashSet<string>();
                         updateSavedBuff(buff, save);

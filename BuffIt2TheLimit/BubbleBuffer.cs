@@ -640,6 +640,21 @@ namespace BuffIt2TheLimit {
                 }
             });
             view.OnUpdate = () => {
+                // After RecalculateAvailableBuffs the BuffList holds NEW BubbleBuff
+                // instances; currentSelectedSpell would keep pointing at an orphan and
+                // popout mutations (ban/cap) would silently miss the instance Save()
+                // serializes. Re-match by Key (same pattern as the reserve toggle).
+                var selected = view.currentSelectedSpell.Value;
+                if (selected != null) {
+                    var match = state.BuffList?.FirstOrDefault(b => b.Key.Equals(selected.Key));
+                    if (!ReferenceEquals(match, selected)) {
+                        view.currentSelectedSpell.Value = match; // null if the buff vanished
+                        if (match != null)
+                            return; // the Subscribe handler re-runs the full rebind
+                        // fall through: UpdateDetailsView(hasBuff=false) hides the
+                        // group/source/popout panels the Subscribe else-branch doesn't.
+                    }
+                }
                 UpdateDetailsView?.Invoke();
             };
             WindowCreated = true;
@@ -1549,23 +1564,57 @@ namespace BuffIt2TheLimit {
 
 
 
+            // Provider selector — multiclass casters (and spell+scroll/potion mixes) have one
+            // BuffProvider per (unit, spellbook/source) in CasterQueue, but the portrait grid
+            // deduplicates by unit. Arrows cycle SelectedCaster through the unit's provider
+            // indices so Ban/Cap and the arcanist toggles below apply to the shown source.
+            // Hidden unless the selected unit has more than one provider.
+            var providerRow = MakeLabel("  " + "caster.source".i8());
+
+            float providerArrowScale = 0.7f;
+            var prevProvider = GameObject.Instantiate(expandButtonPrefab, providerRow.transform);
+            prevProvider.Rect().localScale = new Vector3(providerArrowScale, providerArrowScale, providerArrowScale);
+            prevProvider.Rect().pivot = new Vector2(.5f, .5f);
+            prevProvider.Rect().SetRotate2D(90);
+            prevProvider.Rect().anchoredPosition = Vector2.zero;
+            prevProvider.SetActive(true);
+            var prevProviderButton = prevProvider.GetComponent<OwlcatButton>();
+            prevProviderButton.Interactable = true;
+
+            var providerNameLabel = GameObject.Instantiate(togglePrefab.GetComponentInChildren<TextMeshProUGUI>().gameObject, providerRow.transform);
+            var providerNameText = providerNameLabel.GetComponent<TextMeshProUGUI>();
+            providerNameText.text = "";
+
+            var nextProvider = GameObject.Instantiate(expandButtonPrefab, providerRow.transform);
+            nextProvider.Rect().localScale = new Vector3(providerArrowScale, providerArrowScale, providerArrowScale);
+            nextProvider.Rect().pivot = new Vector2(.5f, .5f);
+            nextProvider.Rect().SetRotate2D(-90);
+            nextProvider.Rect().anchoredPosition = Vector2.zero;
+            nextProvider.SetActive(true);
+            var nextProviderButton = nextProvider.GetComponent<OwlcatButton>();
+            nextProviderButton.Interactable = true;
+
+            providerRow.SetActive(false);
+
             var capLabel = MakeLabel("  " + "limitcasts".i8());
 
-            var (blacklistToggle, _) = MakePopoutToggle("bancasts".i8());
-            var (powerfulChangeToggle, powerfulChangeLabel) = MakePopoutToggle("use.powerfulchange".i8());
-            var (shareTransmutationToggle, shareTransmutationLabel) = MakePopoutToggle("use.sharetransmutation".i8());
-            var (reservoirCLBuffToggle, reservoirCLBuffLabel) = MakePopoutToggle("use.reservoirclbuff".i8());
-            var (azataZippyMagicToggle, azataZippyMagicLabel) = MakePopoutToggle("use.azatazippymagic".i8());
+            var (blacklistToggle, _, _) = MakePopoutToggle("bancasts".i8());
+            var (banAllToggle, _, banAllRow) = MakePopoutToggle("bancasts.all".i8());
+            banAllRow.SetActive(false);
+            var (powerfulChangeToggle, powerfulChangeLabel, _) = MakePopoutToggle("use.powerfulchange".i8());
+            var (shareTransmutationToggle, shareTransmutationLabel, _) = MakePopoutToggle("use.sharetransmutation".i8());
+            var (reservoirCLBuffToggle, reservoirCLBuffLabel, _) = MakePopoutToggle("use.reservoirclbuff".i8());
+            var (azataZippyMagicToggle, azataZippyMagicLabel, _) = MakePopoutToggle("use.azatazippymagic".i8());
             var defaultLabelColor = shareTransmutationLabel.color;
 
-            (ToggleWorkaround, TextMeshProUGUI) MakePopoutToggle(string text) {
+            (ToggleWorkaround, TextMeshProUGUI, GameObject) MakePopoutToggle(string text) {
                 var toggleObj = GameObject.Instantiate(togglePrefab, casterPopout.transform);
                 toggleObj.SetActive(true);
                 toggleObj.Rect().localPosition = Vector3.zero;
                 toggleObj.GetComponent<HorizontalLayoutGroup>().childControlWidth = true;
                 var label = toggleObj.GetComponentInChildren<TextMeshProUGUI>();
                 label.text = text;
-                return (toggleObj.GetComponentInChildren<ToggleWorkaround>(), label);
+                return (toggleObj.GetComponentInChildren<ToggleWorkaround>(), label, toggleObj);
 
             }
             MakeLabel("warn.arcanepool".i8());
@@ -1593,14 +1642,86 @@ namespace BuffIt2TheLimit {
             var increaseCustomCapButton = increaseCustomCap.GetComponent<OwlcatButton>();
 
 
+            // Stale-index-safe accessor for popout listeners: SelectedCaster is a raw
+            // CasterQueue index, and the queue can rebuild/shrink while the popout stays
+            // open (party change, scroll consumed). Never index without this.
+            bool TryGetSelectedProvider(out BubbleBuff buff, out BuffProvider caster) {
+                buff = view.currentSelectedSpell?.Value;
+                caster = null;
+                if (buff == null) return false;
+                if (SelectedCaster.Value < 0 || SelectedCaster.Value >= buff.CasterQueue.Count) return false;
+                caster = buff.CasterQueue[SelectedCaster.Value];
+                return true;
+            }
+
             void AdjustCap(int delta) {
-                var buff = view.currentSelectedSpell.Value;
-                if (buff == null) return;
-                if (SelectedCaster.Value < 0) return;
+                if (!TryGetSelectedProvider(out var buff, out _)) return;
 
                 buff.AdjustCap(SelectedCaster.Value, delta);
                 state.Recalculate(true);
             }
+
+            // All CasterQueue indices belonging to the same unit as the provider at
+            // SelectedCaster (multiclass spellbooks + scroll/potion sources).
+            List<int> ProviderIndicesForSelectedUnit(BubbleBuff buff) {
+                var indices = new List<int>();
+                if (SelectedCaster.Value < 0 || SelectedCaster.Value >= buff.CasterQueue.Count)
+                    return indices;
+                var unitId = buff.CasterQueue[SelectedCaster.Value].who.UniqueId;
+                for (int i = 0; i < buff.CasterQueue.Count; i++) {
+                    if (buff.CasterQueue[i].who.UniqueId == unitId)
+                        indices.Add(i);
+                }
+                return indices;
+            }
+
+            string ProviderDisplayName(BuffProvider provider) {
+                switch (provider.SourceType) {
+                    case BuffSourceType.Spell:
+                        return provider.book != null ? $"{provider.book.Blueprint.DisplayName}" : "source.spell".i8();
+                    case BuffSourceType.Scroll:
+                        return "source.scroll".i8();
+                    case BuffSourceType.Potion:
+                        return "source.potion".i8();
+                    case BuffSourceType.Equipment:
+                        return "source.equipment".i8();
+                    case BuffSourceType.Song:
+                        return "source.song".i8();
+                    case BuffSourceType.Activatable:
+                        return "source.activatable".i8();
+                    default:
+                        return provider.SourceType.ToString();
+                }
+            }
+
+            void CycleProvider(int direction) {
+                var buff = view.currentSelectedSpell?.Value;
+                if (buff == null) return;
+                var indices = ProviderIndicesForSelectedUnit(buff);
+                if (indices.Count < 2) return;
+                int pos = indices.IndexOf(SelectedCaster.Value);
+                SelectedCaster.Value = indices[(pos + direction + indices.Count) % indices.Count];
+                UpdateDetailsView();
+            }
+
+            prevProviderButton.OnLeftClick.AddListener(() => {
+                CycleProvider(-1);
+            });
+            nextProviderButton.OnLeftClick.AddListener(() => {
+                CycleProvider(1);
+            });
+
+            banAllToggle.onValueChanged.AddListener(banned => {
+                var buff = view.currentSelectedSpell?.Value;
+                if (buff == null) return;
+                var indices = ProviderIndicesForSelectedUnit(buff);
+                if (indices.Count == 0) return;
+                bool allBanned = indices.All(i => buff.CasterQueue[i].Banned);
+                if (banned == allBanned) return; // programmatic rebind, no change
+                foreach (var i in indices)
+                    buff.CasterQueue[i].Banned = banned;
+                state.Recalculate(true);
+            });
 
             decreaseCustomCapButton.OnLeftClick.AddListener(() => {
                 AdjustCap(-1);
@@ -1614,40 +1735,38 @@ namespace BuffIt2TheLimit {
 
             view.casterPortraits = new Portrait[totalCasters];
 
+            // All four value-diff guards below also swallow the programmatic isOn rebinds
+            // UpdateDetailsView fires when cycling providers — without them every arrow
+            // click between providers with differing flags costs a full Recalculate+Save.
             shareTransmutationToggle.onValueChanged.AddListener(allow => {
-                if (SelectedCaster.Value >= 0 && view.Get(out var buff)) {
-                    buff.CasterQueue[SelectedCaster.Value].ShareTransmutation = allow;
+                if (TryGetSelectedProvider(out _, out var caster) && caster.ShareTransmutation != allow) {
+                    caster.ShareTransmutation = allow;
                     state.Recalculate(true);
                 }
             });
             powerfulChangeToggle.onValueChanged.AddListener(allow => {
-                if (SelectedCaster.Value >= 0 && view.Get(out var buff)) {
-                    buff.CasterQueue[SelectedCaster.Value].PowerfulChange = allow;
+                if (TryGetSelectedProvider(out _, out var caster) && caster.PowerfulChange != allow) {
+                    caster.PowerfulChange = allow;
                     state.Recalculate(true);
                 }
             });
             reservoirCLBuffToggle.onValueChanged.AddListener(allow => {
-                if (SelectedCaster.Value >= 0 && view.Get(out var buff)) {
-                    buff.CasterQueue[SelectedCaster.Value].ReservoirCLBuff = allow;
+                if (TryGetSelectedProvider(out _, out var caster) && caster.ReservoirCLBuff != allow) {
+                    caster.ReservoirCLBuff = allow;
                     state.Recalculate(true);
                 }
             });
             azataZippyMagicToggle.onValueChanged.AddListener(allow => {
-                if (SelectedCaster.Value >= 0 && view.Get(out var buff)) {
-                    buff.CasterQueue[SelectedCaster.Value].AzataZippyMagic = allow;
+                if (TryGetSelectedProvider(out _, out var caster) && caster.AzataZippyMagic != allow) {
+                    caster.AzataZippyMagic = allow;
                     state.Recalculate(true);
                 }
             });
 
             blacklistToggle.onValueChanged.AddListener((blacklisted) => {
                 Main.Log($"blacklisting, buff={view.currentSelectedSpell != null}, caster={SelectedCaster.Value}");
-                var buff = view.currentSelectedSpell?.Value;
-                if (buff == null)
+                if (!TryGetSelectedProvider(out _, out var caster))
                     return;
-                if (SelectedCaster.Value < 0)
-                    return;
-
-                var caster = buff.CasterQueue[SelectedCaster.value];
 
                 Main.Log("caster banned => " + blacklisted);
 
@@ -1757,7 +1876,13 @@ namespace BuffIt2TheLimit {
                 if (b.SavedState != null) b.SavedState.SourcePriorityOverride = b.SourcePriorityOverride;
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(b.SourcePriorityOverride)}";
                 b.SortProviders();
-                state.Save();
+                // SortProviders reorders CasterQueue in place — SelectedCaster and
+                // casterPortraitMap are raw indices, so close the popout and run a full
+                // Recalculate (not just Save): it revalidates with the new provider order
+                // AND rebuilds casterPortraitMap via UpdateCasterDetails.
+                SelectedCaster.Value = -1;
+                HideCasterPopout?.Invoke();
+                state.Recalculate(true);
             });
 
             // Extend Rod toggle — on left side, below priority
@@ -2044,8 +2169,21 @@ namespace BuffIt2TheLimit {
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
 
-                if (SelectedCaster.Value >= 0 && casterPopout.activeSelf) {
+                if (SelectedCaster.Value >= 0 && SelectedCaster.Value < buff.CasterQueue.Count && casterPopout.activeSelf) {
                     var who = buff.CasterQueue[SelectedCaster.value];
+
+                    // Provider selector + ban-all: only relevant when this unit has
+                    // multiple providers (multiclass spellbooks, scroll/potion sources).
+                    var unitProviderIndices = ProviderIndicesForSelectedUnit(buff);
+                    bool multiProvider = unitProviderIndices.Count > 1;
+                    providerRow.SetActive(multiProvider);
+                    banAllRow.SetActive(multiProvider);
+                    if (multiProvider) {
+                        int providerPos = unitProviderIndices.IndexOf(SelectedCaster.Value);
+                        providerNameText.text = $"{ProviderDisplayName(who)} ({providerPos + 1}/{unitProviderIndices.Count})";
+                        banAllToggle.isOn = unitProviderIndices.All(i => buff.CasterQueue[i].Banned);
+                    }
+
                     int actualCap = who.CustomCap < 0 ? who.MaxCap : who.CustomCap;
                     if (who.MaxCap < 100)
                         capValueText.text = $"{actualCap}/{who.MaxCap}";
@@ -2085,6 +2223,11 @@ namespace BuffIt2TheLimit {
                     azataZippyMagicToggle.interactable = hasAzataZippyMagicFact && !isSpellMass && canCastOnOthers;
                     azataZippyMagicLabel.color = azataZippyMagicToggle.interactable ? defaultLabelColor : Color.gray;
 
+                } else {
+                    // Binding skipped (no caster selected, stale index, popout hidden) —
+                    // don't leave the selector showing the previous provider's state.
+                    providerRow.SetActive(false);
+                    banAllRow.SetActive(false);
                 }
 
             };
@@ -3515,8 +3658,13 @@ namespace BuffIt2TheLimit {
                     if (who.CharacterIndex < targets.Length)
                         casterPortraits[i].Image.sprite = targets[who.CharacterIndex].Image.sprite;
                     var summaryParts = new List<string>();
+                    // Ban state per unit: a unit can have several providers (multiclass
+                    // spellbooks, scrolls) — red only when ALL are banned, orange for some.
+                    bool allBanned = true, someBanned = false;
                     foreach (var p in buff.CasterQueue) {
                         if (p.who.UniqueId != who.who.UniqueId) continue;
+                        if (p.Banned) someBanned = true;
+                        else allBanned = false;
                         string abbr = p.SourceType switch {
                             BuffSourceType.Spell => "Sp",
                             BuffSourceType.Scroll => "Sc",
@@ -3566,12 +3714,14 @@ namespace BuffIt2TheLimit {
                     casterPortraits[i].Text.lineSpacing = 4;
                     casterPortraits[i].Text.outlineWidth = 0;
                     bool isReserveCaster = !Bubble.Group.Any(u => u.UniqueId == who.who.UniqueId);
-                    if (who.Banned)
+                    if (allBanned) {
                         casterPortraits[i].Image.color = Color.red;
-                    else if (isReserveCaster)
-                        casterPortraits[i].Image.color = new Color(1f, 1f, 1f, 0.5f);
-                    else
-                        casterPortraits[i].Image.color = Color.white;
+                    } else {
+                        var tint = someBanned ? new Color(1f, 0.6f, 0.2f) : Color.white;
+                        if (isReserveCaster)
+                            tint.a = 0.5f; // keep the reserve cue under a partial-ban tint
+                        casterPortraits[i].Image.color = tint;
+                    }
                 }
             }
             addToAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested != Bubble.ConfigGroup.Count;

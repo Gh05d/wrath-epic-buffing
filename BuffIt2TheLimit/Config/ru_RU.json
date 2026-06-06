@@ -48,6 +48,8 @@
 
   "limitcasts": "Макс. бафов",
   "bancasts": "Не бафать",
+  "bancasts.all": "Запретить все источники",
+  "caster.source": "Источник",
   "use.powerfulchange": "Использовать Мощный Заряд",
   "use.sharetransmutation": "Разрешить Общую Трансмутацию",
   "use.reservoirclbuff": "Использовать бафф уровня кастера в резервуаре арканиста",
@@ -83,6 +85,8 @@
   "source.scroll": "Свиток",
   "source.potion": "Зелье",
   "source.equipment": "Снаряжение",
+  "source.song": "Песня",
+  "source.activatable": "Способность",
   "use.spells": "Использовать заклинания",
   "use.scrolls": "Использовать свитки",
   "use.potions": "Использовать зелья",

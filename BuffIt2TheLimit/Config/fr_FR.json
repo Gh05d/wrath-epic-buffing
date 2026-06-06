@@ -48,6 +48,8 @@
 
   "limitcasts": "Limité l'incantation à",
   "bancasts": "Interdire l'incantation",
+  "bancasts.all": "Interdire toutes les sources",
+  "caster.source": "Source",
   "use.powerfulchange": "Utilisé Puissante altération",
   "use.sharetransmutation": "Autorisé Transfert de transmutation",
   "use.reservoirclbuff": "Utilisé Réservoir d'Arcaniste Buff pour NLS",
@@ -83,6 +85,8 @@
   "source.scroll": "Parchemin",
   "source.potion": "Potion",
   "source.equipment": "Équipement",
+  "source.song": "Chant",
+  "source.activatable": "Capacité",
   "use.spells": "Utiliser les sorts",
   "use.scrolls": "Utiliser les parchemins",
   "use.potions": "Utiliser les potions",

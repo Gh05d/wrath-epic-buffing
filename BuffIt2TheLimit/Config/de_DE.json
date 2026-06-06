@@ -49,6 +49,8 @@
 
   "limitcasts": "Ausführung begrenzen auf",
   "bancasts": "Von der Ausführung verbieten",
+  "bancasts.all": "Alle Quellen verbieten",
+  "caster.source": "Quelle",
   "use.powerfulchange": "Machtvolle Verwandlung (Gestaltwandelnder Arkanist) benutzen",
   "use.sharetransmutation": "Verwandlung teilen (Gestaltwandelnder Arkanist) benutzen",
   "use.reservoirclbuff": "Arkanisten-Reservoir verwenden Zauberstufen-Buff",
@@ -84,6 +86,8 @@
   "source.scroll": "Schriftrolle",
   "source.potion": "Trank",
   "source.equipment": "Ausrustung",
+  "source.song": "Lied",
+  "source.activatable": "Fähigkeit",
   "use.spells": "Zauber verwenden",
   "use.scrolls": "Schriftrollen verwenden",
   "use.potions": "Tränke verwenden",

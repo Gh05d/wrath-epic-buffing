@@ -48,6 +48,8 @@
 
   "limitcasts": "Limit casts to",
   "bancasts": "Ban from casting",
+  "bancasts.all": "Ban all sources",
+  "caster.source": "Source",
   "use.powerfulchange": "Use Powerful Change",
   "use.sharetransmutation": "Allow Share Transmutation",
   "use.reservoirclbuff": "Use Reservoir Caster Level Buff",
@@ -83,6 +85,8 @@
   "source.scroll": "Scroll",
   "source.potion": "Potion",
   "source.equipment": "Equipment",
+  "source.song": "Song",
+  "source.activatable": "Ability",
   "use.spells": "Use Spells",
   "use.scrolls": "Use Scrolls",
   "use.potions": "Use Potions",

@@ -423,6 +423,7 @@ namespace BuffIt2TheLimit {
                 if (src == null) return "activatable source=null";
                 if (Category != Category.Song && !UnitWants(caster.who)) return $"caster '{caster.who?.CharacterName}' not in wanted set";
                 if (src.IsOn) return "already on";
+                if (caster.Banned) return "banned";
                 if (!src.IsAvailable) return "not available (resources/restrictions)";
                 return "ok";
             }
@@ -508,6 +509,9 @@ namespace BuffIt2TheLimit {
                     given.Add(caster.who.UniqueId);
                     continue;
                 }
+                // Banned provider: don't auto-activate (mirrors the Song branch above).
+                // Already-on stays "given" — banning blocks activation, not the state.
+                if (caster.Banned) continue;
                 if (!src.IsAvailable) {
                     Main.Verbose($"Activatable {Name}: not available for {caster.who.CharacterName}");
                     continue;

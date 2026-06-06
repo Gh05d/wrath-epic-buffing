@@ -48,6 +48,8 @@
 
   "limitcasts": "限制施法次数为",
   "bancasts": "禁止施法",
+  "bancasts.all": "禁止所有来源",
+  "caster.source": "来源",
   "use.powerfulchange": "使用强力变形",
   "use.sharetransmutation": "允许分享变化",
   "use.reservoirclbuff": "使用奥数池施法者等级Buff",
@@ -83,6 +85,8 @@
   "source.scroll": "卷轴",
   "source.potion": "药剂",
   "source.equipment": "装备",
+  "source.song": "歌曲",
+  "source.activatable": "能力",
   "use.spells": "使用法术",
   "use.scrolls": "使用卷轴",
   "use.potions": "使用药剂",
