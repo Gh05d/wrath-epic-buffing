@@ -49,6 +49,11 @@ Version must be updated in **three** files simultaneously:
 
 Use `/release` skill to handle this automatically.
 
+## Localization
+
+- UI strings: `"key".i8()` (`Config/ModSettings.cs`); keys live in `Config/{en_GB,de_DE,fr_FR,ru_RU,zh_CN}.json` — every new key must be added to ALL five files. A key missing from en_GB.json crashes the game (uncatchable infinite recursion in `Language.Get` — enGB is the fallback locale).
+- BOM differs per file (en_GB/de_DE have UTF-8 BOM, fr/ru/zh don't) — preserve each file's state. Python: read `utf-8-sig`, write BOM back only where it was.
+
 ## Release
 
 Use `/release minor|patch|major` — the skill handles version bump, build, tag, push, and GitHub release. Nexus Mods upload is automated via GitHub Action on release publish. See `.claude/commands/release.md`.
