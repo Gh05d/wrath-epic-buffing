@@ -59,6 +59,10 @@ Use `/release` skill to handle this automatically.
 Use `/release minor|patch|major` — the skill handles version bump, build, tag, push, and GitHub release. Nexus Mods upload is automated via GitHub Action on release publish. See `.claude/commands/release.md`.
 - **Release notes in English** — even though user communicates in German, all release notes (GitHub + Nexus) must be in English.
 
+## Support FAQ
+
+- **"Character can't move after entering a map, clicking the buff button fixes it"**: Game-side stuck-command bug (known after area transitions/cutscenes, esp. Chapter 5). The mod does nothing on area load — `SpellbookWatcher.OnAreaActivated` only installs UI and revalidates the ability cache. The buff button "fixes" it because any new `Commands.Run` interrupts the stuck slot occupant. Workarounds: attack something, save/load, or disable the mod to confirm (Ctrl+F10).
+
 ## Topic Index
 
 Deep docs live in `claude-context/`. Before editing an area, read the matching file:
