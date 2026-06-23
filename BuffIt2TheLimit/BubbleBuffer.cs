@@ -2314,6 +2314,53 @@ namespace BuffIt2TheLimit {
 
             scroll.content = groupRect;
 
+            // Horizontal scrollbar — AutoHide keeps the common small-party case pixel-identical
+            // (no bar, full portrait height) and only surfaces a draggable handle when the roster
+            // overflows the visible width (e.g. all recruited companions in town via Show Reserve).
+            // Overlaid on the bottom edge of the row so it costs no portrait height when hidden.
+            const float scrollbarHeight = 9f;
+
+            var scrollbarObj = new GameObject("PortraitScrollbar", typeof(RectTransform));
+            var scrollbarRect = scrollbarObj.GetComponent<RectTransform>();
+            scrollbarRect.SetParent(scrollRect, false);
+            scrollbarRect.anchorMin = new Vector2(0f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 0f);
+            scrollbarRect.pivot = new Vector2(0.5f, 0f);
+            scrollbarRect.sizeDelta = new Vector2(0f, scrollbarHeight);
+            scrollbarRect.anchoredPosition = Vector2.zero;
+
+            var scrollbarBg = scrollbarObj.AddComponent<Image>();
+            scrollbarBg.color = new Color(0f, 0f, 0f, 0.35f);
+            scrollbarBg.raycastTarget = true;
+
+            var scrollbar = scrollbarObj.AddComponent<Scrollbar>();
+            scrollbar.direction = Scrollbar.Direction.LeftToRight;
+            scrollbar.numberOfSteps = 0;
+
+            var slidingArea = new GameObject("Sliding Area", typeof(RectTransform));
+            var slidingRect = slidingArea.GetComponent<RectTransform>();
+            slidingRect.SetParent(scrollbarRect, false);
+            slidingRect.anchorMin = Vector2.zero;
+            slidingRect.anchorMax = Vector2.one;
+            slidingRect.offsetMin = Vector2.zero;
+            slidingRect.offsetMax = Vector2.zero;
+
+            var handleObj = new GameObject("Handle", typeof(RectTransform));
+            var handleRect = handleObj.GetComponent<RectTransform>();
+            handleRect.SetParent(slidingRect, false);
+            handleRect.offsetMin = Vector2.zero;
+            handleRect.offsetMax = Vector2.zero;
+
+            var handleImage = handleObj.AddComponent<Image>();
+            handleImage.color = new Color(1f, 1f, 1f, 0.5f);
+            handleImage.raycastTarget = true;
+
+            scrollbar.handleRect = handleRect;
+            scrollbar.targetGraphic = handleImage;
+
+            scroll.horizontalScrollbar = scrollbar;
+            scroll.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
             view.targets = new Portrait[Bubble.ConfigGroup.Count];
 
             for (int i = 0; i < Bubble.ConfigGroup.Count; i++) {
