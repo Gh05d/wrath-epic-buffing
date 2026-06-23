@@ -62,6 +62,7 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 ## Support FAQ
 
 - **"Character can't move after entering a map, clicking the buff button fixes it"**: Game-side stuck-command bug (known after area transitions/cutscenes, esp. Chapter 5). The mod does nothing on area load — `SpellbookWatcher.OnAreaActivated` only installs UI and revalidates the ability cache. The buff button "fixes" it because any new `Commands.Run` interrupts the stuck slot occupant. Workarounds: attack something, save/load, or disable the mod to confirm (Ctrl+F10).
+- **"Mount toggle in the Toggle tab only changes the cursor, the rider doesn't mount"**: Not a mod feature — Mount is a stock game `ActivatableAbilityMount` the activatable scan surfaces like any free toggle. The mod only sets `IsOn=true` (Phase 0); real mounting is a targeted command (`ContextActionMount` → `UnitPartRider.Mount(targetUnit,…)`) needing a designated mount, which an on/off toggle can't supply. Not tied to a specific mount, not mod-fixable without dedicated mount-target handling (out of scope).
 
 ## Topic Index
 
