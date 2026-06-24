@@ -42,10 +42,12 @@ BuffExecutor.ExecuteCombatStart()  →  triggered by EventBus on combat enter
 | `BuffExecutor` | `BuffExecutor.cs` | Executes buff casting for a BuffGroup, creates CastTasks |
 | `EngineCastingHandler` | `Handlers/EngineCastingHandler.cs` | Handles actual spell casting through game's ability system |
 | `SavedBufferState` / `SavedBuffState` | `SaveState.cs` | JSON-serialized per-save configuration |
-| `ShortcutBinding` | `ShortcutBinding.cs` | Readonly struct for keyboard shortcuts with modifier keys (Ctrl/Shift/Alt) + backward-compatible JSON converter |
+| `ShortcutBinding` | `ShortcutBinding.cs` | Readonly struct for key/mouse-button shortcuts with modifier keys (Ctrl/Shift/Alt) + backward-compatible JSON converter |
 | `BubbleBuffGlobalController` | `BuffExecutor.cs` | MonoBehaviour handling shortcut capture/execution and spell casting coroutines |
 | `AnimatedExecutionEngine` | `AnimatedExecutionEngine.cs` | Cast spells with full game animations via `UnitUseAbility` commands |
 | `InstantExecutionEngine` | `InstantExecutionEngine.cs` | Cast spells instantly via `Rulebook.Trigger` in batches of 8 |
+
+**Shortcut binding is `KeyCode`-agnostic except the capture filter**: `IsPressed()` (`Input.GetKeyDown`), the JSON converter, and `ToDisplayString()` all handle any `KeyCode`. To make a new key/button bindable, change ONLY the `BindableKeys` filter in `BuffExecutor.cs` (the capture scan in `Update()`). Unity ordering: `KeyCode.Mouse0..Mouse6` = 323..329, `JoystickButton0` = 330+. `Mouse3..Mouse6` (thumb/side buttons) are bindable since v1.14.8; `Mouse0/Mouse1/Mouse2` (LMB/RMB/MMB) and joystick buttons stay excluded — LMB arms the rebind row and would self-capture on the same frame.
 
 ### UI Structure
 
