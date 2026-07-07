@@ -27,6 +27,8 @@
   "group.important.tooltip.desc": "Als <b>Wichtig<b> konfigurierte Buffs einsetzen.",
   "group.short.tooltip.header": "Schnelle Buffs!",
   "group.short.tooltip.desc": "Als <b>Schnell<b> konfigurierte Buffs einsetzen.",
+  "group.overview.empty": "Keine Buffs zugewiesen",
+  "group.overview.more": "… und {0} weitere (Rechtsklick für die volle Liste)",
   "showmap.tooltip.header": "Inselkarte anzeigen",
   "showmap.tooltip.desc": "Inselkarte anzeigen, um den nächsten Punkt deines Abenteuers zu wählen",
 
