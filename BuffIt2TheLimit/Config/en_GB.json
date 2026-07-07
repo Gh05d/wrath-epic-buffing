@@ -27,6 +27,8 @@
   "group.important.tooltip.desc": "Try to cast buffs set in the buff window (Important Buffs)",
   "group.short.tooltip.header": "Quick Buffs!",
   "group.short.tooltip.desc": "Try to cast buffs set in the buff window (Quick Buffs)",
+  "group.overview.empty": "No buffs assigned",
+  "group.overview.more": "… and {0} more",
   "showmap.tooltip.header": "Show islands map",
   "showmap.tooltip.desc": "Display the islands map to pick the next point in your adventure",
 

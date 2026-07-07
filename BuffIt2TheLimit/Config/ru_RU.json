@@ -27,6 +27,8 @@
   "group.important.tooltip.desc": "Попробовать бафнуть группой (Важные)",
   "group.short.tooltip.header": "Быстрые бафы",
   "group.short.tooltip.desc": "Попробовать бафнуть группой (Быстрые)",
+  "group.overview.empty": "Баффы не назначены",
+  "group.overview.more": "… и ещё {0}",
   "showmap.tooltip.header": "Показать карту островов",
   "showmap.tooltip.desc": "Отображает карту островов для выбора следующей точки приключения",
 

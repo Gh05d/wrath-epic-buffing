@@ -27,6 +27,8 @@
   "group.important.tooltip.desc": "Tente de lancer les sorts configurés dans la fenêtre de buff (Buffs Importants)",
   "group.short.tooltip.header": "Buffs Rapides!",
   "group.short.tooltip.desc": "Tente de lancer les sorts configurés dans la fenêtre de buff (Buffs Rapides)",
+  "group.overview.empty": "Aucun buff assigné",
+  "group.overview.more": "… et {0} de plus",
   "showmap.tooltip.header": "Afficher la carte des îles",
   "showmap.tooltip.desc": "Affiche la carte des îles pour choisir le prochain point de votre aventure",
 
