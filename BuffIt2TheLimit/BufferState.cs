@@ -56,27 +56,30 @@ namespace BuffIt2TheLimit {
                 foreach (var book in dude.Spellbooks) {
                     try {
                         Main.Verbose($"  Looking at spellbook: {book.Blueprint.DisplayName}", "state");
+                        // Shared across both cantrip enumerations below: the same cantrip can be
+                        // returned by both GetCustomSpells(0) and GetKnownSpells(0) for a given
+                        // caster, and they need to be recognised as the same resource pool (not
+                        // two additive ones) when AddProvider dedups by credits reference.
+                        ReactiveProperty<int> cantripCredits = new ReactiveProperty<int>(500);
                         foreach (var spell in book.GetCustomSpells(0)) {
-                            ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
                             Main.Verbose($"      Adding cantrip (completely normal): {spell.Name}", "state");
                             AddBuff(dude: dude,
                                     book: book,
                                     spell: spell,
                                     baseSpell: null,
-                                    credits: credits,
+                                    credits: cantripCredits,
                                     newCredit: false,
                                     creditClamp: int.MaxValue,
                                     charIndex: characterIndex);
                         }
 
                         foreach (var spell in book.GetKnownSpells(0)) {
-                            ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
                             Main.Verbose($"      Adding cantrip: {spell.Name}", "state");
                             AddBuff(dude: dude,
                                     book: book,
                                     spell: spell,
                                     baseSpell: null,
-                                    credits: credits,
+                                    credits: cantripCredits,
                                     newCredit: false,
                                     creditClamp: int.MaxValue,
                                     charIndex: characterIndex);
@@ -836,7 +839,7 @@ namespace BuffIt2TheLimit {
                 bool addCredit = true;
 
                 foreach (var variant in variantsComponent.Variants) {
-                    AbilityData data= new AbilityData(spell, variant);
+                    AbilityData data = new AbilityData(spell, variant);
                     Main.Verbose($"          Variant: {variant.Name}", "state");
 
                     AddBuff(dude: dude,

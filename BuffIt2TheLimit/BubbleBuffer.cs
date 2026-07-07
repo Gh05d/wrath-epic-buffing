@@ -3744,20 +3744,34 @@ namespace BuffIt2TheLimit {
                     // Ban state per unit: a unit can have several providers (multiclass
                     // spellbooks, scrolls) — red only when ALL are banned, orange for some.
                     bool allBanned = true, someBanned = false;
+                    // A unit can have several providers of the *same* SourceType (e.g. a
+                    // spontaneous known spell made castable from multiple slot levels via
+                    // Spell Slot Freedom, or several stacked scrolls) — combine those into
+                    // one summed line per SourceType rather than one line each.
+                    var creditsBySource = new Dictionary<BuffSourceType, int>();
+                    var sourceOrder = new List<BuffSourceType>();
                     foreach (var p in buff.CasterQueue) {
                         if (p.who.UniqueId != who.who.UniqueId) continue;
                         if (p.Banned) someBanned = true;
                         else allBanned = false;
-                        string abbr = p.SourceType switch {
+
+                        if (!creditsBySource.ContainsKey(p.SourceType)) {
+                            creditsBySource[p.SourceType] = 0;
+                            sourceOrder.Add(p.SourceType);
+                        }
+                        creditsBySource[p.SourceType] += p.AvailableCredits;
+                    }
+                    foreach (var sourceType in sourceOrder) {
+                        string abbr = sourceType switch {
                             BuffSourceType.Spell => "Sp",
                             BuffSourceType.Scroll => "Sc",
                             BuffSourceType.Potion => "Po",
                             BuffSourceType.Equipment => "Eq",
                             _ => null
                         };
-                        if (abbr != null) {
-                            summaryParts.Add(p.AvailableCredits < 100 ? $"{abbr}:{p.AvailableCredits}" : abbr);
-                        }
+                        if (abbr == null) continue;
+                        int total = creditsBySource[sourceType];
+                        summaryParts.Add(total < 100 ? $"{abbr}:{total}" : abbr);
                     }
                     casterPortraits[i].Text.text = string.Join("\n", summaryParts);
                     if (casterPortraits[i].SourceOverlay != null) {
@@ -3918,7 +3932,7 @@ namespace BuffIt2TheLimit {
     }
 
 
-    internal class SpellbookWatcher : ISpellBookUIHandler, IAreaHandler, ILevelUpCompleteUIHandler, IPartyChangedUIHandler, ISpellBookCustomSpell, IAreaActivationHandler {
+    internal class SpellbookWatcher : ISpellBookUIHandler, IAreaHandler, ILevelUpCompleteUIHandler, IPartyChangedUIHandler, ISpellBookCustomSpell, IAreaActivationHandler, ISlotWasAddedHandler {
         public static void Safely(Action a) {
             try {
                 a.Invoke();
@@ -3942,6 +3956,9 @@ namespace BuffIt2TheLimit {
             Safely(() => GlobalBubbleBuffer.Instance.SpellbookController?.RevalidateSpells());
         }
 
+        public void SlotWasAdded(UnitEntityData unit) {
+            Safely(() => GlobalBubbleBuffer.Instance.SpellbookController?.RevalidateSpells());
+        }
 
         public void OnAreaDidLoad() {
             //Main.Log("Loaded area...");
@@ -3967,6 +3984,7 @@ namespace BuffIt2TheLimit {
         void ISpellBookCustomSpell.RemoveSpellHandler(AbilityData ability) {
             Safely(() => GlobalBubbleBuffer.Instance.SpellbookController?.RevalidateSpells());
         }
+
     }
     internal class HideBubbleButtonsWatcher : ICutsceneHandler, IPartyCombatHandler {
         public void HandleCutscenePaused(CutscenePlayerData cutscene, CutscenePauseReason reason) { }

@@ -180,7 +180,7 @@ namespace BuffIt2TheLimit {
 
             foreach (var buffer in CasterQueue) {
                 if (buffer.who == provider && buffer.book?.Blueprint.AssetGuid == book?.Blueprint.AssetGuid
-                    && buffer.SourceType == sourceType) {
+                    && buffer.SourceType == sourceType && buffer.SharesCreditsWith(credits)) {
                     if (!Key.Archmage && newCredit)
                         buffer.AddCredits(1);
                     return;
@@ -660,6 +660,11 @@ namespace BuffIt2TheLimit {
         public BuffProvider(IReactiveProperty<int> credits) {
             this.credits = credits;
         }
+
+        // Lets AddProvider tell whether a would-be-duplicate registration is actually
+        // drawing from the same slot pool, or a distinct one (e.g. a spontaneous known
+        // spell made castable from a second spell level via Spell Slot Freedom).
+        internal bool SharesCreditsWith(IReactiveProperty<int> other) => ReferenceEquals(credits, other);
 
         public int AvailableCredits {
             get {
