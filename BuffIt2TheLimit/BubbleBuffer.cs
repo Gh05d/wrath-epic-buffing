@@ -3042,7 +3042,7 @@ namespace BuffIt2TheLimit {
                     GameObject.DestroyImmediate(buttonsContainer.transform.GetChild(1).gameObject);
                 }
 
-                void AddButton(string text, string tooltip, ButtonSprites sprites, Action act) {
+                void AddButtonWithTemplate(TooltipBaseTemplate template, ButtonSprites sprites, Action act) {
                     var applyBuffsButton = GameObject.Instantiate(prefab, buttonsContainer.transform);
                     applyBuffsButton.SetActive(true);
                     OwlcatButton button = applyBuffsButton.GetComponentInChildren<OwlcatButton>();
@@ -3053,7 +3053,7 @@ namespace BuffIt2TheLimit {
                     button.OnLeftClick.AddListener(() => {
                         act();
                     });
-                    button.SetTooltip(new TooltipTemplateSimple(text, tooltip), new TooltipConfig {
+                    button.SetTooltip(template, new TooltipConfig {
                         InfoCallPCMethod = InfoCallPCMethod.None
                     });
 
@@ -3063,10 +3063,14 @@ namespace BuffIt2TheLimit {
 
                 }
 
+                void AddButton(string text, string tooltip, ButtonSprites sprites, Action act) {
+                    AddButtonWithTemplate(new TooltipTemplateSimple(text, tooltip), sprites, act);
+                }
 
-                AddButton("group.normal.tooltip.header".i8(), "group.normal.tooltip.desc".i8(), applyBuffsSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Long));
-                AddButton("group.important.tooltip.header".i8(), "group.important.tooltip.desc".i8(), applyBuffsImportantSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Important));
-                AddButton("group.short.tooltip.header".i8(), "group.short.tooltip.desc".i8(), applyBuffsShortSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Quick));
+
+                AddButtonWithTemplate(new TooltipTemplateGroupBuffs(BuffGroup.Long), applyBuffsSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Long));
+                AddButtonWithTemplate(new TooltipTemplateGroupBuffs(BuffGroup.Important), applyBuffsImportantSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Important));
+                AddButtonWithTemplate(new TooltipTemplateGroupBuffs(BuffGroup.Quick), applyBuffsShortSprites, () => GlobalBubbleBuffer.Execute(BuffGroup.Quick));
                 if (DungeonController.IsDungeonCampaign) {
                     DungeonShowMap showMap = new();
                     AddButton("showmap.tooltip.header".i8(), "showmap.tooltip.desc".i8(), showMapSprites, () => showMap.RunAction());
