@@ -67,6 +67,8 @@
   "settings-toggle": "切换Buff It 2 The Limit设置面板",
   "setting-verbose": "使用完整施法动作",
   "setting-skip-combat-anim": "战斗开始时跳过动画",
+  "setting-cast-all-combat-start": "战斗开始时施放所有Buff",
+  "setting-cast-all-combat-start-tooltip": "战斗开始时自动施放所有已配置的Buff——如同每个Buff都勾选了“战斗开始时施放”。不会修改各Buff的单独设置。",
   "setting-in-combat": "允许在战斗中施加Buff",
   "setting-bypass-asf": "战前施法时忽略奥术失效几率",
   "setting-overwritebuff": "忽略现有Buff",

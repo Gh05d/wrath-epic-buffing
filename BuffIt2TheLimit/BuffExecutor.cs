@@ -667,7 +667,7 @@ namespace BuffIt2TheLimit {
                 string version = ModSettings.ModEntry?.Info?.Version ?? "?";
                 int activeCount = Bubble.Group?.Count ?? -1;
                 int reserveCount = Game.Instance?.Player?.RemoteCompanions != null ? Game.Instance.Player.RemoteCompanions.Count() : -1;
-                Main.Log($"[CSD] Mod={version} SkipAnim={State.SkipAnimationsOnCombatStart} Active={activeCount} Reserve={reserveCount}");
+                Main.Log($"[CSD] Mod={version} SkipAnim={State.SkipAnimationsOnCombatStart} CastAll={State.CastAllOnCombatStart} Active={activeCount} Reserve={reserveCount}");
                 if (Bubble.Group != null) {
                     Main.Log($"[CSD] ActiveParty: {string.Join(", ", Bubble.Group.Select(u => u.CharacterName))}");
                 }
@@ -676,7 +676,10 @@ namespace BuffIt2TheLimit {
             }
 
             var allBuffs = State.BuffList.ToList();
-            var combatStartBuffs = allBuffs.Where(b => b.CastOnCombatStart).ToList();
+            // Global toggle only covers configured buffs (Requested > 0) — BuffList holds
+            // every scanned spellbook entry, and unconfigured ones would spam the [CSD]
+            // rejection diagnostics on every combat start.
+            var combatStartBuffs = allBuffs.Where(b => b.CastOnCombatStart || (State.CastAllOnCombatStart && b.Requested > 0)).ToList();
             Main.Log($"[CSD] Marked={combatStartBuffs.Count} (of {allBuffs.Count} total)");
             foreach (var b in combatStartBuffs) {
                 int queue = b.ActualCastQueue?.Count ?? -1;

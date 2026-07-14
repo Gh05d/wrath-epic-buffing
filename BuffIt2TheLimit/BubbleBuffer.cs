@@ -840,6 +840,18 @@ namespace BuffIt2TheLimit {
                 });
             }
 
+            {
+                var (toggle, label) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-cast-all-combat-start".i8());
+                toggle.isOn = state.CastAllOnCombatStart;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.CastAllOnCombatStart = enabled;
+                });
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-cast-all-combat-start".i8(),
+                    "setting-cast-all-combat-start-tooltip".i8()));
+            }
+
             // === Scroll/Potion Settings ===
 
             {

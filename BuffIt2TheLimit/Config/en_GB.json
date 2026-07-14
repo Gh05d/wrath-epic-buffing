@@ -67,6 +67,8 @@
   "settings-toggle": "Toggle the Buff It 2 The Limit settings panel",
   "setting-verbose": "Use full animation casting",
   "setting-skip-combat-anim": "Skip animations on combat start",
+  "setting-cast-all-combat-start": "Cast all buffs on combat start",
+  "setting-cast-all-combat-start-tooltip": "When combat begins, automatically cast every configured buff — as if 'Cast on combat start' were ticked on each one. Individual buff settings are left untouched.",
   "setting-in-combat": "Allow buffing in combat",
   "setting-bypass-asf": "Bypass arcane spell failure when prebuffing",
   "setting-overwritebuff": "Ignore existing buffs",

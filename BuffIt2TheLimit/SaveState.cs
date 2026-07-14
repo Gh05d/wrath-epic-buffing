@@ -33,6 +33,8 @@ namespace BuffIt2TheLimit {
         [JsonProperty]
         public bool SkipAnimationsOnCombatStart;
         [JsonProperty]
+        public bool CastAllOnCombatStart;
+        [JsonProperty]
         public bool AllowInCombat;
         [JsonProperty]
         public bool BypassArcaneSpellFailure;

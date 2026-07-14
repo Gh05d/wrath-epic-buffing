@@ -67,6 +67,8 @@
   "settings-toggle": "Переключить панель настроек Buff It 2 The Limit",
   "setting-verbose": "Использовать полные анимации каста",
   "setting-skip-combat-anim": "Пропускать анимации в начале боя",
+  "setting-cast-all-combat-start": "Применять все баффы в начале боя",
+  "setting-cast-all-combat-start-tooltip": "В начале боя автоматически применяет все настроенные баффы — как если бы у каждого была включена опция 'Cast on combat start'. Индивидуальные настройки баффов не изменяются.",
   "setting-in-combat": "Разрешить баффинг в бою",
   "setting-bypass-asf": "Игнорировать неудачу мистического заклинания при пребафе",
   "setting-overwritebuff": "Игнорировать существующие баффы",

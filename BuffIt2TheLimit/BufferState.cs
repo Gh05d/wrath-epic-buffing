@@ -810,6 +810,13 @@ namespace BuffIt2TheLimit {
                 Save(true);
             }
         }
+        public bool CastAllOnCombatStart {
+            get => SavedState.CastAllOnCombatStart;
+            set {
+                SavedState.CastAllOnCombatStart = value;
+                Save(true);
+            }
+        }
 
         //private static Dictionary<Guid, List<ContextActionApplyBuff>> CachedBuffEffects;
 

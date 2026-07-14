@@ -67,6 +67,8 @@
   "settings-toggle": "Afficher/masquer le panneau de paramètres Buff It 2 The Limit",
   "setting-verbose": "Utiliser les animations d'incantation complètes",
   "setting-skip-combat-anim": "Ignorer les animations en début de combat",
+  "setting-cast-all-combat-start": "Lancer tous les buffs en début de combat",
+  "setting-cast-all-combat-start-tooltip": "Au début du combat, lance automatiquement tous les buffs configurés — comme si 'Cast on combat start' était coché pour chacun. Les réglages individuels des buffs restent inchangés.",
   "setting-in-combat": "Autoriser le buffing en combat",
   "setting-bypass-asf": "Ignorer l'échec de sort arcanique en prébuff",
   "setting-overwritebuff": "Ignorer les buffs existants",

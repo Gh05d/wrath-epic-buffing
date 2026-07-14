@@ -68,6 +68,8 @@
   "settings-toggle": "Buff It 2 The Limit Einstellungen ein-/ausblenden",
   "setting-verbose": "Volle Casting-Animationen verwenden",
   "setting-skip-combat-anim": "Animationen bei Combat-Start überspringen",
+  "setting-cast-all-combat-start": "Alle Buffs bei Combat-Start wirken",
+  "setting-cast-all-combat-start-tooltip": "Wirkt bei Kampfbeginn automatisch alle konfigurierten Buffs — als wäre 'Cast on combat start' bei jedem Buff aktiviert. Die einzelnen Buff-Einstellungen bleiben unverändert.",
   "setting-in-combat": "Buffen im Kampf erlauben",
   "setting-bypass-asf": "Zauberpatzer umgehen bei Prebuffing",
   "setting-overwritebuff": "Bestehende Buffs ignorieren",
