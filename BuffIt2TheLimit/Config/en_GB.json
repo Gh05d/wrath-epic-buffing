@@ -59,6 +59,9 @@
   "use.reservoirclbuff": "Use Reservoir Caster Level Buff",
   "use.azatazippymagic": "Control Azata Zippy Magic Secondary Buff",
   "nolimit": "no limit",
+  "caster.rank.global": "Priority (all buffs)",
+  "caster.rank.buff": "Priority (this buff)",
+  "caster.rank-tooltip": "Higher priority casts earlier. Default order when priorities are equal: active party before reserve, spells before scrolls and potions, then prepared casters before spontaneous ones (higher caster level first). 'This buff' overrides 'all buffs' for this spell only — a grey value follows the all-buffs priority.",
 
   "remove-all": "Remove from all",
   "add-all": "Add to all",

@@ -60,6 +60,9 @@
   "use.reservoirclbuff": "Arkanisten-Reservoir verwenden Zauberstufen-Buff",
   "use.azatazippymagic": "Kontrolliere Azata Zippy Magic Secondary Buff",
   "nolimit": "Keine Begrenzung",
+  "caster.rank.global": "Priorität (alle Buffs)",
+  "caster.rank.buff": "Priorität (dieser Buff)",
+  "caster.rank-tooltip": "Höhere Priorität castet zuerst. Standardreihenfolge bei gleicher Priorität: aktive Gruppe vor Reserve, Zauber vor Schriftrollen und Tränken, dann vorbereitete vor spontanen Castern (höhere Zauberstufe zuerst). 'Dieser Buff' übersteuert 'alle Buffs' nur für diesen Zauber — ein grauer Wert folgt der Alle-Buffs-Priorität.",
 
   "remove-all": "Buff überall entfernen",
   "add-all": "Buff überall einsetzen",

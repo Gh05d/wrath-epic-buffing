@@ -59,6 +59,9 @@
   "use.reservoirclbuff": "Utilisé Réservoir d'Arcaniste Buff pour NLS",
   "use.azatazippymagic": "Contrôlez le buff secondaire Azata Zippy Magic",
   "nolimit": "Non limité",
+  "caster.rank.global": "Priorité (tous les buffs)",
+  "caster.rank.buff": "Priorité (ce buff)",
+  "caster.rank-tooltip": "Une priorité plus élevée lance en premier. Ordre par défaut à priorité égale : groupe actif avant la réserve, sorts avant parchemins et potions, puis lanceurs à préparation avant les spontanés (niveau de lanceur le plus élevé d'abord). « Ce buff » remplace « tous les buffs » pour ce sort uniquement — une valeur grise suit la priorité globale.",
 
   "remove-all": "Enlevé pour tous",
   "add-all": "Ajouté pour tous",

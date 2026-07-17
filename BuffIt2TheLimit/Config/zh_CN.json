@@ -59,6 +59,9 @@
   "use.reservoirclbuff": "使用奥数池施法者等级Buff",
   "use.azatazippymagic": "控制 Azata Zippy 魔法辅助Buff",
   "nolimit": "不限制",
+  "caster.rank.global": "优先级（所有增益）",
+  "caster.rank.buff": "优先级（此增益）",
+  "caster.rank-tooltip": "优先级越高越先施放。优先级相同时的默认顺序：现役队伍先于后备，法术先于卷轴和药水，然后准备施法者先于自发施法者（施法者等级高的优先）。“此增益”仅对该法术覆盖“所有增益”——灰色数值表示沿用所有增益的优先级。",
 
   "remove-all": "从全部移除",
   "add-all": "添加到全部",
