@@ -56,27 +56,30 @@ namespace BuffIt2TheLimit {
                 foreach (var book in dude.Spellbooks) {
                     try {
                         Main.Verbose($"  Looking at spellbook: {book.Blueprint.DisplayName}", "state");
+                        // Shared across both cantrip enumerations below: the same cantrip can be
+                        // returned by both GetCustomSpells(0) and GetKnownSpells(0) for a given
+                        // caster, and they need to be recognised as the same resource pool (not
+                        // two additive ones) when AddProvider dedups by credits reference.
+                        ReactiveProperty<int> cantripCredits = new ReactiveProperty<int>(500);
                         foreach (var spell in book.GetCustomSpells(0)) {
-                            ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
                             Main.Verbose($"      Adding cantrip (completely normal): {spell.Name}", "state");
                             AddBuff(dude: dude,
                                     book: book,
                                     spell: spell,
                                     baseSpell: null,
-                                    credits: credits,
+                                    credits: cantripCredits,
                                     newCredit: false,
                                     creditClamp: int.MaxValue,
                                     charIndex: characterIndex);
                         }
 
                         foreach (var spell in book.GetKnownSpells(0)) {
-                            ReactiveProperty<int> credits = new ReactiveProperty<int>(500);
                             Main.Verbose($"      Adding cantrip: {spell.Name}", "state");
                             AddBuff(dude: dude,
                                     book: book,
                                     spell: spell,
                                     baseSpell: null,
-                                    credits: credits,
+                                    credits: cantripCredits,
                                     newCredit: false,
                                     creditClamp: int.MaxValue,
                                     charIndex: characterIndex);
@@ -178,7 +181,9 @@ namespace BuffIt2TheLimit {
                         if (sourceItem == null || !sourceItem.IsSpendCharges) {
                             var credits = new ReactiveProperty<int>(500);
                             if (ability.Data.Resource != null) {
-                                credits.Value = ability.Data.Resource.GetMaxAmount(dude);
+                                var resourceLogic = ability.Data.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityResourceLogic>();
+                                int cost = resourceLogic?.CalculateCost(ability.Data) ?? 1;
+                                credits.Value = cost <= 0 ? 500 : ability.Data.Resource.GetMaxAmount(dude);
                             }
                             AddBuff(dude: dude,
                                     book: null,
@@ -846,7 +851,7 @@ namespace BuffIt2TheLimit {
                 bool addCredit = true;
 
                 foreach (var variant in variantsComponent.Variants) {
-                    AbilityData data= new AbilityData(spell, variant);
+                    AbilityData data = new AbilityData(spell, variant);
                     Main.Verbose($"          Variant: {variant.Name}", "state");
 
                     AddBuff(dude: dude,
@@ -962,7 +967,16 @@ namespace BuffIt2TheLimit {
             }
 
             // Item-backed activatables use the item's charges; class activatables use ResourceCount
-            int initialCredits = sourceItem != null ? sourceItem.Charges : (activatable.ResourceCount ?? 1);
+            int initialCredits;
+            if (sourceItem != null) {
+                initialCredits = sourceItem.Charges;
+            } else {
+                var resourceLogic = blueprint.GetComponent<Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityResourceLogic>();
+                int cost = resourceLogic?.CalcResourceCost() ?? 1;
+                initialCredits = (resourceLogic != null && cost <= 0)
+                    ? 500 // unlimited, same convention used for cantrips elsewhere in this mod
+                    : (activatable.ResourceCount ?? 1);
+            }
 
             var credits = new ReactiveProperty<int>(initialCredits);
             var provider = new BuffProvider(credits) {
