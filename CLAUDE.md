@@ -10,20 +10,7 @@ Buff It 2 The Limit (formerly BubbleBuffs) is a Unity mod for **Pathfinder: Wrat
 ~/.dotnet/dotnet build BuffIt2TheLimit/BuffIt2TheLimit.csproj -p:SolutionDir=$(pwd)/
 ```
 
-**Setup:** The build requires the game's managed DLLs. The csproj references them via `$(WrathInstallDir)/Wrath_Data/Managed/`. This is resolved in order:
-1. `GamePath.props` in repo root (auto-generated or manual)
-2. Auto-detection from `Player.log` (Windows only, uses `findstr`)
-
-For Linux dev, create `GamePath.props` manually or symlink game DLLs:
-```xml
-<Project xmlns='http://schemas.microsoft.com/developer/msbuild/2003'>
-  <PropertyGroup>
-    <WrathInstallDir>/path/to/game/or/symlink</WrathInstallDir>
-  </PropertyGroup>
-</Project>
-```
-
-The build uses `BepInEx.AssemblyPublicizer.MSBuild` to access private/internal game fields (marked with `Publicize="true"` in csproj). Publicized DLLs go to `obj/Debug/publicized/`.
+**Setup:** needs the game's managed DLLs via `GamePath.props` (`<WrathInstallDir>` → `Wrath_Data/Managed/`) and the publicizer — see parent `wrath-mods/CLAUDE.md` §Common Build Setup.
 
 Output: `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` + assets copied to output dir. The build target also creates a zip for distribution.
 
@@ -49,6 +36,11 @@ Version must be updated in **three** files simultaneously:
 
 Use `/release` skill to handle this automatically.
 
+## Repo Quirks
+
+- `docs/` ist gitignored, aber Specs/Pläne/Nexus-Assets darunter sind getrackt (historisch force-added) — neue Dateien unter `docs/` brauchen `git add -f`.
+- `.superpowers/sdd/progress.md` (SDD-Ledger) überlebt Feature-Runs: vor Vertrauen die Commit-SHAs gegen `git log` prüfen — ein stale Ledger des Vorgänger-Features behauptet sonst „alle Tasks complete". Bei neuem Plan: Header neu schreiben.
+
 ## Localization
 
 - UI strings: `"key".i8()` (`Config/ModSettings.cs`); keys live in `Config/{en_GB,de_DE,fr_FR,ru_RU,zh_CN}.json` — every new key must be added to ALL five files. A key missing from en_GB.json crashes the game (uncatchable infinite recursion in `Language.Get` — enGB is the fallback locale).
@@ -64,8 +56,11 @@ Use `/release minor|patch|major` — the skill handles version bump, build, tag,
 
 - **Fetching in-game logs:** run `/check-logs` (user-invoked skill) to tail + filter the Steam Deck `Player.log` for mod-related exceptions after a deploy/repro. It greps `Player.log` for `BuffIt2TheLimit|Exception|Error|…` over SSH (`deck-direct`).
 - **"Character can't move after entering a map, clicking the buff button fixes it"**: Game-side stuck-command bug (known after area transitions/cutscenes, esp. Chapter 5). The mod does nothing on area load — `SpellbookWatcher.OnAreaActivated` only installs UI and revalidates the ability cache. The buff button "fixes" it because any new `Commands.Run` interrupts the stuck slot occupant. Workarounds: attack something, save/load, or disable the mod to confirm (Ctrl+F10).
-- **"Mount toggle in the Toggle tab only changes the cursor, the rider doesn't mount"**: Not a mod feature — Mount is a stock game `ActivatableAbilityMount` the activatable scan surfaces like any free toggle. The mod only sets `IsOn=true` (Phase 0); real mounting is a targeted command (`ContextActionMount` → `UnitPartRider.Mount(targetUnit,…)`) needing a designated mount, which an on/off toggle can't supply. Not tied to a specific mount, not mod-fixable without dedicated mount-target handling (out of scope).
+- **"Saddle up / Mount toggle: cursor only changes, or with two rideable pets only one character mounts"**: Fixed in v1.16.0 — Phase 0 now mounts directly. Mount is a stock `IsTargeted` activatable: `IsOn=true` never mounted, it only armed the ONE global `ClickWithSelectedAbilityHandler` (cursor change); arming a second rider in the same pass dropped the first and wedged its toggle at `IsOn=true`/no target, so later runs skipped it as "already on". The executor's mount branch (`BuffExecutor.TryMountTargeted`) resolves the rider's pet via the game's own checkers and calls `UnitPartRider.Mount(pet)` — details in `claude-context/gotchas-casting.md`. **Deliberately single-candidate**: a rider with SEVERAL suitable mounts (e.g. animal companion + statue-summoned triceratops) is skipped with a Player.log line — saddle up manually; absolute edge case, won't-support. Wedged toggles from older versions self-heal on the next routine run.
+- **"Arcane Weapon / Sacred Weapon / Weapon Bond wird bei jedem Routine-Lauf neu gecastet (obwohl aktiv)"**: Fixed in v1.16.1. `IsPresent` matchte nur die DefaultEnchantments (+1..+5) — bei +5-Waffe oder Pool komplett in Properties legt das Spiel keins davon an. Jetzt via `UnitPartEnchantPoolData` erkannt (Details: `claude-context/gotchas-scanning.md`). Bei Reports mit älterer Version: Update empfehlen.
+- **"Armored Mask (Arcanist Exploit) wird übersprungen, wenn Mage Armor bereits aktiv ist"**: Fixed in v1.18.0. Armored Mask re-appliziert bei fehlender Rüstung den vanilla MageArmorBuff (sonst seinen Bonus-Buff), sein flaches `AppliedBuffs` enthielt also MageArmorBuff → `IsPresent` matchte auf den geteilten Buff und skippte. Jetzt via self-gated-buff-Exclusion erkannt (Details: `claude-context/gotchas-scanning.md`). Bei Reports mit älterer Version: Update empfehlen.
 - **"Skipped buffs are never shown / log says applied 0/0"**: Fixed in v1.14.9. Ursache war der `Fulfilled > 0`-Filter im Executor + `IsAvailable`-Skip in `Validate()` (Details: `claude-context/gotchas-casting.md`). Bei Reports mit älterer Version: Update empfehlen. Combat-Start-Pfad + Activatables haben den Silent-Drop noch (bewusst, Player.log-only).
+- **"Kann ich steuern, welcher Caster einen geteilten Buff zuerst castet?"**: Ja, seit v1.19.0 (Caster Priority): zwei −/+ Zeilen im Caster-Popout — „Priority (all buffs)" (global, `SavedBufferState.CasterRanks[unitId]`) + „Priority (this buff)" (Override, `BuffProvider.PriorityOverride`; grau = erbt). Sortierung in `SortProviders()`: aktiv vor Reserve → Quelltyp → Rang (höher = früher) → prepared vor spontan (höheres CL zuerst) → self-cast-only zuletzt. Prepared-vor-spontan war schon IMMER Default — viele Anfragen dazu sind ohne Rang bereits erfüllt. Bei älteren Versionen: Update empfehlen.
 - **"Can you add summon/conjure spells (e.g. Summon Spirit Paladin)?"**: No — won't-do (evaluated 2026-06-28). Summons are point-targeted ("summoned monsters appear where you designate"), so there's no party member to assign them to. The scan rejects them (summon actions, not `ContextActionApplyBuff`; `TargetAnchor != Owner` so the self-target fallback misses) and the cast pipeline assumes a unit target. Even if built, ~1-min duration makes them pointless in a pre-combat buff routine. Not worth a point-target cast-path rewrite.
 
 ## Topic Index
@@ -91,7 +86,5 @@ Deep docs live in `claude-context/`. Before editing an area, read the matching f
 
 ## Code Style
 
-- K&R brace style (opening brace on same line): `csharp_new_line_before_open_brace = none`
-- 4-space indentation
-- `var` when type is apparent, explicit type otherwise
+- Shared style (K&R, 4-space, `var`): parent `wrath-mods/CLAUDE.md` §Code Style; editorconfig enforces `csharp_new_line_before_open_brace = none`
 - Game's private fields accessed via publicizer (e.g., `PartyView.m_Hide`, `button.m_CommonLayer`)

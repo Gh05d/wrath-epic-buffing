@@ -809,27 +809,39 @@ namespace BuffIt2TheLimit {
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-bypass-asf".i8());
+                var (toggle, label) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-bypass-asf".i8());
                 toggle.isOn = state.BypassArcaneSpellFailure;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.BypassArcaneSpellFailure = enabled;
                 });
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-bypass-asf".i8(),
+                    "setting-bypass-asf-tooltip".i8()));
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-overwritebuff".i8());
+                var (toggle, label) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-overwritebuff".i8());
                 toggle.isOn = state.OverwriteBuff;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.OverwriteBuff = enabled;
                 });
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-overwritebuff".i8(),
+                    "setting-overwritebuff-tooltip".i8()));
             }
 
             {
-                var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-verbose".i8());
+                var (toggle, label) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-verbose".i8());
                 toggle.isOn = state.VerboseCasting;
                 toggle.onValueChanged.AddListener(enabled => {
                     state.VerboseCasting = enabled;
                 });
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-verbose".i8(),
+                    "setting-verbose-tooltip".i8()));
             }
 
             {
@@ -838,6 +850,18 @@ namespace BuffIt2TheLimit {
                 toggle.onValueChanged.AddListener(enabled => {
                     state.SkipAnimationsOnCombatStart = enabled;
                 });
+            }
+
+            {
+                var (toggle, label) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-cast-all-combat-start".i8());
+                toggle.isOn = state.CastAllOnCombatStart;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.CastAllOnCombatStart = enabled;
+                });
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-cast-all-combat-start".i8(),
+                    "setting-cast-all-combat-start-tooltip".i8()));
             }
 
             // === Scroll/Potion Settings ===
@@ -900,6 +924,10 @@ namespace BuffIt2TheLimit {
                 labelObj.SetActive(true);
                 var label = labelObj.GetComponentInChildren<TextMeshProUGUI>();
                 label.text = $"{"setting-umd-retries".i8()}: {state.SavedState.UmdRetries}";
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-umd-retries".i8(),
+                    "setting-umd-retries-tooltip".i8()));
 
                 var buttonHolder = new GameObject("umd-retries-buttons", typeof(RectTransform));
                 buttonHolder.transform.SetParent(scrollContent);
@@ -941,6 +969,10 @@ namespace BuffIt2TheLimit {
                 labelObj.SetActive(true);
                 var umdText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
                 umdText.text = $"{"setting-umd-mode".i8()}: {GetUmdModeText()}";
+                umdText.raycastTarget = true;
+                TooltipHelper.SetTooltip(umdText, new TooltipTemplateSimple(
+                    "setting-umd-mode".i8(),
+                    "setting-umd-mode-tooltip".i8()));
 
                 var cycleButton = MakeButton(">", scrollContent);
                 cycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
@@ -959,6 +991,10 @@ namespace BuffIt2TheLimit {
                 labelObj.SetActive(true);
                 var prioText = labelObj.GetComponentInChildren<TextMeshProUGUI>();
                 prioText.text = $"{"setting-source-priority".i8()}: {SourcePriorityKeys[(int)state.SavedState.GlobalSourcePriority].i8()}";
+                prioText.raycastTarget = true;
+                TooltipHelper.SetTooltip(prioText, new TooltipTemplateSimple(
+                    "setting-source-priority".i8(),
+                    "setting-source-priority-tooltip".i8()));
 
                 var prioCycleButton = MakeButton(">", scrollContent);
                 prioCycleButton.GetComponentInChildren<OwlcatButton>().OnLeftClick.AddListener(() => {
@@ -1658,6 +1694,105 @@ namespace BuffIt2TheLimit {
             increaseCustomCap.SetActive(true);
             var increaseCustomCapButton = increaseCustomCap.GetComponent<OwlcatButton>();
 
+            // Caster priority (manual rank) — global per-unit rank plus a per-buff
+            // override. Slotted directly below the Limit-casts row via sibling
+            // index (the popout grid lays out children in sibling order).
+            (OwlcatButton, TextMeshProUGUI, OwlcatButton) MakeRankRow(GameObject row) {
+                var dec = GameObject.Instantiate(expandButtonPrefab, row.transform);
+                dec.Rect().localScale = new Vector3(capChangeScale, capChangeScale, capChangeScale);
+                dec.Rect().pivot = new Vector2(.5f, .5f);
+                dec.Rect().SetRotate2D(90);
+                dec.Rect().anchoredPosition = Vector2.zero;
+                dec.SetActive(true);
+
+                var valueLabel = GameObject.Instantiate(togglePrefab.GetComponentInChildren<TextMeshProUGUI>().gameObject, row.transform);
+                var valueText = valueLabel.GetComponent<TextMeshProUGUI>();
+                valueText.text = "0";
+
+                var inc = GameObject.Instantiate(expandButtonPrefab, row.transform);
+                inc.Rect().pivot = new Vector2(.5f, .5f);
+                inc.Rect().localScale = new Vector3(capChangeScale, capChangeScale, capChangeScale);
+                inc.Rect().SetRotate2D(-90);
+                inc.Rect().anchoredPosition = Vector2.zero;
+                inc.SetActive(true);
+
+                var decButton = dec.GetComponent<OwlcatButton>();
+                var incButton = inc.GetComponent<OwlcatButton>();
+                decButton.Interactable = true;
+                incButton.Interactable = true;
+                return (decButton, valueText, incButton);
+            }
+
+            var rankGlobalRow = MakeLabel("  " + "caster.rank.global".i8());
+            var rankGlobalLabelText = rankGlobalRow.GetComponentInChildren<TextMeshProUGUI>();
+            var (decreaseGlobalRank, globalRankValueText, increaseGlobalRank) = MakeRankRow(rankGlobalRow);
+
+            var rankBuffRow = MakeLabel("  " + "caster.rank.buff".i8());
+            var rankBuffLabelText = rankBuffRow.GetComponentInChildren<TextMeshProUGUI>();
+            var (decreaseBuffRank, buffRankValueText, increaseBuffRank) = MakeRankRow(rankBuffRow);
+
+            int capRowIndex = capLabel.transform.GetSiblingIndex();
+            rankGlobalRow.transform.SetSiblingIndex(capRowIndex + 1);
+            rankBuffRow.transform.SetSiblingIndex(capRowIndex + 2);
+
+            rankGlobalLabelText.raycastTarget = true;
+            TooltipHelper.SetTooltip(rankGlobalLabelText, new TooltipTemplateSimple(
+                "caster.rank.global".i8(), "caster.rank-tooltip".i8()));
+            rankBuffLabelText.raycastTarget = true;
+            TooltipHelper.SetTooltip(rankBuffLabelText, new TooltipTemplateSimple(
+                "caster.rank.buff".i8(), "caster.rank-tooltip".i8()));
+
+            int GetGlobalRank(string unitId) {
+                var ranks = state.SavedState.CasterRanks;
+                return ranks != null && ranks.TryGetValue(unitId, out var r) ? r : 0;
+            }
+
+            // Re-sort after a rank change and keep the popout on the same provider:
+            // SortProviders reorders CasterQueue in place and SelectedCaster is a raw
+            // index, so re-resolve by object identity BEFORE Recalculate refreshes the
+            // UI. (Contrast: the source-priority override closes the popout instead.)
+            // IndexOf returns -1 if a concurrent rescan rebuilt the queue — the
+            // UpdateDetailsView binding branch range-guards, so that degrades to an
+            // unbound (empty) popout, same exposure as the existing AdjustCap path.
+            void ResortKeepingSelection(BubbleBuff buff, BuffProvider caster, bool allBuffs) {
+                if (allBuffs) {
+                    foreach (var b in state.BuffList)
+                        b.SortProviders();
+                } else {
+                    buff.SortProviders();
+                }
+                SelectedCaster.Value = buff.CasterQueue.IndexOf(caster);
+                state.Recalculate(true);
+            }
+
+            void AdjustGlobalRank(int delta) {
+                if (!TryGetSelectedProvider(out var buff, out var caster)) return;
+                var savedState = state.SavedState;
+                savedState.CasterRanks ??= new Dictionary<string, int>();
+                var unitId = caster.who.UniqueId;
+                int next = GetGlobalRank(unitId) + delta;
+                if (next == 0)
+                    savedState.CasterRanks.Remove(unitId); // only non-zero entries stored
+                else
+                    savedState.CasterRanks[unitId] = next;
+                // Global rank affects every buff's caster order, not just the open one.
+                ResortKeepingSelection(buff, caster, allBuffs: true);
+            }
+
+            void AdjustBuffRank(int delta) {
+                if (!TryGetSelectedProvider(out var buff, out var caster)) return;
+                int globalRank = GetGlobalRank(caster.who.UniqueId);
+                int next = (caster.PriorityOverride ?? globalRank) + delta;
+                // Landing back on the inherited value clears the override — same
+                // sentinel-reset idea as CustomCap snapping to -1 at MaxCap.
+                caster.PriorityOverride = next == globalRank ? (int?)null : next;
+                ResortKeepingSelection(buff, caster, allBuffs: false);
+            }
+
+            decreaseGlobalRank.OnLeftClick.AddListener(() => AdjustGlobalRank(-1));
+            increaseGlobalRank.OnLeftClick.AddListener(() => AdjustGlobalRank(1));
+            decreaseBuffRank.OnLeftClick.AddListener(() => AdjustBuffRank(-1));
+            increaseBuffRank.OnLeftClick.AddListener(() => AdjustBuffRank(1));
 
             // Stale-index-safe accessor for popout listeners: SelectedCaster is a raw
             // CasterQueue index, and the queue can rebuild/shrink while the popout stays
@@ -2239,6 +2374,25 @@ namespace BuffIt2TheLimit {
 
                     azataZippyMagicToggle.interactable = hasAzataZippyMagicFact && !isSpellMass && canCastOnOthers;
                     azataZippyMagicLabel.color = azataZippyMagicToggle.interactable ? defaultLabelColor : Color.gray;
+
+                    // Caster rank rows — hidden for activatables/songs: SortProviders
+                    // early-returns for IsActivatable, so a rank would silently do
+                    // nothing there (toggles are per-unit self, songs use scan order).
+                    bool rankApplies = !buff.IsActivatable;
+                    rankGlobalRow.SetActive(rankApplies);
+                    rankBuffRow.SetActive(rankApplies);
+                    if (rankApplies) {
+                        int globalRank = GetGlobalRank(who.who.UniqueId);
+                        globalRankValueText.text = globalRank.ToString("+#;-#;0");
+                        if (who.PriorityOverride.HasValue) {
+                            buffRankValueText.text = who.PriorityOverride.Value.ToString("+#;-#;0");
+                            buffRankValueText.color = defaultLabelColor;
+                        } else {
+                            // Inheriting — show the effective value de-emphasized.
+                            buffRankValueText.text = globalRank.ToString("+#;-#;0");
+                            buffRankValueText.color = Color.gray;
+                        }
+                    }
 
                 } else {
                     // Binding skipped (no caster selected, stale index, popout hidden) —

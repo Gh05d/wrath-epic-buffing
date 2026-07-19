@@ -681,6 +681,7 @@ namespace BuffIt2TheLimit {
                     }
                     state.Banned = caster.Banned;
                     state.Cap = caster.CustomCap;
+                    state.PriorityOverride = caster.PriorityOverride;
                     state.ShareTransmutation = caster.ShareTransmutation;
                     state.PowerfulChange = caster.PowerfulChange;
                     state.ReservoirCLBuff = caster.ReservoirCLBuff;
@@ -701,12 +702,14 @@ namespace BuffIt2TheLimit {
             // it must create AND retain a SavedBuffState even when no target wants the
             // buff yet, otherwise bans evaporate on the next provider rebuild.
             bool hasCasterConfig(BubbleBuff buff) => buff.CasterQueue.Any(c =>
-                c.Banned || c.CustomCap != -1 || c.ShareTransmutation || c.PowerfulChange
+                c.Banned || c.CustomCap != -1 || c.PriorityOverride != null
+                || c.ShareTransmutation || c.PowerfulChange
                 || c.ReservoirCLBuff || c.AzataZippyMagic);
             // For retention, check the SAVED dict, not the current queue: it also holds
             // config for providers temporarily absent (scrolls depleted, caster benched).
             bool hasSavedCasterConfig(SavedBuffState save) => save.Casters.Values.Any(c =>
-                c.Banned || c.Cap != -1 || c.ShareTransmutation || c.PowerfulChange
+                c.Banned || c.Cap != -1 || c.PriorityOverride != null
+                || c.ShareTransmutation || c.PowerfulChange
                 || c.ReservoirCLBuff || c.UseAzataZippyMagic);
 
             if (!shallow) {
@@ -813,6 +816,13 @@ namespace BuffIt2TheLimit {
                 Save(true);
             }
         }
+        public bool CastAllOnCombatStart {
+            get => SavedState.CastAllOnCombatStart;
+            set {
+                SavedState.CastAllOnCombatStart = value;
+                Save(true);
+            }
+        }
 
         //private static Dictionary<Guid, List<ContextActionApplyBuff>> CachedBuffEffects;
 
@@ -874,6 +884,7 @@ namespace BuffIt2TheLimit {
 
                 if (!SpellsWithBeneficialBuffs.TryGetValue(spell.Blueprint.AssetGuid.m_Guid, out var abilityEffect)) {
                     IEnumerable<IBeneficialEffect> beneficial;
+                    var absenceChecked = new HashSet<Guid>();
                     if (spell.MagicHackData != null) {
                         // Fused spells (Magic Deceiver): template blueprint has empty actions.
                         // Check component spells instead.
@@ -882,11 +893,14 @@ namespace BuffIt2TheLimit {
                         var spell2Effects = spell.MagicHackData.Spell2?.GetBeneficialBuffs(skipDamageFilter: isAbilityCategory)
                             ?? Enumerable.Empty<IBeneficialEffect>();
                         beneficial = spell1Effects.Concat(spell2Effects);
+                        if (spell.MagicHackData.Spell1 != null) absenceChecked.UnionWith(spell.MagicHackData.Spell1.GetAbsenceCheckedFacts());
+                        if (spell.MagicHackData.Spell2 != null) absenceChecked.UnionWith(spell.MagicHackData.Spell2.GetAbsenceCheckedFacts());
                         Main.Verbose($"        Fused spell {spell.Name}: checking components {spell.MagicHackData.Spell1?.Name} + {spell.MagicHackData.Spell2?.Name}", "state");
                     } else {
                         beneficial = spell.Blueprint.GetBeneficialBuffs(skipDamageFilter: isAbilityCategory);
+                        absenceChecked = spell.Blueprint.GetAbsenceCheckedFacts();
                     }
-                    abilityEffect = new AbilityCombinedEffects(beneficial);
+                    abilityEffect = new AbilityCombinedEffects(beneficial, absenceChecked);
                     SpellsWithBeneficialBuffs[spell.Blueprint.AssetGuid.m_Guid] = abilityEffect;
                     SpellNames[spell.Blueprint.AssetGuid.m_Guid] = spell.Name;
                 }

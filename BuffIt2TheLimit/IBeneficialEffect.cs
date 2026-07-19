@@ -10,6 +10,8 @@ using System.Linq;
 using System.Collections.Generic;
 using Kingmaker.Enums;
 using Kingmaker.Blueprints;
+using Kingmaker.UnitLogic.FactLogic;
+using Kingmaker.UnitLogic.Parts;
 
 namespace BuffIt2TheLimit {
 
@@ -29,6 +31,10 @@ namespace BuffIt2TheLimit {
         private HashSet<Guid> AppliedPetBuffs;
         private HashSet<Guid> PrimaryWeaponEnchants;
         private HashSet<Guid> SecondaryWeaponEnchants;
+        private HashSet<EnchantPoolType> EnchantPools;
+        // Applied buffs the ability re-grants only when absent (also checked via HasFact Not:true).
+        // Unreliable presence markers — see AbilityCombinedEffects ctor and IsPresent.
+        private HashSet<Guid> SelfGatedBuffs;
         public PetType? PetType = null;
 
         public IEnumerable<(string name, Guid guid)> All {
@@ -72,15 +78,30 @@ namespace BuffIt2TheLimit {
             Add(ref PrimaryWeaponEnchants, buff);
             IsLong |= isLong;
         }
+        public void AddEnchantPool(EnchantPoolType pool, bool isLong) {
+            if (EnchantPools == null)
+                EnchantPools = new();
+            EnchantPools.Add(pool);
+            IsLong |= isLong;
+        }
         public void AddSecondaryWeaponEnchnant(Guid buff, bool isLong) {
             Add(ref SecondaryWeaponEnchants, buff);
             IsLong |= isLong;
         }
 
-        public AbilityCombinedEffects(IEnumerable<IBeneficialEffect> beneficialEffects) {
+        public AbilityCombinedEffects(IEnumerable<IBeneficialEffect> beneficialEffects, HashSet<Guid> absenceCheckedFacts = null) {
             foreach (var effect in beneficialEffects.EmptyIfNull())
                 effect.AppendTo(this);
-            Empty = AppliedBuffs == null && AppliedPetBuffs == null && PrimaryWeaponEnchants == null && SecondaryWeaponEnchants == null;
+            Empty = AppliedBuffs == null && AppliedPetBuffs == null && PrimaryWeaponEnchants == null && SecondaryWeaponEnchants == null && EnchantPools == null;
+
+            // A buff the ability both APPLIES and guards on !HasFact(itself) is re-granted only
+            // when absent (Armored Mask ↔ MageArmorBuff): having it doesn't prove this ability
+            // ran, so it's not a reliable presence marker. IsPresent drops these (empty-fallback).
+            if (absenceCheckedFacts != null && absenceCheckedFacts.Count > 0 && AppliedBuffs != null) {
+                SelfGatedBuffs = AppliedBuffs.Where(absenceCheckedFacts.Contains).ToHashSet();
+                if (SelfGatedBuffs.Count == 0)
+                    SelfGatedBuffs = null;
+            }
         }
 
 
@@ -96,8 +117,42 @@ namespace BuffIt2TheLimit {
             }
 
             if (AppliedBuffs != null) {
-                if (unitBuffData.Buffs.Overlaps(AppliedBuffs.Except(ignoreForOverwriteCheck)))
+                IEnumerable<Guid> markers = AppliedBuffs.Except(ignoreForOverwriteCheck);
+                if (SelfGatedBuffs != null) {
+                    var narrowed = markers.Except(SelfGatedBuffs).ToHashSet();
+                    // Empty-fallback: a pure "apply X if absent" buff (X is the only marker) keeps
+                    // X so it isn't re-cast every run; multi-payload abilities (Armored Mask) narrow
+                    // to their unique buff (the bonus applied when the shared buff is already present).
+                    if (narrowed.Count > 0)
+                        markers = narrowed;
+                }
+                if (unitBuffData.Buffs.Overlaps(markers))
                     return true;
+            }
+
+            // Enchant-pool abilities (Arcane Weapon, Sacred Weapon, Weapon Bond …) may apply
+            // ONLY property enchants chosen via toggles (Flaming, Keen, …): the generic
+            // DefaultEnchantments (+1..+5) slot is skipped entirely when the weapon's own
+            // enhancement is already +5 or the whole pool is spent on properties — so the
+            // weapon-enchant overlap below can never match. The game books every pool-applied
+            // enchant fact in UnitPartEnchantPoolData; a booked fact still live on the item
+            // means the ability's effect is active (unequip/expiry remove the fact).
+            if (EnchantPools != null) {
+                var poolData = unitBuffData.Unit.Get<UnitPartEnchantPoolData>();
+                if (poolData != null) {
+                    foreach (var desc in poolData.m_EnchantPoolDataDescriptions) {
+                        if (!EnchantPools.Contains(desc.Pool))
+                            continue;
+                        var item = desc.ItemRef.Entity;
+                        if (item == null)
+                            continue;
+                        foreach (var factId in desc.Enchantments) {
+                            var live = item.Facts.FindById(factId);
+                            if (live != null && !ignoreForOverwriteCheck.Contains(live.BGuid()))
+                                return true;
+                        }
+                    }
+                }
             }
 
             // Magic Weapon / Greater Magic Weapon's m_Enchantment list is the standard
@@ -235,6 +290,7 @@ namespace BuffIt2TheLimit {
 
     public class WeaponEnchantPoolEffect : IBeneficialEffect {
         public readonly HashSet<Guid> DefaultEnchantments;
+        public readonly EnchantPoolType Pool;
         public readonly bool SecondaryHand;
         public readonly bool IsLong;
 
@@ -246,11 +302,13 @@ namespace BuffIt2TheLimit {
                     .Where(e => e != null)
                     .Select(e => e.AssetGuid.m_Guid)
             );
+            Pool = action.EnchantPool;
             SecondaryHand = action.EnchantSecondaryHandInstead;
             IsLong = action.IsLong();
         }
 
         public void AppendTo(AbilityCombinedEffects effect) {
+            effect.AddEnchantPool(Pool, IsLong);
             foreach (var enchant in DefaultEnchantments) {
                 if (SecondaryHand)
                     effect.AddSecondaryWeaponEnchnant(enchant, IsLong);

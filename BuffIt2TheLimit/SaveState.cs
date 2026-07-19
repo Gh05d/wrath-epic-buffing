@@ -33,6 +33,8 @@ namespace BuffIt2TheLimit {
         [JsonProperty]
         public bool SkipAnimationsOnCombatStart;
         [JsonProperty]
+        public bool CastAllOnCombatStart;
+        [JsonProperty]
         public bool AllowInCombat;
         [JsonProperty]
         public bool BypassArcaneSpellFailure;
@@ -40,6 +42,10 @@ namespace BuffIt2TheLimit {
         public bool OverwriteBuff;
         [JsonProperty]
         public SourcePriority GlobalSourcePriority = SourcePriority.SpellsScrollsPotions;
+        [JsonProperty]
+        // Global caster rank per unit UniqueId — higher rank casts earlier.
+        // Only non-zero entries are stored; a missing unit means rank 0.
+        public Dictionary<string, int> CasterRanks = new();
         [JsonProperty]
         public int UmdRetries = 3;
         [JsonProperty]
@@ -74,6 +80,9 @@ namespace BuffIt2TheLimit {
         // that predate this field.
         [JsonProperty]
         public int Cap = -1;
+        // null = inherit the global CasterRanks value for this unit.
+        [JsonProperty]
+        public int? PriorityOverride;
         [JsonProperty]
         public bool ShareTransmutation;
         [JsonProperty]
@@ -98,8 +107,6 @@ namespace BuffIt2TheLimit {
 
         [JsonProperty]
         public HashSet<string> Wanted = new();
-        [JsonProperty]
-        public List<string> CasterPriority;
         [JsonProperty]
         [JsonConverter(typeof(CustomDictionaryConverter<CasterKey, SavedCasterState>))]
         public Dictionary<CasterKey, SavedCasterState> Casters = new();

@@ -12,6 +12,7 @@ using Kingmaker.UnitLogic;
 using Kingmaker.UnitLogic.Abilities;
 using Kingmaker.UnitLogic.ActivatableAbilities;
 using Kingmaker.UnitLogic.Abilities.Components;
+using Kingmaker.UnitLogic.Abilities.Components.TargetCheckers;
 using Kingmaker.UnitLogic.Parts;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
 using Kingmaker.Utility;
@@ -237,7 +238,53 @@ namespace BuffIt2TheLimit {
                 var part = caster.Get<ShiftersFuryPart>();
                 return part != null && part.m_IsOn;
             }
-            return candidate != null && candidate.IsOn;
+            if (candidate == null) return false;
+            // Targeted toggles (the stock Mount toggle): bare IsOn can be a wedged
+            // "armed, waiting for target" state — SetIsOn(true) without a target only arms
+            // the global ClickWithSelectedAbilityHandler, and a second arming in the same
+            // pass drops the first while leaving its IsOn flag set. Only on-with-target
+            // counts as active; Stop/OnDidTurnOff clear m_Target, so a dismounted rider
+            // reads as off again.
+            if (candidate.Blueprint.IsTargeted)
+                return candidate.IsOn && candidate.m_Target != null;
+            return candidate.IsOn;
+        }
+
+        internal enum MountResult { NotTargeted, Mounted, NoCandidate, Ambiguous }
+
+        // Targeted activatables (the stock Mount toggle is the only vanilla case) cannot be
+        // activated via IsOn/TryStart: SetIsOn(true) without a target only arms the single
+        // GLOBAL ClickWithSelectedAbilityHandler with the rider's SelectTargetAbility (the
+        // cursor change), and TryStart returns while IsWaitingForTarget. Arming a second
+        // rider's toggle in the same pass calls DropAbility() on the first — at most one
+        // rider per run could ever mount, and the dropped toggle wedges at IsOn=true with
+        // no target. Instead resolve the rider's suitable pet with the game's own target
+        // checkers (CanMount enforces pet.Master == rider, conscious, no polymorph; the
+        // size checker wants a bigger pet) and mount directly — the exact call the click
+        // path's ContextActionMount makes. UnitPartRider.Mount flips the toggle
+        // on-with-target itself. Several suitable pets on one rider (animal companion +
+        // statue-summoned mount) is a deliberately unsupported edge case: skip and let the
+        // player saddle that one manually.
+        internal static MountResult TryMountTargeted(UnitEntityData rider, ActivatableAbility activatable, out UnitEntityData mount) {
+            mount = null;
+            if (!activatable.Blueprint.IsTargeted) return MountResult.NotTargeted;
+
+            var candidates = Bubble.Group
+                .Where(u => AbilityTargetIsSuitableMount.CanMount(rider, u)
+                         && AbilityTargetIsSuitableMountSize.CanMount(rider, u))
+                .ToList();
+            if (candidates.Count == 0) return MountResult.NoCandidate;
+            if (candidates.Count > 1) return MountResult.Ambiguous;
+
+            // A wedged armed toggle (on, no target — left by an overwritten arming or a
+            // pre-1.16 run) would make Mount's SetIsOnWithTarget early-return without
+            // recording the target; reset it so the toggle ends up cleanly on-with-target.
+            if (activatable.IsOn)
+                activatable.IsOn = false;
+
+            mount = candidates[0];
+            rider.Ensure<UnitPartRider>().Mount(mount);
+            return MountResult.Mounted;
         }
 
         private Dictionary<BuffGroup, float> lastExecutedForGroup = new() {
@@ -312,6 +359,24 @@ namespace BuffIt2TheLimit {
 
                         if (!target.IsAvailable) {
                             Main.Verbose($"Activatable {actBuff.Name}: not available for {caster.CharacterName} (resources or restrictions)");
+                            continue;
+                        }
+
+                        var mountResult = TryMountTargeted(caster, target, out var mount);
+                        if (mountResult != MountResult.NotTargeted) {
+                            switch (mountResult) {
+                                case MountResult.Mounted:
+                                    Main.Verbose($"Activatable {actBuff.Name}: mounted {caster.CharacterName} on {mount.CharacterName}");
+                                    if (actBuff.DeactivateAfterRounds > 0)
+                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
+                                    break;
+                                case MountResult.NoCandidate:
+                                    Main.Log($"Activatable {actBuff.Name}: no suitable mount for {caster.CharacterName} (needs their own conscious pet of larger size in the party)");
+                                    break;
+                                case MountResult.Ambiguous:
+                                    Main.Log($"Activatable {actBuff.Name}: several suitable mounts for {caster.CharacterName} — ambiguous, saddle up manually");
+                                    break;
+                            }
                             continue;
                         }
 
@@ -602,7 +667,7 @@ namespace BuffIt2TheLimit {
                 string version = ModSettings.ModEntry?.Info?.Version ?? "?";
                 int activeCount = Bubble.Group?.Count ?? -1;
                 int reserveCount = Game.Instance?.Player?.RemoteCompanions != null ? Game.Instance.Player.RemoteCompanions.Count() : -1;
-                Main.Log($"[CSD] Mod={version} SkipAnim={State.SkipAnimationsOnCombatStart} Active={activeCount} Reserve={reserveCount}");
+                Main.Log($"[CSD] Mod={version} SkipAnim={State.SkipAnimationsOnCombatStart} CastAll={State.CastAllOnCombatStart} Active={activeCount} Reserve={reserveCount}");
                 if (Bubble.Group != null) {
                     Main.Log($"[CSD] ActiveParty: {string.Join(", ", Bubble.Group.Select(u => u.CharacterName))}");
                 }
@@ -611,7 +676,10 @@ namespace BuffIt2TheLimit {
             }
 
             var allBuffs = State.BuffList.ToList();
-            var combatStartBuffs = allBuffs.Where(b => b.CastOnCombatStart).ToList();
+            // Global toggle only covers configured buffs (Requested > 0) — BuffList holds
+            // every scanned spellbook entry, and unconfigured ones would spam the [CSD]
+            // rejection diagnostics on every combat start.
+            var combatStartBuffs = allBuffs.Where(b => b.CastOnCombatStart || (State.CastAllOnCombatStart && b.Requested > 0)).ToList();
             Main.Log($"[CSD] Marked={combatStartBuffs.Count} (of {allBuffs.Count} total)");
             foreach (var b in combatStartBuffs) {
                 int queue = b.ActualCastQueue?.Count ?? -1;
@@ -694,6 +762,25 @@ namespace BuffIt2TheLimit {
 
                         if (!target.IsAvailable) {
                             Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (not available: resources/restrictions)");
+                            continue;
+                        }
+
+                        var mountResult = TryMountTargeted(caster, target, out var mount);
+                        if (mountResult != MountResult.NotTargeted) {
+                            switch (mountResult) {
+                                case MountResult.Mounted:
+                                    Main.Log($"[CSD] Phase0 mounted {caster.CharacterName} on {mount.CharacterName} ('{actBuff.Name}')");
+                                    activatablesActivated++;
+                                    if (actBuff.DeactivateAfterRounds > 0)
+                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
+                                    break;
+                                case MountResult.NoCandidate:
+                                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (no suitable mount: needs their own conscious pet of larger size in the party)");
+                                    break;
+                                case MountResult.Ambiguous:
+                                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (several suitable mounts — ambiguous, saddle up manually)");
+                                    break;
+                            }
                             continue;
                         }
 

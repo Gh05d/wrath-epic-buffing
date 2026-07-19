@@ -286,6 +286,29 @@ namespace BuffIt2TheLimit.Extensions {
             }
         }
 
+        // Facts an ability checks for ABSENCE (ContextConditionHasFact, Not:true) anywhere in its
+        // action tree. When such a fact is ALSO a buff the ability applies, that buff is a
+        // "re-grant if absent" shared buff (e.g. Armored Mask re-applies MageArmorBuff when you
+        // lack armor, else grants a bonus buff): its presence does NOT mean THIS ability's effect
+        // ran, so callers exclude it from presence markers. See gotchas-scanning.md (self-gated buffs).
+        public static HashSet<Guid> GetAbsenceCheckedFacts(this BlueprintAbility spell) {
+            var result = new HashSet<Guid>();
+            spell = spell.DeTouchify();
+            if (spell.TryGetComponent<AbilityEffectRunAction>(out var runAction)) {
+                foreach (var action in runAction.Actions.Actions.Where(a => a != null).FlattenAllActions()) {
+                    if (action is Conditional cond && cond.ConditionsChecker?.Conditions != null) {
+                        foreach (var c in cond.ConditionsChecker.Conditions) {
+                            if (c is ContextConditionHasFact hasFact && hasFact.Not && hasFact.m_Fact != null) {
+                                var guid = hasFact.m_Fact.deserializedGuid.m_Guid;
+                                if (guid != Guid.Empty)
+                                    result.Add(guid);
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        }
 
         public static bool IsMass(this BlueprintAbility spell) {
             spell = spell.DeTouchify();
