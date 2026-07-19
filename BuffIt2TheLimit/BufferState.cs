@@ -181,7 +181,9 @@ namespace BuffIt2TheLimit {
                         if (sourceItem == null || !sourceItem.IsSpendCharges) {
                             var credits = new ReactiveProperty<int>(500);
                             if (ability.Data.Resource != null) {
-                                credits.Value = ability.Data.Resource.GetMaxAmount(dude);
+                                var resourceLogic = ability.Data.Blueprint.GetComponent<Kingmaker.UnitLogic.Abilities.Components.AbilityResourceLogic>();
+                                int cost = resourceLogic?.CalculateCost(ability.Data) ?? 1;
+                                credits.Value = cost <= 0 ? 500 : ability.Data.Resource.GetMaxAmount(dude);
                             }
                             AddBuff(dude: dude,
                                     book: null,
@@ -965,7 +967,16 @@ namespace BuffIt2TheLimit {
             }
 
             // Item-backed activatables use the item's charges; class activatables use ResourceCount
-            int initialCredits = sourceItem != null ? sourceItem.Charges : (activatable.ResourceCount ?? 1);
+            int initialCredits;
+            if (sourceItem != null) {
+                initialCredits = sourceItem.Charges;
+            } else {
+                var resourceLogic = blueprint.GetComponent<Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbilityResourceLogic>();
+                int cost = resourceLogic?.CalcResourceCost() ?? 1;
+                initialCredits = (resourceLogic != null && cost <= 0)
+                    ? 500 // unlimited, same convention used for cantrips elsewhere in this mod
+                    : (activatable.ResourceCount ?? 1);
+            }
 
             var credits = new ReactiveProperty<int>(initialCredits);
             var provider = new BuffProvider(credits) {
