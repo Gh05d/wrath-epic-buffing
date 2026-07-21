@@ -217,6 +217,17 @@ namespace BuffIt2TheLimit.Handlers {
                         // Set proper context so retentions may be released
                         Context = evt.Context;
 
+                        // RuleCastSpell.OnTrigger validates the target AFTER this hook and
+                        // silently aborts the cast on failure ("Invalid target" in Player.log).
+                        // Bail before spending slot/rod/reservoir so an aborted cast costs
+                        // nothing and reports as not applied. Cancel explicitly rather than
+                        // relying on the engine's own abort.
+                        if (!evt.Spell.CanTarget(evt.SpellTarget)) {
+                            Main.Log($"Cast aborted (invalid target): {_castTask.SpellToCast.Name} → {evt.SpellTarget?.Unit?.CharacterName ?? "<point>"}");
+                            evt.CancelAbilityExecution();
+                            return;
+                        }
+
                         // Apply or clean Extend Rod metamagic for THIS specific cast.
                         // Must happen here (not constructor) because multiple CastTasks
                         // share the same SpellToCast when one caster targets multiple units.

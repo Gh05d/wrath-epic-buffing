@@ -293,6 +293,23 @@ namespace BuffIt2TheLimit {
             { BuffGroup.Quick, -1 },
         };
 
+        // Mass/burst spells center on the caster — avoids movement-to-target interrupts
+        // at combat start. But AoE-ally spells with CanTargetSelf=false (e.g. Expanded
+        // Content's Zephyr's Fleetness) make RuleCastSpell.OnTrigger abort on the caster
+        // as target — for those, center on the ValidateMass-chosen wanted target. That
+        // choice used BuffProvider.CanTarget at validate time and can be stale by cast
+        // time, so re-check it and fall back to any currently targetable party member.
+        private static TargetWrapper ResolveMassTarget(BubbleBuff buff, AbilityData spellToCast, UnitEntityData caster, UnitEntityData fallbackTarget) {
+            var self = new TargetWrapper(caster);
+            if (spellToCast == null || spellToCast.CanTarget(self)) return self;
+            var center = fallbackTarget;
+            if (!spellToCast.CanTarget(new TargetWrapper(center))) {
+                center = Bubble.Group.FirstOrDefault(u => spellToCast.CanTarget(new TargetWrapper(u))) ?? fallbackTarget;
+            }
+            Main.Log($"Mass buff '{buff.Name}' cannot target its caster, centering on {center.CharacterName}");
+            return new TargetWrapper(center);
+        }
+
         public void Execute(BuffGroup buffGroup) {
             if (Game.Instance.Player.IsInCombat && !State.AllowInCombat)
                 return;
@@ -534,8 +551,7 @@ namespace BuffIt2TheLimit {
 
                         var task = new CastTask {
                             SlottedSpell = caster.SlottedSpell,
-                            // Mass/burst spells center on caster — avoid movement-to-target interrupts
-                            Target = buff.IsMass ? new TargetWrapper(caster.who) : new TargetWrapper(forTarget.Unit),
+                            Target = buff.IsMass ? ResolveMassTarget(buff, spellToCast, caster.who, forTarget.Unit) : new TargetWrapper(forTarget.Unit),
                             Caster = caster.who,
                             SpellToCast = spellToCast,
                             PowerfulChange = caster.SourceType == BuffSourceType.Spell && caster.PowerfulChange,
@@ -857,9 +873,8 @@ namespace BuffIt2TheLimit {
                             }
                         }
 
-                        // Mass/burst spells center on caster — avoid movement-to-target interrupts at combat start
                         task.Target = buff.IsMass
-                            ? new TargetWrapper(caster.who)
+                            ? ResolveMassTarget(buff, spellToCast, caster.who, Bubble.GroupById[target])
                             : new TargetWrapper(Bubble.GroupById[target]);
                         task.Caster = caster.who;
 
