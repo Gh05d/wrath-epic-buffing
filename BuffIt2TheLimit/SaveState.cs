@@ -47,6 +47,12 @@ namespace BuffIt2TheLimit {
         // Only non-zero entries are stored; a missing unit means rank 0.
         public Dictionary<string, int> CasterRanks = new();
         [JsonProperty]
+        // Preferred mount per rider UniqueId → pet UniqueId. Consulted only when
+        // several pets are suitable (e.g. Azata's grown Aivu + an animal
+        // companion); no entry = auto, which mounts only an unambiguous single
+        // candidate.
+        public Dictionary<string, string> MountPreference = new();
+        [JsonProperty]
         public int UmdRetries = 3;
         [JsonProperty]
         public UmdMode UmdMode = UmdMode.AllowIfPossible;

@@ -62,6 +62,9 @@
   "caster.rank.global": "Priorité (tous les buffs)",
   "caster.rank.buff": "Priorité (ce buff)",
   "caster.rank-tooltip": "Une priorité plus élevée lance en premier. Ordre par défaut à priorité égale : groupe actif avant la réserve, sorts avant parchemins et potions, puis lanceurs à préparation avant les spontanés (niveau de lanceur le plus élevé d'abord). « Ce buff » remplace « tous les buffs » pour ce sort uniquement — une valeur grise suit la priorité globale.",
+  "caster.mount": "Monture préférée",
+  "caster.mount.auto": "Auto",
+  "caster.mount-tooltip": "Affiché quand plusieurs compagnons de ce personnage peuvent être chevauchés (p. ex. un compagnon animal et Aivu adulte) — Saddle Up ne peut alors pas choisir seul. Choisissez ici la monture ; Auto ne monte que lorsqu'un seul compagnon convient.",
 
   "remove-all": "Enlevé pour tous",
   "add-all": "Ajouté pour tous",

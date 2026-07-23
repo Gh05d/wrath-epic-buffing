@@ -1742,6 +1742,17 @@ namespace BuffIt2TheLimit {
             TooltipHelper.SetTooltip(rankBuffLabelText, new TooltipTemplateSimple(
                 "caster.rank.buff".i8(), "caster.rank-tooltip".i8()));
 
+            // Preferred mount for the Saddle Up toggle — shown only when the rider
+            // has several suitable pets (see the UpdateDetailsView binding). Reuses
+            // the −/+ row to cycle Auto → pet 1 → pet 2 → …
+            var mountPrefRow = MakeLabel("  " + "caster.mount".i8());
+            var mountPrefLabelText = mountPrefRow.GetComponentInChildren<TextMeshProUGUI>();
+            var (prevMountPref, mountPrefValueText, nextMountPref) = MakeRankRow(mountPrefRow);
+            mountPrefRow.transform.SetSiblingIndex(capRowIndex + 3);
+            mountPrefLabelText.raycastTarget = true;
+            TooltipHelper.SetTooltip(mountPrefLabelText, new TooltipTemplateSimple(
+                "caster.mount".i8(), "caster.mount-tooltip".i8()));
+
             int GetGlobalRank(string unitId) {
                 var ranks = state.SavedState.CasterRanks;
                 return ranks != null && ranks.TryGetValue(unitId, out var r) ? r : 0;
@@ -1793,6 +1804,32 @@ namespace BuffIt2TheLimit {
             increaseGlobalRank.OnLeftClick.AddListener(() => AdjustGlobalRank(1));
             decreaseBuffRank.OnLeftClick.AddListener(() => AdjustBuffRank(-1));
             increaseBuffRank.OnLeftClick.AddListener(() => AdjustBuffRank(1));
+
+            // Cycle Auto (index 0) → candidate 1 → … → candidate N. A stale saved
+            // pet (no longer suitable) resolves to Auto. Global setting per rider,
+            // so Save(true) (shallow, like SetShortcut) + rebind — no queue rebuild
+            // needed: SortProviders ignores activatables.
+            void CycleMountPref(int direction) {
+                if (!TryGetSelectedProvider(out _, out var caster)) return;
+                var rider = caster.who;
+                var candidates = BuffExecutor.GetMountCandidates(rider);
+                if (candidates.Count < 2) return;
+                var prefs = state.SavedState.MountPreference ??= new Dictionary<string, string>();
+                int current = prefs.TryGetValue(rider.UniqueId, out var petId)
+                    ? candidates.FindIndex(c => c.UniqueId == petId) + 1
+                    : 0;
+                int optionCount = candidates.Count + 1;
+                int next = (current + direction + optionCount) % optionCount;
+                if (next == 0)
+                    prefs.Remove(rider.UniqueId); // only explicit choices stored
+                else
+                    prefs[rider.UniqueId] = candidates[next - 1].UniqueId;
+                state.Save(true);
+                UpdateDetailsView();
+            }
+
+            prevMountPref.OnLeftClick.AddListener(() => CycleMountPref(-1));
+            nextMountPref.OnLeftClick.AddListener(() => CycleMountPref(1));
 
             // Stale-index-safe accessor for popout listeners: SelectedCaster is a raw
             // CasterQueue index, and the queue can rebuild/shrink while the popout stays
@@ -2394,11 +2431,37 @@ namespace BuffIt2TheLimit {
                         }
                     }
 
+                    // Mount preference — only for the targeted mount toggle, and only
+                    // when the choice is actually ambiguous (≥2 suitable pets).
+                    var mountActivatable = who.ActivatableSource ?? buff.ActivatableSource;
+                    bool mountPickerApplies = mountActivatable != null && mountActivatable.Blueprint.IsTargeted;
+                    List<UnitEntityData> mountCandidates = null;
+                    if (mountPickerApplies) {
+                        mountCandidates = BuffExecutor.GetMountCandidates(who.who);
+                        mountPickerApplies = mountCandidates.Count >= 2;
+                    }
+                    mountPrefRow.SetActive(mountPickerApplies);
+                    if (mountPickerApplies) {
+                        UnitEntityData chosenMount = null;
+                        var prefs = state.SavedState.MountPreference;
+                        if (prefs != null && prefs.TryGetValue(who.who.UniqueId, out var petId))
+                            chosenMount = mountCandidates.FirstOrDefault(c => c.UniqueId == petId);
+                        if (chosenMount != null) {
+                            mountPrefValueText.text = chosenMount.CharacterName;
+                            mountPrefValueText.color = defaultLabelColor;
+                        } else {
+                            // Auto (or stale pick) — de-emphasized like an inherited rank.
+                            mountPrefValueText.text = "caster.mount.auto".i8();
+                            mountPrefValueText.color = Color.gray;
+                        }
+                    }
+
                 } else {
                     // Binding skipped (no caster selected, stale index, popout hidden) —
                     // don't leave the selector showing the previous provider's state.
                     providerRow.SetActive(false);
                     banAllRow.SetActive(false);
+                    mountPrefRow.SetActive(false);
                 }
 
             };

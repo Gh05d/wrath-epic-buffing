@@ -262,19 +262,36 @@ namespace BuffIt2TheLimit {
         // checkers (CanMount enforces pet.Master == rider, conscious, no polymorph; the
         // size checker wants a bigger pet) and mount directly — the exact call the click
         // path's ContextActionMount makes. UnitPartRider.Mount flips the toggle
-        // on-with-target itself. Several suitable pets on one rider (animal companion +
-        // statue-summoned mount) is a deliberately unsupported edge case: skip and let the
-        // player saddle that one manually.
+        // on-with-target itself. Several suitable pets on one rider (Azata's grown Aivu +
+        // an animal companion) resolve through the rider's saved mount preference
+        // (caster-popout picker); without one the pass skips and the player saddles
+        // manually.
+        internal static List<UnitEntityData> GetMountCandidates(UnitEntityData rider) {
+            return Bubble.Group
+                .Where(u => AbilityTargetIsSuitableMount.CanMount(rider, u)
+                         && AbilityTargetIsSuitableMountSize.CanMount(rider, u))
+                .ToList();
+        }
+
         internal static MountResult TryMountTargeted(UnitEntityData rider, ActivatableAbility activatable, out UnitEntityData mount) {
             mount = null;
             if (!activatable.Blueprint.IsTargeted) return MountResult.NotTargeted;
 
-            var candidates = Bubble.Group
-                .Where(u => AbilityTargetIsSuitableMount.CanMount(rider, u)
-                         && AbilityTargetIsSuitableMountSize.CanMount(rider, u))
-                .ToList();
+            var candidates = GetMountCandidates(rider);
             if (candidates.Count == 0) return MountResult.NoCandidate;
-            if (candidates.Count > 1) return MountResult.Ambiguous;
+
+            UnitEntityData chosen;
+            if (candidates.Count == 1) {
+                chosen = candidates[0];
+            } else {
+                // A preference pointing at a pet that is currently unsuitable (dead,
+                // polymorphed, left the party) counts as unset — fall back to the skip.
+                var prefs = GlobalBubbleBuffer.Instance?.SpellbookController?.state?.SavedState?.MountPreference;
+                chosen = prefs != null && prefs.TryGetValue(rider.UniqueId, out var petId)
+                    ? candidates.FirstOrDefault(c => c.UniqueId == petId)
+                    : null;
+                if (chosen == null) return MountResult.Ambiguous;
+            }
 
             // A wedged armed toggle (on, no target — left by an overwritten arming or a
             // pre-1.16 run) would make Mount's SetIsOnWithTarget early-return without
@@ -282,7 +299,7 @@ namespace BuffIt2TheLimit {
             if (activatable.IsOn)
                 activatable.IsOn = false;
 
-            mount = candidates[0];
+            mount = chosen;
             rider.Ensure<UnitPartRider>().Mount(mount);
             return MountResult.Mounted;
         }
@@ -391,7 +408,7 @@ namespace BuffIt2TheLimit {
                                     Main.Log($"Activatable {actBuff.Name}: no suitable mount for {caster.CharacterName} (needs their own conscious pet of larger size in the party)");
                                     break;
                                 case MountResult.Ambiguous:
-                                    Main.Log($"Activatable {actBuff.Name}: several suitable mounts for {caster.CharacterName} — ambiguous, saddle up manually");
+                                    Main.Log($"Activatable {actBuff.Name}: several suitable mounts for {caster.CharacterName} — pick a preferred mount in the caster popout or saddle up manually");
                                     break;
                             }
                             continue;
@@ -794,7 +811,7 @@ namespace BuffIt2TheLimit {
                                     Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (no suitable mount: needs their own conscious pet of larger size in the party)");
                                     break;
                                 case MountResult.Ambiguous:
-                                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (several suitable mounts — ambiguous, saddle up manually)");
+                                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (several suitable mounts — pick a preferred mount in the caster popout or saddle up manually)");
                                     break;
                             }
                             continue;

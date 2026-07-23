@@ -63,6 +63,9 @@
   "caster.rank.global": "Priorität (alle Buffs)",
   "caster.rank.buff": "Priorität (dieser Buff)",
   "caster.rank-tooltip": "Höhere Priorität castet zuerst. Standardreihenfolge bei gleicher Priorität: aktive Gruppe vor Reserve, Zauber vor Schriftrollen und Tränken, dann vorbereitete vor spontanen Castern (höhere Zauberstufe zuerst). 'Dieser Buff' übersteuert 'alle Buffs' nur für diesen Zauber — ein grauer Wert folgt der Alle-Buffs-Priorität.",
+  "caster.mount": "Bevorzugter Mount",
+  "caster.mount.auto": "Auto",
+  "caster.mount-tooltip": "Erscheint, wenn mehrere Pets dieses Charakters reitbar sind (z.B. Animal Companion und ausgewachsene Aivu) — Saddle Up kann dann nicht selbst entscheiden. Hier das Pet wählen, das geritten werden soll; Auto sitzt nur auf, wenn genau ein Pet in Frage kommt.",
 
   "remove-all": "Buff überall entfernen",
   "add-all": "Buff überall einsetzen",

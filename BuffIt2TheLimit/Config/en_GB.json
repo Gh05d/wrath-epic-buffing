@@ -62,6 +62,9 @@
   "caster.rank.global": "Priority (all buffs)",
   "caster.rank.buff": "Priority (this buff)",
   "caster.rank-tooltip": "Higher priority casts earlier. Default order when priorities are equal: active party before reserve, spells before scrolls and potions, then prepared casters before spontaneous ones (higher caster level first). 'This buff' overrides 'all buffs' for this spell only — a grey value follows the all-buffs priority.",
+  "caster.mount": "Preferred mount",
+  "caster.mount.auto": "Auto",
+  "caster.mount-tooltip": "Shown when several of this character's pets are rideable (e.g. an animal companion and a grown Aivu) — Saddle Up cannot decide on its own then. Pick the pet to mount here; Auto only mounts when a single pet is suitable.",
 
   "remove-all": "Remove from all",
   "add-all": "Add to all",
