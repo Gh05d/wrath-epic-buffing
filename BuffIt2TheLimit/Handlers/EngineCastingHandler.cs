@@ -168,7 +168,16 @@ namespace BuffIt2TheLimit.Handlers {
                         if (_castTask.SourceType == BuffSourceType.Scroll || _castTask.SourceType == BuffSourceType.Potion) {
                             Game.Instance.Player.Inventory.Remove(_castTask.SourceItem, 1);
                         } else if (_castTask.SourceType == BuffSourceType.Equipment && _castTask.SourceItem.IsSpendCharges) {
-                            _castTask.SourceItem.Charges--;
+                            // Native spend instead of a raw Charges-- so per-unit
+                            // exemptions apply (Trickster "Reuse Magic Device":
+                            // wands spend no charges) along with the engine's
+                            // stack-split and empty-item handling.
+                            var user = _castTask.Caster?.Descriptor;
+                            if (user != null) {
+                                _castTask.SourceItem.SpendCharges(user);
+                            } else {
+                                _castTask.SourceItem.Charges--;
+                            }
                         }
                     } catch (Exception itemEx) {
                         Main.Error(itemEx, "Consuming item after cast");
