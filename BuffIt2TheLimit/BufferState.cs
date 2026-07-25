@@ -25,6 +25,7 @@ using Kingmaker.UnitLogic;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.Classes.Spells;
 using Kingmaker.UnitLogic.ActivatableAbilities;
+using Kingmaker.UnitLogic.Parts;
 using Kingmaker.Craft;
 
 namespace BuffIt2TheLimit {
@@ -243,10 +244,9 @@ namespace BuffIt2TheLimit {
                         if (isWand && !SavedState.EquipmentEnabled) continue;
 
                         var firstItem = itemGroup.First();
-                        // Crafted items (CraftedItemPart) override blueprint CL/SL/DC.
-                        // Mirrors game's own ItemStatHelper.GetCasterLevel/GetSpellLevel/GetDC.
+                        // Crafted items (CraftedItemPart) override blueprint SL/DC.
+                        // Caster level is per-character (see GetItemCasterLevel).
                         var crafted = firstItem.Get<CraftedItemPart>();
-                        int effectiveCL = crafted?.CasterLevel ?? blueprint.CasterLevel;
                         int effectiveSL = crafted?.SpellLevel ?? blueprint.SpellLevel;
                         int effectiveDC = crafted?.AbilityDC ?? (20 + blueprint.CasterLevel);
 
@@ -257,7 +257,7 @@ namespace BuffIt2TheLimit {
                             for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
                                 UnitEntityData dude = Group[characterIndex];
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
-                                    OverrideCasterLevel = effectiveCL,
+                                    OverrideCasterLevel = GetItemCasterLevel(firstItem, dude),
                                     OverrideSpellLevel = effectiveSL,
                                 };
                                 Main.Verbose($"      Adding potion buff: {spellBlueprint.Name} for {dude.CharacterName}", "state");
@@ -286,7 +286,7 @@ namespace BuffIt2TheLimit {
                                 if (!CanUseItemWithUmd(dude, spellBlueprint, scrollDC)) continue;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
-                                    OverrideCasterLevel = effectiveCL,
+                                    OverrideCasterLevel = GetItemCasterLevel(firstItem, dude),
                                     OverrideSpellLevel = effectiveSL,
                                 };
                                 Main.Verbose($"      Adding scroll buff: {spellBlueprint.Name} for {dude.CharacterName}", "state");
@@ -316,7 +316,7 @@ namespace BuffIt2TheLimit {
                                 if (!CanUseItemWithUmd(dude, spellBlueprint, wandDC)) continue;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
-                                    OverrideCasterLevel = effectiveCL,
+                                    OverrideCasterLevel = GetItemCasterLevel(firstItem, dude),
                                     OverrideSpellLevel = effectiveSL,
                                 };
                                 Main.Verbose($"      Adding wand buff: {spellBlueprint.Name} from {blueprint.Name} for {dude.CharacterName}", "state");
@@ -378,7 +378,7 @@ namespace BuffIt2TheLimit {
                             var credits = new ReactiveProperty<int>(charges);
                             var quickCrafted = itemEntity.Get<CraftedItemPart>();
                             var abilityData = new AbilityData(spellBlueprint, dude) {
-                                OverrideCasterLevel = quickCrafted?.CasterLevel ?? usableBp.CasterLevel,
+                                OverrideCasterLevel = GetItemCasterLevel(itemEntity, dude),
                                 OverrideSpellLevel = quickCrafted?.SpellLevel ?? usableBp.SpellLevel,
                             };
 
@@ -991,6 +991,30 @@ namespace BuffIt2TheLimit {
             var umdBonus = dude.Stats.SkillUseMagicDevice.ModifiedValue;
             if (SavedState.UmdMode == UmdMode.AlwaysTry) return umdBonus > 0;
             return (umdBonus + 20) >= dc;
+        }
+
+        /// <summary>
+        /// Caster level of an item cast, mirroring AbilityData.GetParamsFromItem.
+        /// Our synthetic AbilityData has no SourceItem (it isn't backed by an item-granted
+        /// Ability fact), so CalculateParams takes the generic RuleCalculateAbilityParams
+        /// path and only ever sees OverrideCasterLevel — every caster-dependent bonus the
+        /// engine would apply for an item cast has to be reproduced here:
+        ///   ItemStatHelper.GetCasterLevel — crafted CL, Scroll Savant, potion enhancement
+        ///   + mythic rank when the caster has Trickster's "Infuse Magic Device"
+        ///   + UnitPartItemCasterLevelBonus (per usable type).
+        /// Because of that this is per-character, not per-item.
+        /// </summary>
+        private static int GetItemCasterLevel(ItemEntity item, UnitEntityData dude) {
+            int casterLevel = ItemStatHelper.GetCasterLevel(item, dude);
+
+            if (dude.Descriptor.State.Features.TricksterUseMagicDeviceCasterLevelBoost)
+                casterLevel += dude.Descriptor.Progression.MythicLevel;
+
+            var bonusPart = dude.Descriptor.Get<UnitPartItemCasterLevelBonus>();
+            if (bonusPart != null)
+                casterLevel += bonusPart.GetBonus((item.Blueprint as BlueprintItemEquipmentUsable)?.Type);
+
+            return casterLevel;
         }
 
         private List<string> lastGroup = new();
