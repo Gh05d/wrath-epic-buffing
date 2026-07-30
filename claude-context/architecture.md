@@ -57,6 +57,7 @@ BuffExecutor.ExecuteCombatStart()  →  triggered by EventBus on combat enter
 - **Buff window**: Created by `BubbleBuffSpellbookController.CreateWindow()`. Uses `ButtonGroup<T>` for tab groups, `Portrait` class for caster portraits.
 - **UI hierarchy access**: `UIHelpers.StaticRoot` → `Game.Instance.UI.Canvas.transform`. `UIHelpers.SpellbookScreen` finds the spellbook via version-specific `WidgetPaths`.
 - **Game version compat**: `WidgetPaths_1_0` through `WidgetPaths_2_0` in `UIHelpers.cs` handle different UI paths across game versions.
+- **Root child order = draw and raycast order**: `left-panel` → `right-panel` (details view) → `summary` header → settings → `tooltip-root`. Later siblings win clicks over earlier ones, and a deep child can never rise above a later sibling — anything that must float over the window belongs at Root level (`PlaceCasterPopout`; see `gotchas-ui.md`).
 - **Overlay UI elements must share the same parent**: The gear/settings button is on the window root (`content` in `CreateWindow`). Any UI that should align with it (e.g., group checkboxes) must also be parented to the window root (`content.parent` inside `MakeDetailsView`), not to flow-layout sections like `actionBarSection`. Different parents = different coordinate systems.
 
 ### Enums
