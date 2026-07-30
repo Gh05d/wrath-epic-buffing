@@ -451,14 +451,11 @@ namespace BuffIt2TheLimit {
                                 if (p != portrait)
                                     p.SetExpanded(false);
 
-                            popout.transform.SetParent(pRect);
-                            popout.Rect().anchoredPosition = new Vector2(0, 18);
-                            popout.Rect().pivot = new Vector2(0.5f, 0);
-                            popout.Rect().SetAnchor(0.5, 1);
                             if (fader != null) {
                                 fader.AppearAnimation();
                             }
                             popout.SetActive(true);
+                            PlaceCasterPopout(popout, pRect);
                         } else {
                             if (fader != null) {
                                 fader.DisappearAnimation();
@@ -1062,7 +1059,12 @@ namespace BuffIt2TheLimit {
             b.OnLeftClick.AddListener(() => {
                 panel.SetActive(!panel.activeSelf);
                 b.IsPressed = panel.activeSelf;
-                if (panel.activeSelf) scrollRect.verticalNormalizedPosition = 1f;
+                if (panel.activeSelf) {
+                    scrollRect.verticalNormalizedPosition = 1f;
+                    // An open caster popout is the last sibling of Root (PlaceCasterPopout)
+                    // and would otherwise draw over the settings panel.
+                    panel.transform.SetAsLastSibling();
+                }
             });
         }
 
@@ -1261,6 +1263,81 @@ namespace BuffIt2TheLimit {
 
         private Action HideCasterPopout;
         private Action UpdateDetailsView;
+
+        // Portrait the caster popout is currently anchored to. Needed because the popout
+        // no longer lives under that portrait — see PlaceCasterPopout.
+        private RectTransform casterPopoutAnchor;
+
+        private const float CasterPopoutGap = 18f;
+        // Fraction of the window height kept clear at the top: the game's service-window
+        // tab bar (Inventory / Character / …) lives outside our Root and draws over it.
+        private const float CasterPopoutTopInset = 0.05f;
+
+        /// <summary>
+        /// Places the caster popout above the expanded portrait as a Root-level overlay
+        /// and clamps it into the window.
+        ///
+        /// The popout used to be parented to the portrait itself, which buried it in the
+        /// middle of the sibling order. The summary header (Normal/Quick/Important — added
+        /// to Root *after* the panels, and its 400x100 raycast cells overhang the header
+        /// band by far more than the visible text) therefore drew on top of it and ate the
+        /// clicks on its topmost rows. The popout grows upward and its height follows the
+        /// row count, so a caster with two spellbooks (extra "Source" + "Ban all sources"
+        /// rows) pushed "Limit casts to" under that band and it stopped reacting — Nexus
+        /// report against v1.20.1. As a Root-level overlay nothing in the window can cover
+        /// it, and it no longer lands on the caster portraits below either.
+        /// </summary>
+        private void PlaceCasterPopout(GameObject popout, RectTransform anchor) {
+            if (popout == null || anchor == null || Root == null) return;
+            casterPopoutAnchor = anchor;
+
+            var rect = popout.Rect();
+            if (rect.parent != Root.transform)
+                rect.SetParent(Root.transform, false);
+            rect.SetAsLastSibling();
+            // Tooltips (the rank rows have them) must still render above the popout.
+            if (TooltipRoot != null) TooltipRoot.SetAsLastSibling();
+
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0);
+
+            // Height comes from the grid via the prefab's ContentSizeFitter and changes
+            // whenever UpdateDetailsView toggles rows — rebuild before measuring.
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+
+            rect.position = anchor.TransformPoint(new Vector3(0, anchor.rect.yMax + CasterPopoutGap, 0));
+
+            ClampIntoRoot(rect);
+        }
+
+        private void ClampIntoRoot(RectTransform rect) {
+            var rootRect = Root.Rect();
+            if (rootRect == null) return;
+
+            // 0 = bottom-left, 1 = top-left, 2 = top-right, 3 = bottom-right
+            var pop = new Vector3[4];
+            var root = new Vector3[4];
+            rect.GetWorldCorners(pop);
+            rootRect.GetWorldCorners(root);
+
+            float marginX = 6f * rootRect.lossyScale.x;
+            float marginY = 6f * rootRect.lossyScale.y;
+            float topInset = (root[1].y - root[0].y) * CasterPopoutTopInset;
+
+            float left = root[0].x + marginX;
+            float right = root[2].x - marginX;
+            float bottom = root[0].y + marginY;
+            float top = root[1].y - topInset;
+
+            float dx = 0f, dy = 0f;
+            if (pop[2].x > right) dx = right - pop[2].x;
+            if (pop[0].x + dx < left) dx = left - pop[0].x;
+            if (pop[1].y > top) dy = top - pop[1].y;
+            if (pop[0].y + dy < bottom) dy = bottom - pop[0].y;
+
+            if (dx != 0f || dy != 0f)
+                rect.position += new Vector3(dx, dy, 0f);
+        }
 
         private static BlueprintFeature PowerfulChangeFeature => Resources.GetBlueprint<BlueprintFeature>("5e01e267021bffe4e99ebee3fdc872d1");
         internal static BlueprintFeature ShareTransmutationFeature => Resources.GetBlueprint<BlueprintFeature>("c4ed8d1a90c93754eacea361653a7d56");
@@ -2455,6 +2532,10 @@ namespace BuffIt2TheLimit {
                             mountPrefValueText.color = Color.gray;
                         }
                     }
+
+                    // The row toggles above change the popout height, and this runs after
+                    // the expand handler placed it — re-place so a tall popout still fits.
+                    PlaceCasterPopout(casterPopout, casterPopoutAnchor);
 
                 } else {
                     // Binding skipped (no caster selected, stale index, popout hidden) —
