@@ -1,0 +1,16 @@
+No apology needed — this one's on the mod page, not on you. There was genuinely zero "what do I actually click" guidance anywhere on it, and you're just the first person kind enough to say so out loud. Thank you for that.
+
+For what it's worth: everyone who starts Wrath of the Righteous is overwhelmed. The game buries you in interlocking systems, and buffing is the worst offender — I was completely lost myself when I started. Grabbing a buff automation mod on your first run is the opposite of being a moron.
+
+I've now added a full [b]Getting Started[/b] article to this page (Articles tab) plus a short quick-start at the top of the description. The 60-second version:
+
+1. Load into the game world. The mod adds a new row of buttons just above the round menu buttons in the bottom-right corner of the screen.
+2. Click the rightmost new button ([b]Open Buff Menu[/b]) — that's the configuration window. (Also reachable from any spellbook via [b]Buff Setup[/b], top right.)
+3. The list on the left shows every buff your party can cast. Click one — [i]Mage Armor[/i], say.
+4. On the right, click the portraits of the companions who should get it, or hit [b]Add to all[/b].
+5. Tick [b]Normal[/b] at the bottom of the window. Repeat 3–5 for your other buffs.
+6. Leave the window and click the first new HUD button: the whole routine is cast in one click, using your real spell slots — and companions who already have a buff are skipped automatically.
+
+That's honestly all you need for a first playthrough. Groups, auto-casting on combat start, scrolls/potions/wands — the article covers those once you're comfortable.
+
+If anything is still unclear after reading it, please say so here. If it confused you, it'll confuse others, and I'd rather fix the guide.

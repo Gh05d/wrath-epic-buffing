@@ -1,0 +1,90 @@
+So you've installed the mod, opened the window, and thought: "…what am I actually supposed to click?" This guide is for you. Nothing is wrong with you or your install — the interface has grown a lot of knobs over the years, and until now the mod page never explained the basics. Ten minutes from now you'll have a one-click buff routine for your whole party.
+
+[b]The idea in one sentence:[/b] you tell the mod [i]once[/i] which buffs go on which companions; from then on, a single click (or key press) casts the entire sequence — using your real spell slots, scrolls, potions and item charges, and skipping anyone who already has the buff.
+
+[size=3][b]Step 0 — find the new buttons[/b][/size]
+
+Load into the game world and look at the [b]bottom-right corner[/b] of the screen, just above the game's round menu buttons. The mod adds a new row of buttons there:
+
+[list]
+[*]Three group buttons — [b]Normal[/b], [b]Important[/b] and [b]Quick[/b]. Each one casts one buff group. They do nothing yet — your groups are still empty.
+[*]Set slightly apart from them: [b]Open Buff Menu[/b] — opens the configuration window. (The same window is also reachable from any spellbook via the [b]Buff Setup[/b] button at the top right.)
+[/list]
+
+[i]Playing with a controller? The HUD buttons and the config window are part of the mouse-and-keyboard UI. The group keyboard shortcuts still fire in gamepad mode, e.g. mapped through Steam Input.[/i]
+
+[size=3][b]Your first routine in six steps[/b][/size]
+
+[list=1]
+[*][b]Open the window[/b] — click [b]Open Buff Menu[/b].
+[*][b]Pick a buff in the left-hand list[/b] — it shows every buff your party can currently provide: spells, plus scrolls, potions, wands and usable equipment from your inventory. Use the [b]search box[/b] to find, say, [i]Mage Armor[/i]. The tabs above the list ([b]Buffs / Abilities / Equipment / Songs / Toggles[/b]) filter by kind.
+[*][b]Choose who receives it[/b] — in the right-hand panel, click the party portraits; one click adds a companion, another click removes them. [b]Add to all[/b] grabs the whole party at once. A greyed-out portrait means that character can't receive this buff (a self-cast-only spell, for example).
+[*][b]Put the buff in a group[/b] — tick [b]Normal[/b] at the bottom of the window.
+[*][b]Repeat[/b] steps 2–4 for every buff you care about.
+[*][b]Fire![/b] — leave the window ([b]Exit[/b] or Esc) and click the first of the new HUD buttons. The whole routine casts in one click: real slots and charges are spent, already-buffed companions are skipped, and the combat log gets a summary entry (applied / skipped / failed, with reasons like "no free spell-slot"). Hover a group button to see what's assigned to it; [b]right-click[/b] it for the full list.
+[/list]
+
+That's 90% of the mod. Rest, click, adventure, repeat. Everything below is fine-tuning for when you're comfortable.
+
+[size=3][b]What are the three groups for?[/b][/size]
+
+Nothing about them is hard-wired — they're three independent buckets, each with its own HUD button and (optional) keyboard shortcut, and a buff can sit in several groups at once. The classic setup:
+
+[list]
+[*][b]Normal[/b] — the long stuff (minutes- and hours-per-level buffs). Fire once after every rest.
+[*][b]Quick[/b] — the short stuff (rounds-per-level: Haste, Divine Power, …). Fire right before a hard fight. The [b]Show round/level[/b] filter above the buff list shows exactly these.
+[*][b]Important[/b] — a hand-picked subset of essentials, for topping up mid-dungeon without re-running the whole routine.
+[/list]
+
+[size=3][b]Casting automatically at combat start[/b][/size]
+
+Short buffs are easy to forget — let the mod handle them:
+
+[list]
+[*]Per buff: select it and tick [b]Cast on combat start[/b] in the details panel.
+[*]For everything at once: open the settings (gear button) and enable [b]Cast all buffs on combat start[/b].
+[/list]
+
+Pair either with [b]Skip animations on combat start[/b] so the casts resolve instantly and the surprise round stays yours.
+
+[size=3][b]Who casts what? (Usually: don't worry about it)[/b][/size]
+
+You never assign casters by hand. The mod finds everyone who can provide a buff — own spellbook, scroll (with Use Magic Device where needed), potion, wand, staff — and spreads the load sensibly: spells before consumables, prepared casters before spontaneous ones, higher caster level first. The portrait row at the bottom of the details panel shows who will actually cast, each with a small icon for the source type (spell / scroll / potion / equipment).
+
+Want control anyway? Click the [b]small arrow above a caster's portrait[/b] to open their options: [b]Limit casts to[/b] a number, [b]Ban from casting[/b], [b]Ban all sources[/b], and [b]Priority[/b] (for all buffs, or for this buff only) to decide who casts first. Class-specific extras (Share Transmutation, Powerful Change, Azata Zippy Magic, …) live here too.
+
+[size=3][b]Scrolls, potions, wands & equipment[/b][/size]
+
+All of this is enabled out of the box — the list already contains buffs your party can only get from items, and one buff is ONE list entry no matter how many sources provide it. Good to know:
+
+[list]
+[*][b]Source priority[/b] (settings) picks what's spent first when a buff has several sources. Default: [b]Spells > Scrolls > Potions[/b]; equipment charges are always the last resort. Individual buffs can override this, or switch off sources entirely ([b]Use Spells / Scrolls / Potions / Equipment[/b] in the details panel).
+[*]Scrolls and wands follow the game's Use Magic Device rules. The [b]UMD scroll usage mode[/b] setting controls how boldly characters attempt those checks (default: only when the DC is actually reachable, with up to 3 rerolls).
+[*]Don't want the mod touching consumables at all? Settings → untick [b]Enable scroll usage[/b] / [b]potion[/b] / [b]equipment[/b].
+[/list]
+
+[size=3][b]Songs, toggles & Saddle Up[/b][/size]
+
+Bardic Performance, Inspire Courage, judgments and other activatable abilities are first-class buffs here: assign them like spells and the mod switches them on when the group fires. [b]Deactivate after N rounds[/b] switches them off again so they don't drain resources needlessly. The [b]Saddle Up[/b] toggle even mounts your riders on their pets automatically.
+
+[size=3][b]Settings worth knowing (gear button)[/b][/size]
+
+[list]
+[*][b]Ignore existing buffs[/b] — off by default: anyone already carrying a buff is skipped. That's the "Skipped" count in the log, and it's why re-clicking a group button costs you nothing extra. Turn it on to force re-casting.
+[*][b]Use full animation casting[/b] — off by default: buffs apply instantly. Turn it on for the spectacle (much slower for long routines).
+[*][b]Allow buffing in combat[/b] — off by default: routines only run outside combat.
+[*][b]Shortcuts[/b] — bind each group and the buff menu to a key, modifier keys supported.
+[*][b]Clear all assignments[/b] — the big reset (asks for a second click to confirm).
+[/list]
+
+[size=3][b]"Why didn't X get buffed?" — quick checklist[/b][/size]
+
+[list]
+[*][b]Already has it[/b] → skipped by design (see [b]Ignore existing buffs[/b] above).
+[*][b]No resources left[/b] → the log says so: "no free spell-slot", "no available caster", "is out of charges".
+[*][b]Wrong group[/b] → right-click the HUD button to see what's actually assigned to it.
+[*][b]The spell isn't in the list at all[/b] → the scan deliberately picks up party-friendly buffs only; summons, offensive spells and ground-targeted effects are excluded. Also check the other tabs (Abilities / Equipment / Songs / Toggles) and the [b]Show hidden[/b] filter.
+[*][b]Companion is benched[/b] → click [b]Show Reserve[/b] in the details panel to configure reserve companions; their setup travels with them when they rejoin the party.
+[/list]
+
+Still lost after all this? Say so in the [b]Posts[/b] tab — if something here confused you, it will confuse others, and I'd rather fix the guide than have you fight the UI. Have fun storming the Worldwound!

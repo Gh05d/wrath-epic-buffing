@@ -1,0 +1,83 @@
+[size=4][b]Buff It 2 The Limit[/b][/size]
+
+A continuation of [url=https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/195]factubsio's BubbleBuffs[/url] — the buff automation mod for Pathfinder: Wrath of the Righteous.
+
+Configure which buffs to cast on which party members, then execute entire buff sequences with a single click — or have them fire automatically when combat starts.
+
+[size=3][b]New to the mod? Start here[/b][/size]
+
+[list=1]
+[*]In the game world, find the new buttons just above the game's menu buttons in the bottom-right corner. The rightmost one ([b]Open Buff Menu[/b]) opens the buff window — also reachable from any spellbook via [b]Buff Setup[/b], top right.
+[*]Pick a buff in the list on the left (the search box helps).
+[*]On the right, click the portraits of everyone who should receive it — or [b]Add to all[/b].
+[*]Tick [b]Normal[/b] at the bottom of the window, and repeat for your other buffs.
+[*]Close the window and click the first of the new HUD buttons: the whole routine is cast in one click, using your real spell slots — anyone already buffed is skipped.
+[/list]
+
+The full walkthrough — groups, combat-start casting, scrolls/potions/wands, settings, troubleshooting — is in the [b]Articles[/b] tab: [i]Getting Started — your first buff routine[/i].
+
+[size=3][b]Highlights[/b][/size]
+
+[list]
+[*][b]All buff sources in one place[/b] — Spells, scrolls, potions, wands, and activatable equipment (staves, rods) live in a unified Buffs tab with one entry per buff regardless of source. Inline source-type controls + priority ordering, and wands use UMD logic like scrolls.
+[*][b]Toggles, songs and activatables[/b] — Bardic Performance, Inspire Courage, Hunter's Bond and other free-toggle / song / activatable abilities are first-class buff sources. Includes round-limit auto-deactivation, mutual-exclusivity within the same activation group, and proper handling of form-change abilities (Shifter's Fury, Chimeric Aspect).
+[*][b]Cast on Combat Start[/b] — Mark buffs to fire automatically when combat begins. Optional Skip-Animations mode casts instantly so you don't lose the surprise round to animation time.
+[*][b]Reserve companion support[/b] — Configure buffs for characters who aren't in your active party. When they swap in, their buff configuration travels with them.
+[*][b]Smart casting[/b]
+[list]
+[*]Extend Rod metamagic — auto-picks a rod from inventory for eligible buffs
+[*]Bypass Arcane Spell Failure when prebuffing out of combat (handles armor automatically)
+[*]Brownfur Transmuter (Share Transmutation), Azata Zippy Magic, Powerful Change all supported
+[*]Magic Deceiver fused spells, Magic Weapon (EnhanceWeapon), item charges and crafted-item caster levels all handled correctly
+[/list]
+[*][b]Multi-group assignment[/b] — One buff can belong to Normal, Quick, and Important groups simultaneously.
+[*][b]Customizable keyboard shortcuts[/b] — Bind each buff group and the buff menu to a keyboard shortcut with modifier-key support.
+[*][b]Quick open button[/b] — HUD button jumps straight into buff configuration without navigating the spellbook.
+[*][b]Redesigned details panel[/b] — Vertical split layout with spell info, source controls, scrollable caster/target portraits with reserve separator, and an action bar.
+[*][b]Source-type overlays[/b] — Game-native icons on caster portraits showing spell, scroll, potion or equipment source.
+[*][b]Sort-by-name toggle[/b] — Optional alphabetical buff ordering, persisted across save reloads and area transitions.
+[*][b]Improved buff filtering[/b] — Better detection of beneficial vs harmful spells via descriptor checks, nested action analysis, and equipment-item recognition.
+[/list]
+
+[size=3][b]For existing BubbleBuffs users[/b][/size]
+
+This is a [b]separate mod[/b] from BubbleBuffs. To switch:
+[list=1]
+[*]Remove the [code]BubbleBuffs[/code] folder from your Mods directory
+[*]Extract this mod into [code]Mods/BuffIt2TheLimit/[/code]
+[*]Your buff configurations will need to be set up again (different save format)
+[/list]
+
+[size=3][b]Installation[/b][/size]
+
+[list=1]
+[*]Install [url=https://www.nexusmods.com/site/mods/21]Unity Mod Manager[/url] (0.23.0+)
+[*]Download the zip from the Files tab
+[*]Extract into [code]{GameDir}/Mods/BuffIt2TheLimit/[/code]
+[*]Enable "Buff It 2 The Limit" in Unity Mod Manager
+[/list]
+
+[size=3][b]Requirements[/b][/size]
+
+[list]
+[*]Pathfinder: Wrath of the Righteous 1.4+
+[*]Unity Mod Manager 0.23.0+
+[/list]
+
+[size=3][b]Known mod interactions[/b][/size]
+
+[list]
+[*][b]BubbleTweak animation speedup + animated casting[/b] — When BubbleTweak's "Increase Animation Speed" is active and Buff It 2 The Limit is set to use full cast animations, some casts can be dropped silently. The sped-up animation can finish the underlying [code]UnitCommand[/code] before the spell rule actually fires, so the buff never lands even though the cast was queued. Workaround: enable [b]Skip animations[/b] in this mod, or disable BubbleTweak's animation-speed multiplier for casting. The combat-log "applied" count now reflects actually-fired casts so you can spot the mismatch.
+[/list]
+
+[size=3][b]Credits[/b][/size]
+
+[list]
+[*][url=https://github.com/factubsio]factubsio[/url] — Original BubbleBuffs mod
+[*][url=https://github.com/Balkoth]Balkoth[/url] — Buffbot, the direct inspiration
+[*][url=https://github.com/Vek17]Vek17[/url] — Codebase foundation
+[/list]
+
+[size=3][b]Source Code[/b][/size]
+
+[url=https://github.com/Gh05d/wrath-epic-buffing]GitHub Repository[/url] — MIT License
