@@ -2,7 +2,7 @@ No apology needed — this one's on the mod page, not on you. There was genuinel
 
 For what it's worth: everyone who starts Wrath of the Righteous is overwhelmed. The game buries you in interlocking systems, and buffing is the worst offender — I was completely lost myself when I started. Grabbing a buff automation mod on your first run is the opposite of being a moron.
 
-I've now added a full [b]Getting Started[/b] article to this page (Docs tab) plus a short quick-start at the top of the description. The 60-second version:
+I've now added a full [b]Getting Started[/b] article to this page (Articles tab) plus a short quick-start at the top of the description. The 60-second version:
 
 1. Load into the game world. The mod adds a new row of buttons just above the round menu buttons in the bottom-right corner of the screen.
 2. Click the rightmost new button ([b]Open Buff Menu[/b]) — that's the configuration window. (Also reachable from any spellbook via [b]Buff Setup[/b], top right.)
