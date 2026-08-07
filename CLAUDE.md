@@ -46,6 +46,7 @@ Use `/release` skill to handle this automatically.
 - UI strings: `"key".i8()` (`Config/ModSettings.cs`); keys live in `Config/{en_GB,de_DE,fr_FR,ru_RU,zh_CN}.json` — every new key must be added to ALL five files. A key missing from en_GB.json crashes the game (uncatchable infinite recursion in `Language.Get` — enGB is the fallback locale).
 - BOM differs per file (en_GB/de_DE have UTF-8 BOM, fr/ru/zh don't) — preserve each file's state. Python: read `utf-8-sig`, write BOM back only where it was.
 - Für einzeilige Key-Inserts reicht `sed -i '/anchor/a\  "key": "value",'` — BOM hängt an Zeile 1, sed-Edits darunter lassen es intakt. Danach: `head -c3 | od -An -tx1` (efbbbf = BOM) + JSON-Validierung.
+- Nach Key-Inserts Parität belegen: alle fünf Dateien müssen dieselbe Key-Zahl haben (`json.load(open(f, encoding='utf-8-sig'))` → `len`). Das ist der einzige echte Nachweis, dass kein File vergessen wurde.
 
 ## Release
 
