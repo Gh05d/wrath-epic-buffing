@@ -2,7 +2,9 @@
 using Kingmaker;
 using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
+using Kingmaker.Blueprints.Items.Weapons;
 using Kingmaker.Controllers;
+using Kingmaker.EntitySystem;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.RuleSystem;
 using Kingmaker.RuleSystem.Rules.Abilities;
@@ -215,28 +217,124 @@ namespace BuffIt2TheLimit {
             State = state;
         }
 
+        // The per-weapon Shifter's Fury toggles a unit currently has, in the engine's own order
+        // (primary hand, secondary hand, then limbs). ShiftersFuryPart destroys and rebuilds this
+        // list on every equipment or polymorph change, so never cache the result.
+        internal static List<ActivatableAbility> GetFuryWeapons(UnitEntityData caster) {
+            var facts = caster?.Get<ShiftersFuryPart>()?.AppliedFacts;
+            // TryCreateListItem drops failed creations before adding, so the list holds no nulls
+            // and a plain copy stays index-compatible with State.SelectedWeaponIndex.
+            return facts == null ? new List<ActivatableAbility>() : new List<ActivatableAbility>(facts);
+        }
+
+        // The natural weapon a per-weapon Shifter's Fury toggle belongs to. ShiftersFuryPart
+        // stamps this on the fact in InitializeItemAbility; GetData returns null rather than
+        // throwing when the component is absent.
+        internal static BlueprintItemWeapon GetFuryWeaponBlueprint(ActivatableAbility fury) {
+            return fury?.GetData<ShiftersFuryItemAbility, ShiftersFuryItemData>()?.Weapon?.Blueprint;
+        }
+
+        // The distinct natural-weapon kinds a unit's Shifter's Fury can be pointed at, in engine
+        // order. CollectCurrentWeapons emits one fact per hand and per limb slot, so a shifter
+        // with two claw limbs gets two facts sharing one blueprint — that is a single choice to
+        // the player, so collapse by blueprint and let ResolveActivationTarget take the first
+        // matching fact.
+        internal static List<BlueprintItemWeapon> GetFuryWeaponChoices(UnitEntityData caster) {
+            var seen = new HashSet<BlueprintGuid>();
+            var choices = new List<BlueprintItemWeapon>();
+            foreach (var fury in GetFuryWeapons(caster)) {
+                var bp = GetFuryWeaponBlueprint(fury);
+                if (bp != null && seen.Add(bp.AssetGuid)) choices.Add(bp);
+            }
+            return choices;
+        }
+
+        // The weapon blueprint the player picked in the caster popout, but only when that weapon
+        // is actually among the shifter's current natural weapons. A pick for a limb the shifter
+        // no longer has resolves to null, i.e. back to Auto — that is what keeps the activation
+        // and the already-on check agreeing with each other (see IsEffectivelyOn).
+        private static string GetBindingFuryPreference(UnitEntityData caster, List<ActivatableAbility> weapons) {
+            var prefs = GlobalBubbleBuffer.Instance?.SpellbookController?.state?.SavedState?.FuryWeaponPreference;
+            if (prefs == null || !prefs.TryGetValue(caster.UniqueId, out var weaponGuid)) return null;
+            return weapons.Any(w => GetFuryWeaponBlueprint(w)?.AssetGuid.ToString() == weaponGuid) ? weaponGuid : null;
+        }
+
         // Resolves the actual ActivatableAbility to flip IsOn on.
         // For ShiftersFury the parent is ActivationDisable-locked; the real activators live on
-        // ShiftersFuryPart.AppliedFacts (one per wielded natural weapon). We honour the player's
-        // last-picked variant via ShiftersFuryPart.State.SelectedWeaponIndex and fall back to the
-        // first applied fact if no pick has happened yet.
+        // ShiftersFuryPart.AppliedFacts (one per wielded natural weapon). Preference order is the
+        // player's explicit pick in the caster popout, then the game's own last pick, then the
+        // first weapon. The saved pick is matched by weapon blueprint, not by index: the fact list
+        // is rebuilt from scratch whenever equipment or the shifter's form changes, and
+        // State.SelectedWeaponIndex is only ever written by the parent fact's OnTurnOff, so it
+        // goes stale exactly when the player needs the routine most (after a rest).
         internal static ActivatableAbility ResolveActivationTarget(UnitEntityData caster, ActivatableAbility candidate) {
             if (candidate?.ConversionsProvider is ShiftersFury) {
-                var part = caster.Get<ShiftersFuryPart>();
-                if (part?.AppliedFacts == null || part.AppliedFacts.Count == 0) return null;
-                int idx = part.State?.SelectedWeaponIndex ?? -1;
-                if (idx >= 0 && idx < part.AppliedFacts.Count) return part.AppliedFacts[idx];
-                return part.AppliedFacts[0];
+                var weapons = GetFuryWeapons(caster);
+                if (weapons.Count == 0) return null;
+                var weaponGuid = GetBindingFuryPreference(caster, weapons);
+                if (weaponGuid != null)
+                    return weapons.First(w => GetFuryWeaponBlueprint(w)?.AssetGuid.ToString() == weaponGuid);
+                int idx = caster.Get<ShiftersFuryPart>()?.State?.SelectedWeaponIndex ?? -1;
+                if (idx >= 0 && idx < weapons.Count) return weapons[idx];
+                return weapons[0];
             }
             return candidate;
         }
 
-        // ShiftersFury parent's IsOn is always false (ActivationDisable blocks SetIsOn).
-        // The real aggregate "is on" state lives on ShiftersFuryPart.m_IsOn.
+        // Turning a fury weapon on does not turn its siblings off: both fury blueprints are
+        // Group "None", so the engine's group evictor (OnDidTurnOn) never runs for them. Honouring
+        // a switch of weapons therefore has to clear the previous one explicitly, or the shifter
+        // ends up with fury running on two weapons at once. Facts sharing the target's blueprint
+        // are left alone — a shifter with two claw limbs gets one fact per limb, and those are the
+        // same choice. No-op for anything that is not a fury weapon.
+        internal static void ClearConflictingFuryWeapons(UnitEntityData caster, ActivatableAbility target) {
+            var targetWeapon = GetFuryWeaponBlueprint(target);
+            if (targetWeapon == null) return;
+            foreach (var other in GetFuryWeapons(caster)) {
+                if (other.IsOn && GetFuryWeaponBlueprint(other)?.AssetGuid != targetWeapon.AssetGuid) {
+                    Main.Verbose($"Shifter's Fury: switching {caster.CharacterName} off {GetFuryWeaponBlueprint(other)?.Name} onto {targetWeapon.Name}");
+                    other.IsOn = false;
+                }
+            }
+        }
+
+        // The toggles that have to be switched off to deactivate a buff entry (round limit).
+        // Not the mirror image of ResolveActivationTarget: for ShiftersFury the parent's own
+        // IsOn is permanently false, so switching it off means switching off whichever
+        // per-weapon fact is actually running — which need not be the preferred one, since the
+        // player may have picked a different weapon by hand.
+        // The fury branch is defensive: round limits are only offered for non-Toggle categories
+        // and the fury parent scans as Category.Toggle, so DeactivateAfterRounds stays 0 today.
+        internal static IEnumerable<ActivatableAbility> ResolveDeactivationTargets(UnitEntityData caster, ActivatableAbility candidate) {
+            if (candidate?.ConversionsProvider is ShiftersFury)
+                return GetFuryWeapons(caster).Where(w => w.IsOn);
+            return candidate != null && candidate.IsOn
+                ? new[] { candidate }
+                : Enumerable.Empty<ActivatableAbility>();
+        }
+
+        // The ShiftersFury parent's own IsOn is always false (ActivationDisable pins an
+        // always-false TurnOnCondition), so the aggregate state has to come from the part.
+        // NOT from ShiftersFuryPart.m_IsOn: that is the EntityPart lifecycle flag, written only
+        // by the OnTurnOn/OnTurnOff overrides that chain to EntityPart, so it reads true for
+        // every unit that is simply present in the game. Using it made both this executor and
+        // BubbleBuff.ValidateActivatable treat Shifter's Fury as "already active" every single
+        // time, which is why the parent icon never did anything. HasFuryWeapon is the engine's
+        // own test: some per-weapon toggle is on AND its fury buff is applied.
         internal static bool IsEffectivelyOn(UnitEntityData caster, ActivatableAbility candidate) {
             if (candidate?.ConversionsProvider is ShiftersFury) {
                 var part = caster.Get<ShiftersFuryPart>();
-                return part != null && part.m_IsOn;
+                if (part == null || !part.HasFuryWeapon) return false;
+                // An explicit weapon pick is an instruction, not a hint: while a *different*
+                // weapon is running the entry counts as unsatisfied, so the routine switches it
+                // over. Without a pick (Auto) any running weapon counts, which leaves a manual
+                // in-game choice alone. GetBindingFuryPreference drops picks for weapons the
+                // shifter no longer has, so this can never disagree with ResolveActivationTarget
+                // and re-activate on every single run.
+                var weapons = GetFuryWeapons(caster);
+                var weaponGuid = GetBindingFuryPreference(caster, weapons);
+                if (weaponGuid == null) return true;
+                return weapons.Any(w => w.IsOn && GetFuryWeaponBlueprint(w)?.AssetGuid.ToString() == weaponGuid);
             }
             if (candidate == null) return false;
             // Targeted toggles (the stock Mount toggle): bare IsOn can be a wedged
@@ -415,6 +513,7 @@ namespace BuffIt2TheLimit {
                         }
 
                         Main.Verbose($"Activating: {actBuff.Name} on {caster.CharacterName}");
+                        ClearConflictingFuryWeapons(caster, target);
                         target.IsOn = true;
                         if (!target.IsStarted)
                             target.TryStart();
@@ -819,6 +918,7 @@ namespace BuffIt2TheLimit {
 
                         string targetLabel = ReferenceEquals(target, activatable) ? actBuff.Name : $"{actBuff.Name} → {target.Blueprint.Name}";
                         Main.Log($"[CSD] Phase0 activate '{targetLabel}' on {caster.CharacterName}");
+                        ClearConflictingFuryWeapons(caster, target);
                         target.IsOn = true;
                         if (!target.IsStarted)
                             target.TryStart();

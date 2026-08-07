@@ -65,6 +65,9 @@
   "caster.mount": "首选坐骑",
   "caster.mount.auto": "自动",
   "caster.mount-tooltip": "当该角色有多个可骑乘的宠物时显示（例如动物伙伴和长大的 Aivu）——此时 Saddle Up 无法自行选择。在此选择要骑乘的宠物；自动仅在只有一个合适宠物时才会骑乘。",
+  "caster.fury": "首选 Fury 武器",
+  "caster.fury.auto": "自动",
+  "caster.fury-tooltip": "当 Shifter's Fury 有多种自然武器可选时显示（例如噬咬和爪击）。在此选择例程应启用的武器；自动会沿用游戏自身的上次选择。休息会重建武器列表并关闭 Shifter's Fury——只有保存了选择，例程才能自行重新启用它。",
 
   "remove-all": "从全部移除",
   "add-all": "添加到全部",

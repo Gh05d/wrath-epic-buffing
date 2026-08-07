@@ -43,6 +43,7 @@ using Kingmaker.Localization;
 using Kingmaker.Localization.Shared;
 using DG.Tweening;
 using Kingmaker.Blueprints.Items.Equipment;
+using Kingmaker.Blueprints.Items.Weapons;
 using Owlcat.Runtime.UI.Tooltips;
 using Kingmaker.UI.Models.Log.CombatLog_ThreadSystem;
 using Kingmaker.UI.Models.Log.CombatLog_ThreadSystem.LogThreads.Common;
@@ -1830,6 +1831,17 @@ namespace BuffIt2TheLimit {
             TooltipHelper.SetTooltip(mountPrefLabelText, new TooltipTemplateSimple(
                 "caster.mount".i8(), "caster.mount-tooltip".i8()));
 
+            // Preferred natural weapon for the Shifter's Fury toggle — shown only when the
+            // shifter actually wields several weapon kinds. Same −/+ row, cycling
+            // Auto → weapon 1 → weapon 2 → …
+            var furyPrefRow = MakeLabel("  " + "caster.fury".i8());
+            var furyPrefLabelText = furyPrefRow.GetComponentInChildren<TextMeshProUGUI>();
+            var (prevFuryPref, furyPrefValueText, nextFuryPref) = MakeRankRow(furyPrefRow);
+            furyPrefRow.transform.SetSiblingIndex(capRowIndex + 4);
+            furyPrefLabelText.raycastTarget = true;
+            TooltipHelper.SetTooltip(furyPrefLabelText, new TooltipTemplateSimple(
+                "caster.fury".i8(), "caster.fury-tooltip".i8()));
+
             int GetGlobalRank(string unitId) {
                 var ranks = state.SavedState.CasterRanks;
                 return ranks != null && ranks.TryGetValue(unitId, out var r) ? r : 0;
@@ -1907,6 +1919,30 @@ namespace BuffIt2TheLimit {
 
             prevMountPref.OnLeftClick.AddListener(() => CycleMountPref(-1));
             nextMountPref.OnLeftClick.AddListener(() => CycleMountPref(1));
+
+            // Same shape as CycleMountPref, keyed by weapon blueprint instead of pet id — see
+            // SavedState.FuryWeaponPreference for why an index would not survive a rest.
+            void CycleFuryPref(int direction) {
+                if (!TryGetSelectedProvider(out _, out var caster)) return;
+                var shifter = caster.who;
+                var choices = BuffExecutor.GetFuryWeaponChoices(shifter);
+                if (choices.Count < 2) return;
+                var prefs = state.SavedState.FuryWeaponPreference ??= new Dictionary<string, string>();
+                int current = prefs.TryGetValue(shifter.UniqueId, out var weaponGuid)
+                    ? choices.FindIndex(w => w.AssetGuid.ToString() == weaponGuid) + 1
+                    : 0;
+                int optionCount = choices.Count + 1;
+                int next = (current + direction + optionCount) % optionCount;
+                if (next == 0)
+                    prefs.Remove(shifter.UniqueId); // only explicit choices stored
+                else
+                    prefs[shifter.UniqueId] = choices[next - 1].AssetGuid.ToString();
+                state.Save(true);
+                UpdateDetailsView();
+            }
+
+            prevFuryPref.OnLeftClick.AddListener(() => CycleFuryPref(-1));
+            nextFuryPref.OnLeftClick.AddListener(() => CycleFuryPref(1));
 
             // Stale-index-safe accessor for popout listeners: SelectedCaster is a raw
             // CasterQueue index, and the queue can rebuild/shrink while the popout stays
@@ -2533,6 +2569,31 @@ namespace BuffIt2TheLimit {
                         }
                     }
 
+                    // Shifter's Fury weapon preference — only for the fury parent toggle, and
+                    // only when the shifter wields more than one weapon kind to choose from.
+                    var furyActivatable = who.ActivatableSource ?? buff.ActivatableSource;
+                    bool furyPickerApplies = furyActivatable?.ConversionsProvider is ShiftersFury;
+                    List<BlueprintItemWeapon> furyChoices = null;
+                    if (furyPickerApplies) {
+                        furyChoices = BuffExecutor.GetFuryWeaponChoices(who.who);
+                        furyPickerApplies = furyChoices.Count >= 2;
+                    }
+                    furyPrefRow.SetActive(furyPickerApplies);
+                    if (furyPickerApplies) {
+                        BlueprintItemWeapon chosenWeapon = null;
+                        var prefs = state.SavedState.FuryWeaponPreference;
+                        if (prefs != null && prefs.TryGetValue(who.who.UniqueId, out var weaponGuid))
+                            chosenWeapon = furyChoices.FirstOrDefault(w => w.AssetGuid.ToString() == weaponGuid);
+                        if (chosenWeapon != null) {
+                            furyPrefValueText.text = chosenWeapon.Name;
+                            furyPrefValueText.color = defaultLabelColor;
+                        } else {
+                            // Auto (or a weapon that is no longer wielded) — de-emphasized.
+                            furyPrefValueText.text = "caster.fury.auto".i8();
+                            furyPrefValueText.color = Color.gray;
+                        }
+                    }
+
                     // The row toggles above change the popout height, and this runs after
                     // the expand handler placed it — re-place so a tall popout still fits.
                     PlaceCasterPopout(casterPopout, casterPopoutAnchor);
@@ -2543,6 +2604,7 @@ namespace BuffIt2TheLimit {
                     providerRow.SetActive(false);
                     banAllRow.SetActive(false);
                     mountPrefRow.SetActive(false);
+                    furyPrefRow.SetActive(false);
                 }
 
             };
@@ -4348,7 +4410,11 @@ namespace BuffIt2TheLimit {
                     Main.Log($"Round limit reached for {buff.Name}: {timePassed:F1}s elapsed (limit={buff.DeactivateAfterRounds} rounds = {limitSeconds:F0}s), deactivating");
                     foreach (var provider in buff.CasterQueue) {
                         var src = provider.ActivatableSource ?? buff.ActivatableSource;
-                        if (src != null && src.IsOn) src.IsOn = false;
+                        // Via the resolver: an ActivationDisable-locked parent (Shifter's Fury)
+                        // is never itself IsOn, so a direct src.IsOn = false would be a no-op
+                        // and the toggle would outlive its round limit.
+                        foreach (var target in BuffExecutor.ResolveDeactivationTargets(provider.who, src))
+                            target.IsOn = false;
                     }
                     toRemove.Add(guid);
                 }

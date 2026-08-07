@@ -66,6 +66,9 @@
   "caster.mount": "Bevorzugter Mount",
   "caster.mount.auto": "Auto",
   "caster.mount-tooltip": "Erscheint, wenn mehrere Pets dieses Charakters reitbar sind (z.B. Animal Companion und ausgewachsene Aivu) — Saddle Up kann dann nicht selbst entscheiden. Hier das Pet wählen, das geritten werden soll; Auto sitzt nur auf, wenn genau ein Pet in Frage kommt.",
+  "caster.fury": "Bevorzugte Fury-Waffe",
+  "caster.fury.auto": "Auto",
+  "caster.fury-tooltip": "Erscheint, wenn Shifter's Fury mehr als eine Natural Weapon zur Auswahl hat (z.B. Bite und Claws). Hier die Waffe wählen, die die Routine aktivieren soll; Auto übernimmt die letzte Wahl des Spiels. Beim Rasten baut das Spiel die Waffenliste neu auf und schaltet Shifter's Fury ab — erst eine gespeicherte Wahl lässt die Routine sie selbstständig wieder einschalten.",
 
   "remove-all": "Buff überall entfernen",
   "add-all": "Buff überall einsetzen",

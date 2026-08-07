@@ -65,6 +65,9 @@
   "caster.mount": "Monture préférée",
   "caster.mount.auto": "Auto",
   "caster.mount-tooltip": "Affiché quand plusieurs compagnons de ce personnage peuvent être chevauchés (p. ex. un compagnon animal et Aivu adulte) — Saddle Up ne peut alors pas choisir seul. Choisissez ici la monture ; Auto ne monte que lorsqu'un seul compagnon convient.",
+  "caster.fury": "Arme de fury préférée",
+  "caster.fury.auto": "Auto",
+  "caster.fury-tooltip": "Affiché quand Shifter's Fury propose plusieurs armes naturelles (p. ex. morsure et griffes). Choisissez ici l'arme que la routine doit activer ; Auto reprend le dernier choix du jeu. Le repos reconstruit la liste d'armes et désactive Shifter's Fury — seul un choix enregistré permet à la routine de la réactiver seule.",
 
   "remove-all": "Enlevé pour tous",
   "add-all": "Ajouté pour tous",

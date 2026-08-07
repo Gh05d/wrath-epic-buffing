@@ -65,6 +65,9 @@
   "caster.mount": "Preferred mount",
   "caster.mount.auto": "Auto",
   "caster.mount-tooltip": "Shown when several of this character's pets are rideable (e.g. an animal companion and a grown Aivu) — Saddle Up cannot decide on its own then. Pick the pet to mount here; Auto only mounts when a single pet is suitable.",
+  "caster.fury": "Preferred fury weapon",
+  "caster.fury.auto": "Auto",
+  "caster.fury-tooltip": "Shown when Shifter's Fury has more than one natural weapon to pick from (e.g. bite and claws). Choose the weapon the routine should enable here; Auto reuses the game's own last pick. Resting rebuilds the shifter's weapon list and switches Shifter's Fury off, so a saved pick is what lets the routine bring it back on its own.",
 
   "remove-all": "Remove from all",
   "add-all": "Add to all",

@@ -53,6 +53,13 @@ namespace BuffIt2TheLimit {
         // candidate.
         public Dictionary<string, string> MountPreference = new();
         [JsonProperty]
+        // Preferred Shifter's Fury weapon per unit UniqueId → weapon blueprint GUID.
+        // Keyed by blueprint rather than by ShiftersFuryPart.AppliedFacts index because
+        // that list is destroyed and rebuilt (all entries off, selection lost) on every
+        // equipment or polymorph change — an index would silently point at another limb.
+        // No entry = auto, which falls back to the game's own last pick.
+        public Dictionary<string, string> FuryWeaponPreference = new();
+        [JsonProperty]
         public int UmdRetries = 3;
         [JsonProperty]
         public UmdMode UmdMode = UmdMode.AllowIfPossible;
