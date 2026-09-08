@@ -635,8 +635,6 @@ namespace BuffIt2TheLimit {
                         view.addToAll.SetActive(true);
                         view.removeFromAll.SetActive(true);
 
-                        //float actualWidth = (buff.CasterQueue.Count - 1) * castersHolder.GetComponent<HorizontalLayoutGroup>().spacing;
-                        //(castersHolder.transform as RectTransform).anchoredPosition = new Vector2(-actualWidth / 2.0f, 0);
                         view.Update();
                     } else {
                         currentSpellView.SetActive(false);
@@ -2278,17 +2276,36 @@ namespace BuffIt2TheLimit {
             });
 
             const float groupHeight = 90f;
-            var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", castersSection.transform);
-            view.castersHolder = groupHolder;
-            castersRect.SetParent(castersSection.transform, false);
+            // Scrollable since v1.21.1: with a ToyBox-enlarged party (and scrolls/potions making
+            // nearly everyone a provider) the row overflowed the details panel on both sides and the
+            // outer casters' expand buttons were unreachable. Vertical bleed keeps the "12/12"
+            // labels hanging below the portraits out of the mask.
+            var (castersScroll, castersViewport, casterScrollRect) = MakeHorizontalScroller("CastersScroll", castersSection.transform, verticalBleed: 40f);
+            castersScroll.offsetMin = new Vector2(0, 4);
+            castersScroll.offsetMax = new Vector2(0, -4);
+            view.castersHolder = castersScroll.gameObject;
+            view.castersScroll = casterScrollRect;
+            // The popout is a Root-level overlay placed from the portrait's world position; keep it
+            // glued to the portrait while the row scrolls (onValueChanged also fires on bounds
+            // changes, and re-placing is idempotent, so no guard beyond "is it open" is needed).
+            casterScrollRect.onValueChanged.AddListener(_ => {
+                if (casterPopout != null && casterPopout.activeSelf)
+                    PlaceCasterPopout(casterPopout, casterPopoutAnchor);
+            });
+
+            var (groupHolder, castersRect) = UIHelpers.Create("CastersHolder", castersViewport);
             groupHolder.MakeComponent<ContentSizeFitter>(f => {
                 f.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             });
+            // Centre anchor + centre pivot: ScrollRect.UpdateBounds pads content smaller than the
+            // viewport around the pivot, so a short row stays centred (as before) while a long row
+            // scrolls. A pivot of 0 would shove short rows to the left edge.
             castersRect.anchorMin = new Vector2(0.5f, 0f);
             castersRect.anchorMax = new Vector2(0.5f, 1f);
             castersRect.pivot = new Vector2(0.5f, 0.5f);
-            castersRect.offsetMin = new Vector2(0, 4);
-            castersRect.offsetMax = new Vector2(0, -4);
+            castersRect.offsetMin = Vector2.zero;
+            castersRect.offsetMax = Vector2.zero;
+            casterScrollRect.content = castersRect;
 
             var horizontalGroup = groupHolder.AddComponent<HorizontalLayoutGroup>();
             horizontalGroup.spacing = 6;
@@ -2615,17 +2632,32 @@ namespace BuffIt2TheLimit {
         private GameObject currentSpellView;
         private SearchBar search;
 
-        private void MakeGroupHolder(GameObject portraitPrefab, GameObject expandButtonPrefab, GameObject buttonPrefab, Transform content) {
-            // ScrollRect viewport
-            var scrollObj = new GameObject("PortraitScroll", typeof(RectTransform));
+        /// <summary>
+        /// Horizontal ScrollRect + viewport (RectMask2D) + AutoHide scrollbar for a portrait row.
+        /// The caller parents its row container under the returned viewport and assigns
+        /// <c>scroll.content</c>. AutoHide keeps the common small-party case pixel-identical (no bar)
+        /// and only surfaces the draggable handle when the row overflows the visible width.
+        /// The bar is overlaid on the bottom edge so it costs no portrait height when hidden.
+        /// </summary>
+        /// <param name="verticalBleed">Extra height (each side) the viewport extends past the scroller so
+        /// portrait decorations hanging outside the row (caster "12/12" labels) are not clipped by the
+        /// mask. Only horizontal scrolling is enabled, so a taller viewport is harmless.</param>
+        private static (RectTransform scrollRect, RectTransform viewport, ScrollRect scroll) MakeHorizontalScroller(string name, Transform parent, float verticalBleed = 0f) {
+            // Full-stretch by default; callers adjust anchors/offsets on the returned rect.
+            var scrollObj = new GameObject(name, typeof(RectTransform));
             var scrollRect = scrollObj.GetComponent<RectTransform>();
-            scrollRect.AddTo(content);
+            scrollRect.SetParent(parent, false);
+            scrollRect.anchorMin = Vector2.zero;
+            scrollRect.anchorMax = Vector2.one;
+            scrollRect.offsetMin = Vector2.zero;
+            scrollRect.offsetMax = Vector2.zero;
 
-            scrollRect.anchorMin = new Vector2(0.25f, 0f);
-            scrollRect.anchorMax = new Vector2(1f, 1f);
-            scrollRect.pivot = new Vector2(0.5f, 0.5f);
-            scrollRect.offsetMin = new Vector2(2, 4);
-            scrollRect.offsetMax = new Vector2(-4, -4);
+            // Wheel events need a raycast target. It lives on the un-bled root, NOT on the viewport:
+            // a bled viewport would extend an invisible click-eating Image into the neighbouring
+            // sections (later sibling wins the raycast — same class as the v1.20.2 header-band bug).
+            var scrollImage = scrollObj.AddComponent<Image>();
+            scrollImage.color = Color.clear;
+            scrollImage.raycastTarget = true;
 
             var scroll = scrollObj.AddComponent<ScrollRect>();
             scroll.horizontal = true;
@@ -2633,22 +2665,76 @@ namespace BuffIt2TheLimit {
             scroll.movementType = ScrollRect.MovementType.Clamped;
             scroll.scrollSensitivity = 30f;
 
-            // Viewport with mask
+            // Viewport with mask. RectMask2D (not Mask): a Mask needs a Graphic with alpha to write
+            // the stencil — see gotchas-ui.md.
             var viewportObj = new GameObject("Viewport", typeof(RectTransform));
             var viewportRect = viewportObj.GetComponent<RectTransform>();
             viewportRect.SetParent(scrollRect, false);
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
-            viewportRect.offsetMin = Vector2.zero;
-            viewportRect.offsetMax = Vector2.zero;
+            viewportRect.offsetMin = new Vector2(0f, -verticalBleed);
+            viewportRect.offsetMax = new Vector2(0f, verticalBleed);
             viewportObj.AddComponent<RectMask2D>();
-            var viewportImage = viewportObj.AddComponent<Image>();
-            viewportImage.color = Color.clear;
-            viewportImage.raycastTarget = true;
 
             scroll.viewport = viewportRect;
 
-            // Content container (HorizontalLayoutGroup)
+            const float scrollbarHeight = 10f;
+
+            var scrollbarObj = new GameObject(name + "bar", typeof(RectTransform));
+            var scrollbarRect = scrollbarObj.GetComponent<RectTransform>();
+            scrollbarRect.SetParent(scrollRect, false);
+            scrollbarRect.anchorMin = new Vector2(0f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 0f);
+            scrollbarRect.pivot = new Vector2(0.5f, 0f);
+            scrollbarRect.sizeDelta = new Vector2(0f, scrollbarHeight);
+            scrollbarRect.anchoredPosition = Vector2.zero;
+
+            var scrollbarBg = scrollbarObj.AddComponent<Image>();
+            scrollbarBg.color = new Color(0f, 0f, 0f, 0.6f);
+            scrollbarBg.raycastTarget = true;
+
+            var scrollbar = scrollbarObj.AddComponent<Scrollbar>();
+            scrollbar.direction = Scrollbar.Direction.LeftToRight;
+            scrollbar.numberOfSteps = 0;
+
+            var slidingArea = new GameObject("Sliding Area", typeof(RectTransform));
+            var slidingRect = slidingArea.GetComponent<RectTransform>();
+            slidingRect.SetParent(scrollbarRect, false);
+            slidingRect.anchorMin = Vector2.zero;
+            slidingRect.anchorMax = Vector2.one;
+            slidingRect.offsetMin = Vector2.zero;
+            slidingRect.offsetMax = Vector2.zero;
+
+            var handleObj = new GameObject("Handle", typeof(RectTransform));
+            var handleRect = handleObj.GetComponent<RectTransform>();
+            handleRect.SetParent(slidingRect, false);
+            handleRect.offsetMin = Vector2.zero;
+            handleRect.offsetMax = Vector2.zero;
+
+            // Parchment-ish handle at high alpha: the previous 50% white on 35% black was easy to
+            // miss on the dark portrait row (Nexus report: "portraits run off the right side").
+            var handleImage = handleObj.AddComponent<Image>();
+            handleImage.color = new Color(0.93f, 0.85f, 0.65f, 0.9f);
+            handleImage.raycastTarget = true;
+
+            scrollbar.handleRect = handleRect;
+            scrollbar.targetGraphic = handleImage;
+
+            scroll.horizontalScrollbar = scrollbar;
+            scroll.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            return (scrollRect, viewportRect, scroll);
+        }
+
+        private void MakeGroupHolder(GameObject portraitPrefab, GameObject expandButtonPrefab, GameObject buttonPrefab, Transform content) {
+            var (scrollRect, viewportRect, scroll) = MakeHorizontalScroller("PortraitScroll", content);
+            scrollRect.anchorMin = new Vector2(0.25f, 0f);
+            scrollRect.anchorMax = new Vector2(1f, 1f);
+            scrollRect.offsetMin = new Vector2(2, 4);
+            scrollRect.offsetMax = new Vector2(-4, -4);
+
+            // Content container (HorizontalLayoutGroup), left-aligned: pivot 0 keeps a short row at
+            // the left edge and lets a long one scroll rightwards.
             var groupHolder = new GameObject("GroupHolder", typeof(RectTransform));
             var groupRect = groupHolder.GetComponent<RectTransform>();
             groupRect.SetParent(viewportRect, false);
@@ -2673,53 +2759,6 @@ namespace BuffIt2TheLimit {
             contentFitter.verticalFit = ContentSizeFitter.FitMode.Unconstrained;
 
             scroll.content = groupRect;
-
-            // Horizontal scrollbar — AutoHide keeps the common small-party case pixel-identical
-            // (no bar, full portrait height) and only surfaces a draggable handle when the roster
-            // overflows the visible width (e.g. all recruited companions in town via Show Reserve).
-            // Overlaid on the bottom edge of the row so it costs no portrait height when hidden.
-            const float scrollbarHeight = 9f;
-
-            var scrollbarObj = new GameObject("PortraitScrollbar", typeof(RectTransform));
-            var scrollbarRect = scrollbarObj.GetComponent<RectTransform>();
-            scrollbarRect.SetParent(scrollRect, false);
-            scrollbarRect.anchorMin = new Vector2(0f, 0f);
-            scrollbarRect.anchorMax = new Vector2(1f, 0f);
-            scrollbarRect.pivot = new Vector2(0.5f, 0f);
-            scrollbarRect.sizeDelta = new Vector2(0f, scrollbarHeight);
-            scrollbarRect.anchoredPosition = Vector2.zero;
-
-            var scrollbarBg = scrollbarObj.AddComponent<Image>();
-            scrollbarBg.color = new Color(0f, 0f, 0f, 0.35f);
-            scrollbarBg.raycastTarget = true;
-
-            var scrollbar = scrollbarObj.AddComponent<Scrollbar>();
-            scrollbar.direction = Scrollbar.Direction.LeftToRight;
-            scrollbar.numberOfSteps = 0;
-
-            var slidingArea = new GameObject("Sliding Area", typeof(RectTransform));
-            var slidingRect = slidingArea.GetComponent<RectTransform>();
-            slidingRect.SetParent(scrollbarRect, false);
-            slidingRect.anchorMin = Vector2.zero;
-            slidingRect.anchorMax = Vector2.one;
-            slidingRect.offsetMin = Vector2.zero;
-            slidingRect.offsetMax = Vector2.zero;
-
-            var handleObj = new GameObject("Handle", typeof(RectTransform));
-            var handleRect = handleObj.GetComponent<RectTransform>();
-            handleRect.SetParent(slidingRect, false);
-            handleRect.offsetMin = Vector2.zero;
-            handleRect.offsetMax = Vector2.zero;
-
-            var handleImage = handleObj.AddComponent<Image>();
-            handleImage.color = new Color(1f, 1f, 1f, 0.5f);
-            handleImage.raycastTarget = true;
-
-            scrollbar.handleRect = handleRect;
-            scrollbar.targetGraphic = handleImage;
-
-            scroll.horizontalScrollbar = scrollbar;
-            scroll.horizontalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
 
             view.targets = new Portrait[Bubble.ConfigGroup.Count];
 
@@ -3806,6 +3845,7 @@ namespace BuffIt2TheLimit {
         public Portrait[] casterPortraits;
         public int[] casterPortraitMap;
         public GameObject castersHolder;
+        public ScrollRect castersScroll;
         public TextMeshProUGUI selfCastInfoLabel;
 
         public GameObject listPrefab;
@@ -4171,6 +4211,12 @@ namespace BuffIt2TheLimit {
                     }
                 }
             }
+            // Start an overflowing row at its left edge (caster #1 = highest priority) instead of
+            // the centred middle slice, and drop a scroll offset carried over from the previous
+            // buff. The setter forces a layout rebuild first, and for a short (padded) row it
+            // resolves to anchoredPosition 0, i.e. still centred.
+            if (castersScroll != null && distinctCasters.Count > 0)
+                castersScroll.horizontalNormalizedPosition = 0f;
             addToAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested != Bubble.ConfigGroup.Count;
             removeFromAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested > 0;
         }
