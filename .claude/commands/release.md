@@ -209,10 +209,14 @@ Reihenfolge ist wichtig — Code erst pushen, dann taggen:
 
 ## Schritt 8: Abschluss
 
-Prüfe ob die GitHub Action für den Nexus-Upload erfolgreich war:
+Prüfe ob die GitHub Action für den Nexus-Upload erfolgreich war. `gh run list` direkt nach `gh release create` trifft den Run oft noch als `in_progress` oder den Vorgänger-Run (und rtk kürzt die Ausgabe auf eine Zeile) — stattdessen pollen und die Steps prüfen:
 ```
-gh run list --repo Gh05d/wrath-epic-buffing --limit 1
+export HTTPS_PROXY= HTTP_PROXY= NO_PROXY='*'
+for i in $(seq 1 24); do out=$(rtk proxy gh api repos/Gh05d/wrath-epic-buffing/actions/runs --jq '.workflow_runs[0] | {id,status,conclusion,event,head_branch}'); echo "$out" | grep -q '"completed"' && break; sleep 10; done; echo "$out"
+id=$(echo "$out" | grep -oP '"id":\K[0-9]+')
+rtk proxy gh api repos/Gh05d/wrath-epic-buffing/actions/runs/$id/jobs --jq '.jobs[] | {name, conclusion, steps: [.steps[] | {name,conclusion}]}'
 ```
+Erfolg = `event: release`, `head_branch: vX.Y.Z` UND Step „Upload to Nexus Mods" auf `success` (Run-Conclusion allein reicht nicht).
 
 Zeige dem User die Zusammenfassung:
 

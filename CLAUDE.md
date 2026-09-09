@@ -40,6 +40,7 @@ Use `/release` skill to handle this automatically.
 
 - `docs/` ist gitignored, aber Specs/Pläne/Nexus-Assets darunter sind getrackt (historisch force-added) — **jeder** `git add` unter `docs/` braucht `-f`, auch für bereits getrackte Dateien (git verweigert sonst mit „paths are ignored").
 - `.superpowers/sdd/progress.md` (SDD-Ledger) überlebt Feature-Runs: vor Vertrauen die Commit-SHAs gegen `git log` prüfen — ein stale Ledger des Vorgänger-Features behauptet sonst „alle Tasks complete". Bei neuem Plan: Header neu schreiben.
+- Nexus-Antwort-Entwürfe nach `docs/nexus-reply-<topic>.txt` schreiben (`git add -f`), nicht nur ins Scratchpad — das überlebt Compaction nicht zuverlässig, und wiederkehrende Reports brauchen die Vorlage erneut.
 
 ## Localization
 
