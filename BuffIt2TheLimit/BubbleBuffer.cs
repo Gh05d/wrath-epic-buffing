@@ -4414,14 +4414,31 @@ namespace BuffIt2TheLimit {
         }
     }
 
-    internal class RoundLimitHandler : IPartyCombatHandler {
-        private const float SecondsPerRound = 6f;
-        private readonly Dictionary<BlueprintGuid, float> activationTimes = new();
+    // Countdowns run on game time, in and out of combat: a toggle without
+    // DeactivateIfCombatEnded (Blazing Rondo) keeps running — and spending performance rounds,
+    // ActivatableAbilityResourceLogic.OnNewRound has no combat check — after a fight that ended
+    // before the limit, so the limit has to be able to fire outside combat too.
+    internal class RoundLimitHandler : IAreaActivationHandler {
+        private const double SecondsPerRound = 6.0;
+        // Keyed per performer, not per blueprint: two party members running the same toggle
+        // each get their own countdown instead of the later activation resetting (and the
+        // expiry switching off) both. Double, not float: Player.GameTime counts the whole
+        // campaign, and a float of 10^7+ seconds only resolves whole seconds or worse.
+        private readonly Dictionary<(string UnitId, BlueprintGuid Guid), double> activationTimes = new();
 
-        public void TrackActivation(BlueprintGuid guid) {
-            float gameTime = (float)Game.Instance.Player.GameTime.TotalSeconds;
-            Main.Verbose($"[RoundLimit] TrackActivation: guid={guid}, gameTime={gameTime:F1}s");
-            activationTimes[guid] = gameTime;
+        public void TrackActivation(UnitEntityData caster, BlueprintGuid guid) {
+            if (caster == null) return;
+            double gameTime = Game.Instance.Player.GameTime.TotalSeconds;
+            Main.Verbose($"[RoundLimit] TrackActivation: {caster.CharacterName} guid={guid}, gameTime={gameTime:F1}s");
+            activationTimes[(caster.UniqueId, guid)] = gameTime;
+        }
+
+        // For a toggle found already running: keeps a countdown that is still going (a short
+        // combat gap must not restart it) and only starts one when there is none.
+        public bool TrackIfUntracked(UnitEntityData caster, BlueprintGuid guid) {
+            if (caster == null || activationTimes.ContainsKey((caster.UniqueId, guid))) return false;
+            TrackActivation(caster, guid);
+            return true;
         }
 
         /// <summary>
@@ -4430,51 +4447,57 @@ namespace BuffIt2TheLimit {
         /// </summary>
         public void Tick() {
             if (activationTimes.Count == 0) return;
-            if (!Game.Instance.Player.IsInCombat) return;
 
-            float gameTime = (float)Game.Instance.Player.GameTime.TotalSeconds;
+            double gameTime = Game.Instance.Player.GameTime.TotalSeconds;
 
             var controller = GlobalBubbleBuffer.Instance?.SpellbookController;
             if (controller?.state?.BuffList == null) return;
 
-            var toRemove = new List<BlueprintGuid>();
+            var toRemove = new List<(string, BlueprintGuid)>();
             foreach (var kvp in activationTimes) {
-                var guid = kvp.Key;
-                var activatedAt = kvp.Value;
-                float timePassed = gameTime - activatedAt;
+                var (unitId, guid) = kvp.Key;
+                double timePassed = gameTime - kvp.Value;
 
                 var buff = controller.state.BuffList.FirstOrDefault(b =>
                     b.IsActivatable && b.ActivatableSource?.Blueprint.AssetGuid == guid);
+                var provider = buff?.CasterQueue.FirstOrDefault(p => p.who?.UniqueId == unitId);
 
-                if (buff == null || buff.ActivatableSource == null) {
-                    toRemove.Add(guid);
+                if (buff == null || provider == null || buff.DeactivateAfterRounds <= 0 || timePassed < 0) {
+                    toRemove.Add(kvp.Key);
                     continue;
                 }
 
-                float limitSeconds = buff.DeactivateAfterRounds * SecondsPerRound;
-                if (buff.DeactivateAfterRounds > 0 && timePassed >= limitSeconds) {
-                    Main.Log($"Round limit reached for {buff.Name}: {timePassed:F1}s elapsed (limit={buff.DeactivateAfterRounds} rounds = {limitSeconds:F0}s), deactivating");
-                    foreach (var provider in buff.CasterQueue) {
-                        var src = provider.ActivatableSource ?? buff.ActivatableSource;
-                        // Via the resolver: an ActivationDisable-locked parent (Shifter's Fury)
-                        // is never itself IsOn, so a direct src.IsOn = false would be a no-op
-                        // and the toggle would outlive its round limit.
-                        foreach (var target in BuffExecutor.ResolveDeactivationTargets(provider.who, src))
-                            target.IsOn = false;
-                    }
-                    toRemove.Add(guid);
+                // Via the resolver: an ActivationDisable-locked parent (Shifter's Fury)
+                // is never itself IsOn, so a direct src.IsOn = false would be a no-op
+                // and the toggle would outlive its round limit.
+                var src = provider.ActivatableSource ?? buff.ActivatableSource;
+                var running = BuffExecutor.ResolveDeactivationTargets(provider.who, src).ToList();
+                // Already off (engine combat-end stop, rest, manual toggle): drop the countdown,
+                // otherwise it would later switch off a run the player started by hand.
+                if (running.Count == 0) {
+                    toRemove.Add(kvp.Key);
+                    continue;
+                }
+
+                double limitSeconds = buff.DeactivateAfterRounds * SecondsPerRound;
+                if (timePassed >= limitSeconds) {
+                    Main.Log($"Round limit reached for {buff.Name} on {provider.who.CharacterName}: {timePassed:F1}s elapsed (limit={buff.DeactivateAfterRounds} rounds = {limitSeconds:F0}s), deactivating");
+                    foreach (var target in running)
+                        target.IsOn = false;
+                    toRemove.Add(kvp.Key);
                 }
             }
 
-            foreach (var guid in toRemove) {
-                activationTimes.Remove(guid);
+            foreach (var key in toRemove) {
+                activationTimes.Remove(key);
             }
         }
 
-        public void HandlePartyCombatStateChanged(bool inCombat) {
-            if (!inCombat) {
-                activationTimes.Clear();
-            }
+        // Game time belongs to the loaded save: after a load or area change the stored
+        // timestamps are meaningless. A song still running is picked up again by the next
+        // combat start (Phase 0a in ExecuteCombatStart).
+        public void OnAreaActivated() {
+            activationTimes.Clear();
         }
     }
 

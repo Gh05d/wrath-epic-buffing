@@ -500,7 +500,7 @@ namespace BuffIt2TheLimit {
                                 case MountResult.Mounted:
                                     Main.Verbose($"Activatable {actBuff.Name}: mounted {caster.CharacterName} on {mount.CharacterName}");
                                     if (actBuff.DeactivateAfterRounds > 0)
-                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
+                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                                     break;
                                 case MountResult.NoCandidate:
                                     Main.Log($"Activatable {actBuff.Name}: no suitable mount for {caster.CharacterName} (needs their own conscious pet of larger size in the party)");
@@ -518,7 +518,7 @@ namespace BuffIt2TheLimit {
                         if (!target.IsStarted)
                             target.TryStart();
                         if (actBuff.DeactivateAfterRounds > 0)
-                            GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
+                            GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                     } catch (Exception ex) {
                         Main.Error(ex, $"activating {actBuff.Name}");
                     }
@@ -838,6 +838,20 @@ namespace BuffIt2TheLimit {
                 }
             }
 
+            // Phase 0a: Round limits for toggles that are already running at combat start.
+            // Validation counts them as satisfied, so they never reach the activation loop
+            // below and would get no countdown: a song started by hand, or one whose countdown
+            // was dropped by an area change. A countdown still going from our own activation
+            // (song outlived a short combat gap) is kept, not restarted.
+            foreach (var actBuff in combatStartBuffs.Where(b => b.IsActivatable && b.DeactivateAfterRounds > 0)) {
+                foreach (var provider in actBuff.AlreadyOnQueue) {
+                    var activatable = provider.ActivatableSource ?? actBuff.ActivatableSource;
+                    if (activatable == null || provider.who == null) continue;
+                    if (GlobalBubbleBuffer.RoundLimitWatcher?.TrackIfUntracked(provider.who, activatable.Blueprint.AssetGuid) == true)
+                        Main.Log($"[CSD] Phase0 '{actBuff.Name}' already on for {provider.who.CharacterName} — round limit ({actBuff.DeactivateAfterRounds}) starts now");
+                }
+            }
+
             // Phase 0: Activate activatable abilities marked for combat start
             int activatablesActivated = 0;
             foreach (var actBuff in combatStartBuffs
@@ -904,7 +918,7 @@ namespace BuffIt2TheLimit {
                                     Main.Log($"[CSD] Phase0 mounted {caster.CharacterName} on {mount.CharacterName} ('{actBuff.Name}')");
                                     activatablesActivated++;
                                     if (actBuff.DeactivateAfterRounds > 0)
-                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
+                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                                     break;
                                 case MountResult.NoCandidate:
                                     Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (no suitable mount: needs their own conscious pet of larger size in the party)");
@@ -924,7 +938,7 @@ namespace BuffIt2TheLimit {
                             target.TryStart();
                         activatablesActivated++;
                         if (actBuff.DeactivateAfterRounds > 0)
-                            GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(activatable.Blueprint.AssetGuid);
+                            GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                     } catch (Exception ex) {
                         Main.Error(ex, $"combat start: activating {actBuff.Name}");
                     }

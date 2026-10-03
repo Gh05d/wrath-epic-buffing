@@ -130,6 +130,10 @@ namespace BuffIt2TheLimit {
 
         public List<BuffProvider> CasterQueue = new();
         public List<(string, BuffProvider)> ActualCastQueue;
+        // Activatables only: providers whose toggle was already running and counted as
+        // satisfying this entry at validation time. They never enter ActualCastQueue, so the
+        // combat-start pass needs them separately to put a running song under its round limit.
+        public List<BuffProvider> AlreadyOnQueue = new();
 
         public Metamagic[] Metamagics;
 
@@ -463,6 +467,7 @@ namespace BuffIt2TheLimit {
 
         public void ValidateActivatable() {
             ActualCastQueue = new List<(string, BuffProvider)>();
+            AlreadyOnQueue = new List<BuffProvider>();
             if (CasterQueue.Count == 0) return;
 
             // Songs (Bardic / Azata Mythic Performance): one performer, mass effect on the party.
@@ -486,6 +491,7 @@ namespace BuffIt2TheLimit {
                     // An eligible performer already singing it satisfies the song — don't add a second.
                     if (src.IsOn) {
                         foreach (var target in wanted) given.Add(target);
+                        AlreadyOnQueue.Add(caster);
                         return;
                     }
                     if (performer == null && src.IsAvailable)
@@ -513,6 +519,8 @@ namespace BuffIt2TheLimit {
                 // mount branch can repair and complete it.
                 if (BuffExecutor.IsEffectivelyOn(caster.who, src)) {
                     given.Add(caster.who.UniqueId);
+                    // A banned provider's toggle was started by hand — keep the round limit off it.
+                    if (!caster.Banned) AlreadyOnQueue.Add(caster);
                     continue;
                 }
                 // Banned provider: don't auto-activate (mirrors the Song branch above).
