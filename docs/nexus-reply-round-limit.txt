@@ -1,0 +1,10 @@
+Thanks for the detailed report - the timing guess was close, and it pointed straight at the cause.
+
+Blazing Rondo, unlike the Skald's Inspired Rage, does not switch itself off when a fight ends. So when a fight ended before the round limit ran out, the Rondo kept going, and at the next combat start the mod saw it as "already active" and skipped it - including its round limit. That's why it got more likely the more fights you had played, and why raising the limit to 2 rounds seemed to help but didn't fix it.
+
+Fixed in 1.21.2:
+- Performances that are already running at combat start now get their round limit too.
+- The round limit also expires outside combat, so a song from a short fight no longer keeps burning performance rounds until the next encounter.
+- Each character now gets their own countdown.
+
+If you still see the Rondo outlast its limit on 1.21.2, let me know.
