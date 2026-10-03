@@ -4,7 +4,7 @@
 
 Buff It 2 The Limit (formerly BubbleBuffs) is a Unity mod for **Pathfinder: Wrath of the Righteous** that adds automated buff casting routines to the spellbook UI. Players configure which buffs to cast on which party members, then execute them with HUD buttons. Built with C#/.NET Framework 4.8.1, Harmony patches, and Unity UI. Distributed via [Nexus Mods](https://www.nexusmods.com/pathfinderwrathoftherighteous/mods/948).
 
-Shared build/deploy/Nexus/release rules: → parent `wrath-mods/CLAUDE.md` (§Common Build Setup, §Steam Deck Deployment, §Nexus Mods, §Release Process). Git remotes: `fork` = Gh05d (push here), `origin` = upstream (→ parent §Nexus Mods).
+Shared build/deploy/Nexus/release rules: → parent `pathfinder-mods/CLAUDE.md` (§Common Build Setup, §Steam Deck Deployment, §Nexus Mods, §Release Process). Git remotes: `fork` = Gh05d (push here), `origin` = upstream (→ parent §Nexus Mods).
 
 ## Build
 
@@ -12,7 +12,7 @@ Shared build/deploy/Nexus/release rules: → parent `wrath-mods/CLAUDE.md` (§Co
 ~/.dotnet/dotnet build BuffIt2TheLimit/BuffIt2TheLimit.csproj -p:SolutionDir=$(pwd)/
 ```
 
-Setup (`GamePath.props`, `GameInstall/`, publicizer): → parent §Common Build Setup. Output: `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` + assets copied to output dir; the build target also creates a zip for distribution.
+Setup (`GamePath.props`, `GameInstall/`, publicizer): → parent §Common Build Setup + `pathfinder-mods/wrath/CLAUDE.md` §Build specifics. Output: `BuffIt2TheLimit/bin/Debug/BuffIt2TheLimit.dll` + assets copied to output dir; the build target also creates a zip for distribution.
 
 **Release build** (for distribution — excludes debug keybinds):
 ```bash
