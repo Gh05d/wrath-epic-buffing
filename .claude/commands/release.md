@@ -51,9 +51,10 @@ Führe alle Checks aus, bevor du irgendetwas änderst.
 
 5. **Tag noch nicht vorhanden?**
    ```
-   git rev-parse "vX.Y.Z" 2>/dev/null
+   git tag -l "vX.Y.Z"
    ```
-   Existiert bereits: Abbruch mit „Fehler: Tag vX.Y.Z existiert bereits. Version prüfen."
+   (Nicht `git rev-parse` — das gibt den Namen auch bei fehlendem Tag auf stdout aus und scheitert nur per Exit-Code.)
+   Ausgabe nicht leer = Tag existiert bereits: Abbruch mit „Fehler: Tag vX.Y.Z existiert bereits. Version prüfen."
 
 ---
 
