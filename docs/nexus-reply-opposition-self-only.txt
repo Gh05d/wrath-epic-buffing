@@ -1,0 +1,3 @@
+Thanks for the report — found it. It isn't Mind Blank itself: Nenio is an Illusion specialist with Abjuration as an opposition school, so a prepared Mind Blank, Communal uses two spell slots. The mod caps Personal-range spells at one cast per routine and counted that cap in slots instead of casts, so the two-slot cast never fit. Manual casting skipped that check, which is why it worked by hand.
+
+Fixed in the next update (1.21.3). It also covers other Personal spells from a wizard's opposition school (e.g. Shield on Nenio).

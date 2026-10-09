@@ -195,6 +195,7 @@ namespace BuffIt2TheLimit {
                 who = provider,
                 spent = 0,
                 clamp = creditClamp,
+                SlotsPerCast = CreditsNeeded(spell),
                 book = book,
                 spell = spell,
                 baseSpell = baseSpell,
@@ -284,7 +285,7 @@ namespace BuffIt2TheLimit {
             return false;
         }
 
-        private int CreditsNeeded(AbilityData spell) {
+        internal static int CreditsNeeded(AbilityData spell) {
             if (spell.ConvertedFrom != null) {
                 return CreditsNeeded(spell.ConvertedFrom);
             }
@@ -649,6 +650,7 @@ namespace BuffIt2TheLimit {
         private IReactiveProperty<int> credits;
         public int spent;
         public int clamp;
+        public int SlotsPerCast = 1;
         public AbilityData spell;
         public int CharacterIndex;
         public BuffSourceType SourceType = BuffSourceType.Spell;
@@ -664,7 +666,10 @@ namespace BuffIt2TheLimit {
             });
         }
 
-        private int ClampValue => ShareTransmutation ? int.MaxValue : clamp;
+        // clamp counts casts (1 = self-only: one cast per routine), credits count slots. A prepared
+        // opposition-school spell costs 2 linked slots per cast, so the cap must scale with it —
+        // otherwise a self-only opposition spell (Nenio's Mind Blank, Communal) never fits.
+        private int ClampValue => ShareTransmutation || clamp == int.MaxValue ? int.MaxValue : clamp * SlotsPerCast;
 
         public int ClampCredits(int clamp, int value, int spent) {
             if (clamp < int.MaxValue)
