@@ -51,9 +51,32 @@ namespace BuffIt2TheLimit {
 
             Main.Verbose("Recalculating full state");
 
-            for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                UnitEntityData dude = Group[characterIndex];
-                Main.Verbose($"Looking at dude: ${dude.CharacterName}", "state");
+            // One party member whose data throws (mod-added unit, stale fact from a removed
+            // mod, ...) must not take the rest of the party down with it: every scan below
+            // runs per unit inside this guard, so the failure stays local to that unit and
+            // the Player.log names them (Nexus report: 7+ units, only the first few scanned).
+            // A unit broken enough to throw in a scan may throw on CharacterName too — never
+            // let the catch handler itself escape.
+            var unitsWithStackTrace = new HashSet<int>();
+            void ForEachDude(string what, Action<UnitEntityData, int> body) {
+                for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
+                    UnitEntityData dude = Group[characterIndex];
+                    try {
+                        body(dude, characterIndex);
+                    } catch (Exception ex) {
+                        var message = $"{what} for {SafeName(dude)} (party index {characterIndex})";
+                        // Item scans visit the same unit once per item stack: full trace once per unit,
+                        // one line afterwards, or Player.log drowns in repeats of the same failure.
+                        if (unitsWithStackTrace.Add(characterIndex))
+                            Main.Error(ex, message);
+                        else
+                            Main.Error($"{message}: {ex.GetType().Name}: {ex.Message}");
+                    }
+                }
+            }
+
+            ForEachDude("scanning spellbooks", (dude, characterIndex) => {
+                Main.Verbose($"Looking at dude: {dude.CharacterName}", "state");
                 foreach (var book in dude.Spellbooks) {
                     try {
                         Main.Verbose($"  Looking at spellbook: {book.Blueprint.DisplayName}", "state");
@@ -164,60 +187,55 @@ namespace BuffIt2TheLimit {
                             }
                         }
                     } catch (Exception ex) {
-                        Main.Error(ex, $"scanning spellbook {book.Blueprint.DisplayName} for {dude.CharacterName}");
+                        Main.Error(ex, $"scanning spellbook {SafeName(book)} for {SafeName(dude)}");
                     }
                 }
-            }
+            });
 
-            for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                UnitEntityData dude = Group[characterIndex];
-                try {
-                    foreach (Ability ability in dude.Abilities.RawFacts) {
-                        ItemEntity sourceItem = ability.SourceItem;
-                        if (sourceItem != null) {
-                        }
-                        if (sourceItem == null || !sourceItem.IsSpendCharges) {
-                            var credits = new ReactiveProperty<int>(500);
-                            if (ability.Data.Resource != null) {
-                                credits.Value = ability.Data.Resource.GetMaxAmount(dude);
-                            }
-                            AddBuff(dude: dude,
-                                    book: null,
-                                    spell: ability.Data,
-                                    baseSpell: null,
-                                    credits: credits,
-                                    newCredit: true,
-                                    creditClamp: int.MaxValue,
-                                    charIndex: characterIndex,
-                                    archmageArmor: false,
-                                    category: Category.Ability,
-                                    sourceItem: sourceItem);
-                        } else if (SavedState.EquipmentEnabled
-                                   && !(sourceItem.Blueprint is BlueprintItemEquipmentUsable)) {
-                            // Equipped item abilities (staves, etc.) — not quickslot items
-                            // which are handled by the equipment scan below
-                            int charges = sourceItem.Charges;
-                            if (charges <= 0) continue;
-                            var credits = new ReactiveProperty<int>(charges);
-                            Main.Verbose($"      Adding equipped item buff: {ability.Name} from {sourceItem.Name} for {dude.CharacterName}", "state");
-                            AddBuff(dude: dude,
-                                    book: null,
-                                    spell: ability.Data,
-                                    baseSpell: null,
-                                    credits: credits,
-                                    newCredit: true,
-                                    creditClamp: int.MaxValue,
-                                    charIndex: characterIndex,
-                                    archmageArmor: false,
-                                    category: Category.Equipment,
-                                    sourceType: BuffSourceType.Equipment,
-                                    sourceItem: sourceItem);
-                        }
+            ForEachDude("scanning abilities", (dude, characterIndex) => {
+                foreach (Ability ability in dude.Abilities.RawFacts) {
+                    ItemEntity sourceItem = ability.SourceItem;
+                    if (sourceItem != null) {
                     }
-                } catch (Exception ex) {
-                    Main.Error(ex, $"scanning abilities for {dude.CharacterName}");
+                    if (sourceItem == null || !sourceItem.IsSpendCharges) {
+                        var credits = new ReactiveProperty<int>(500);
+                        if (ability.Data.Resource != null) {
+                            credits.Value = ability.Data.Resource.GetMaxAmount(dude);
+                        }
+                        AddBuff(dude: dude,
+                                book: null,
+                                spell: ability.Data,
+                                baseSpell: null,
+                                credits: credits,
+                                newCredit: true,
+                                creditClamp: int.MaxValue,
+                                charIndex: characterIndex,
+                                archmageArmor: false,
+                                category: Category.Ability,
+                                sourceItem: sourceItem);
+                    } else if (SavedState.EquipmentEnabled
+                               && !(sourceItem.Blueprint is BlueprintItemEquipmentUsable)) {
+                        // Equipped item abilities (staves, etc.) — not quickslot items
+                        // which are handled by the equipment scan below
+                        int charges = sourceItem.Charges;
+                        if (charges <= 0) continue;
+                        var credits = new ReactiveProperty<int>(charges);
+                        Main.Verbose($"      Adding equipped item buff: {ability.Name} from {sourceItem.Name} for {dude.CharacterName}", "state");
+                        AddBuff(dude: dude,
+                                book: null,
+                                spell: ability.Data,
+                                baseSpell: null,
+                                credits: credits,
+                                newCredit: true,
+                                creditClamp: int.MaxValue,
+                                charIndex: characterIndex,
+                                archmageArmor: false,
+                                category: Category.Equipment,
+                                sourceType: BuffSourceType.Equipment,
+                                sourceItem: sourceItem);
+                    }
                 }
-            }
+            });
 
             try {
                 if (SavedState.ScrollsEnabled || SavedState.PotionsEnabled || SavedState.EquipmentEnabled) {
@@ -254,8 +272,7 @@ namespace BuffIt2TheLimit {
                             int totalCount = itemGroup.Sum(item => item.Count);
                             var sharedCredits = new ReactiveProperty<int>(totalCount);
                             _sharedItemCredits[blueprint] = sharedCredits;
-                            for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                                UnitEntityData dude = Group[characterIndex];
+                            ForEachDude($"scanning potion {blueprint.Name}", (dude, characterIndex) => {
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
                                     OverrideCasterLevel = GetItemCasterLevel(firstItem, dude),
                                     OverrideSpellLevel = effectiveSL,
@@ -274,16 +291,15 @@ namespace BuffIt2TheLimit {
                                         category: Category.Buff,
                                         sourceType: BuffSourceType.Potion,
                                         sourceItem: firstItem);
-                            }
+                            });
                         } else if (isScroll) {
                             int totalCount = itemGroup.Sum(item => item.Count);
                             var sharedCredits = new ReactiveProperty<int>(totalCount);
                             _sharedItemCredits[blueprint] = sharedCredits;
                             int scrollDC = effectiveDC;
 
-                            for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                                UnitEntityData dude = Group[characterIndex];
-                                if (!CanUseItemWithUmd(dude, spellBlueprint, scrollDC)) continue;
+                            ForEachDude($"scanning scroll {blueprint.Name}", (dude, characterIndex) => {
+                                if (!CanUseItemWithUmd(dude, spellBlueprint, scrollDC)) return;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
                                     OverrideCasterLevel = GetItemCasterLevel(firstItem, dude),
@@ -303,7 +319,7 @@ namespace BuffIt2TheLimit {
                                         category: Category.Buff,
                                         sourceType: BuffSourceType.Scroll,
                                         sourceItem: firstItem);
-                            }
+                            });
                         } else if (isWand) {
                             int totalCharges = itemGroup.Sum(item => item.Charges);
                             if (totalCharges <= 0) continue;
@@ -311,9 +327,8 @@ namespace BuffIt2TheLimit {
                             _sharedItemCredits[blueprint] = wandCredits;
                             int wandDC = effectiveDC;
 
-                            for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                                UnitEntityData dude = Group[characterIndex];
-                                if (!CanUseItemWithUmd(dude, spellBlueprint, wandDC)) continue;
+                            ForEachDude($"scanning wand {blueprint.Name}", (dude, characterIndex) => {
+                                if (!CanUseItemWithUmd(dude, spellBlueprint, wandDC)) return;
 
                                 var abilityData = new AbilityData(spellBlueprint, dude) {
                                     OverrideCasterLevel = GetItemCasterLevel(firstItem, dude),
@@ -333,7 +348,7 @@ namespace BuffIt2TheLimit {
                                         category: Category.Equipment,
                                         sourceType: BuffSourceType.Equipment,
                                         sourceItem: firstItem);
-                            }
+                            });
                         }
                     }
                 }
@@ -344,9 +359,8 @@ namespace BuffIt2TheLimit {
             try {
                 if (SavedState.EquipmentEnabled) {
                     // Scan quickslot items for activatable equipment buffs (wands, rods, etc.)
-                    for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                        UnitEntityData dude = Group[characterIndex];
-                        if (dude.Body.QuickSlots == null) continue;
+                    ForEachDude("scanning quickslot equipment", (dude, characterIndex) => {
+                        if (dude.Body.QuickSlots == null) return;
                         foreach (var slot in dude.Body.QuickSlots) {
                             if (!slot.HasItem) continue;
 
@@ -397,41 +411,47 @@ namespace BuffIt2TheLimit {
                                     sourceType: BuffSourceType.Equipment,
                                     sourceItem: itemEntity);
                         }
-                    }
+                    });
                 }
             } catch (Exception ex) {
                 Main.Error(ex, "finding equipment buffs");
             }
 
-            try {
-                for (int characterIndex = 0; characterIndex < Group.Count; characterIndex++) {
-                    UnitEntityData dude = Group[characterIndex];
-
-                    // Two distinct uses of IActivatableAbilityConversionsProvider exist:
-                    //
-                    //   Pattern A — Menu stub (Shifter's Fury):
-                    //     parent has ActivationDisable → CanTurnOn()=false → IsOn=true is a no-op.
-                    //     Real effect lives on conversions (ShiftersFuryPart.AppliedFacts, weapon variants).
-                    //     Per-weapon conversion blueprints share the parent's DisplayName, so they must be
-                    //     deduplicated from the Toggle tab. Activation routes through ResolveActivationTarget.
-                    //
-                    //   Pattern B — Activatable with sub-selections (Chimeric / Greater / Final Aspect):
-                    //     parent is a real activatable (ResourceLogic, no ActivationDisable) that the player
-                    //     toggles on/off directly. Conversions are additional per-form toggles (Bear, Boar, …)
-                    //     with their own distinct DisplayNames — BOTH the parent and the children belong in
-                    //     the UI. Do NOT deduplicate these conversions.
-                    //
-                    // Distinguishing check: blueprint.GetComponent<ActivationDisable>() != null → Pattern A.
-                    var shifterFuryConversions = new HashSet<BlueprintGuid>();
-                    foreach (var candidate in dude.ActivatableAbilities.RawFacts) {
+            ForEachDude("scanning activatable abilities", (dude, characterIndex) => {
+                // Two distinct uses of IActivatableAbilityConversionsProvider exist:
+                //
+                //   Pattern A — Menu stub (Shifter's Fury):
+                //     parent has ActivationDisable → CanTurnOn()=false → IsOn=true is a no-op.
+                //     Real effect lives on conversions (ShiftersFuryPart.AppliedFacts, weapon variants).
+                //     Per-weapon conversion blueprints share the parent's DisplayName, so they must be
+                //     deduplicated from the Toggle tab. Activation routes through ResolveActivationTarget.
+                //
+                //   Pattern B — Activatable with sub-selections (Chimeric / Greater / Final Aspect):
+                //     parent is a real activatable (ResourceLogic, no ActivationDisable) that the player
+                //     toggles on/off directly. Conversions are additional per-form toggles (Bear, Boar, …)
+                //     with their own distinct DisplayNames — BOTH the parent and the children belong in
+                //     the UI. Do NOT deduplicate these conversions.
+                //
+                // Distinguishing check: blueprint.GetComponent<ActivationDisable>() != null → Pattern A.
+                var shifterFuryConversions = new HashSet<BlueprintGuid>();
+                foreach (var candidate in dude.ActivatableAbilities.RawFacts) {
+                    try {
                         if (candidate.ConversionsProvider is ShiftersFury) {
                             foreach (var conv in candidate.GetConversions()) {
                                 if (conv?.Blueprint != null) shifterFuryConversions.Add(conv.Blueprint.AssetGuid);
                             }
                         }
+                    } catch (Exception ex) {
+                        // GetConversions() is only called here, so log it here — the dedup set
+                        // stays incomplete for this unit (duplicate Shifter's Fury rows at worst).
+                        Main.Error(ex, $"scanning Shifter's Fury conversions of {SafeName(candidate)} for {SafeName(dude)}");
                     }
+                }
 
-                    foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
+                foreach (var activatable in dude.ActivatableAbilities.RawFacts) {
+                    // Per-fact guard: a single broken fact (null blueprint from a removed mod,
+                    // throwing resource logic) must not hide the unit's remaining toggles.
+                    try {
                         var blueprint = activatable.Blueprint;
                         var srcItem = activatable.SourceItem;
 
@@ -481,11 +501,11 @@ namespace BuffIt2TheLimit {
                             Main.Verbose($"      Adding toggle: {blueprint.Name} (group={blueprint.Group}) for {dude.CharacterName}", "state");
                             AddActivatable(dude, activatable, characterIndex, Category.Toggle);
                         }
+                    } catch (Exception ex) {
+                        Main.Error(ex, $"scanning activatable {SafeName(activatable)} for {SafeName(dude)}");
                     }
                 }
-            } catch (Exception ex) {
-                Main.Error(ex, "finding activatable abilities");
-            }
+            });
 
             //foreach (var rejectKey in SpellsWithBeneficialBuffs.Where(kv => kv.Value.EmptyIfNull().Empty()).Select(kv => kv.Key)) {
             //    var name = SpellNames[rejectKey];
@@ -513,8 +533,12 @@ namespace BuffIt2TheLimit {
             Main.Log($"Scan complete: {list.Count} buffs (Buff={cBuff}, Ability={cAbility}, Equipment={cEquip}, Song={cSong}, Toggle={cToggle})");
 
             foreach (var buff in BuffList) {
-                if (SavedState.Buffs.TryGetValue(buff.Key, out var fromSave)) {
-                    buff.InitialiseFromSave(fromSave);
+                try {
+                    if (SavedState.Buffs.TryGetValue(buff.Key, out var fromSave)) {
+                        buff.InitialiseFromSave(fromSave);
+                    }
+                } catch (Exception ex) {
+                    Main.Error(ex, $"restoring saved config for {buff.Name}");
                 }
                 buff.SortProviders();
             }
@@ -1015,6 +1039,24 @@ namespace BuffIt2TheLimit {
                 casterLevel += bonusPart.GetBonus((item.Blueprint as BlueprintItemEquipmentUsable)?.Type);
 
             return casterLevel;
+        }
+
+        // Names for log lines about units/facts that may be broken: a stale unit or a fact
+        // whose blueprint no longer resolves can throw on CharacterName/Blueprint — fall back
+        // to the id rather than letting a catch handler throw.
+        private static string SafeName(UnitEntityData unit) {
+            if (unit == null) return "<null unit>";
+            try { return unit.CharacterName; } catch { return unit.UniqueId ?? "<unit>"; }
+        }
+
+        private static string SafeName(Kingmaker.EntitySystem.EntityFact fact) {
+            if (fact == null) return "<null fact>";
+            try { return fact.Blueprint?.name ?? "<null blueprint>"; } catch { return "<unreadable blueprint>"; }
+        }
+
+        private static string SafeName(Kingmaker.UnitLogic.Spellbook book) {
+            if (book == null) return "<null spellbook>";
+            try { return book.Blueprint?.name ?? "<null blueprint>"; } catch { return "<unreadable spellbook>"; }
         }
 
         private List<string> lastGroup = new();
