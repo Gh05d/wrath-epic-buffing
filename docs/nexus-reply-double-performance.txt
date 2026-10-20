@@ -1,0 +1,5 @@
+Thanks for the report!
+
+Double Performance: when several characters know the same performance, the mod picks one performer per song, the first eligible one in party order. To assign a song to a specific character, open that song's caster list (the popout next to the song) and ban the characters you don't want performing it. Do this per song, e.g. ban your backliner on Litany/Lethargy and your frontliner on Serenade of Spellpiercing. Banned performers are skipped, and the next one in the list sings it. Double Performance support itself comes from another mod, so I can't promise deeper integration.
+
+Limitless Performance: the exception comes from that mod's patch on the performance resource count, which throws when it is queried. Up to now this made Buff It 2 The Limit drop the affected performance. The next version catches it and keeps the performance usable.

@@ -961,6 +961,18 @@ namespace BuffIt2TheLimit {
             ActivatableAbilityGroup.AzataMythicPerformance
         };
 
+        // ResourceCount can throw when another mod patches it or strips the resource
+        // (e.g. a "Limitless Performance" feat: NRE in ActivatableAbilityResourceLogic.IsFreeBecauseOfFact).
+        // Treat that as unlimited-but-castable instead of dropping the activatable.
+        private static int SafeResourceCount(ActivatableAbility activatable) {
+            try {
+                return activatable.ResourceCount ?? 1;
+            } catch (Exception ex) {
+                Main.Verbose($"ResourceCount threw for {activatable.Blueprint?.Name} ({ex.GetType().Name}), assuming 1", "state");
+                return 1;
+            }
+        }
+
         public void AddActivatable(UnitEntityData dude, ActivatableAbility activatable, int charIndex, Category category, ItemEntity sourceItem = null) {
             var blueprint = activatable.Blueprint;
             var key = new BuffKey(blueprint.AssetGuid);
@@ -986,7 +998,7 @@ namespace BuffIt2TheLimit {
             }
 
             // Item-backed activatables use the item's charges; class activatables use ResourceCount
-            int initialCredits = sourceItem != null ? sourceItem.Charges : (activatable.ResourceCount ?? 1);
+            int initialCredits = sourceItem != null ? sourceItem.Charges : SafeResourceCount(activatable);
 
             var credits = new ReactiveProperty<int>(initialCredits);
             var provider = new BuffProvider(credits) {
