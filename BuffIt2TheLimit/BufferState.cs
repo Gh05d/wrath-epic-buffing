@@ -631,8 +631,15 @@ namespace BuffIt2TheLimit {
 
             foreach (var gbuff in ordered)
                 gbuff.Invalidate();
-            foreach (var gbuff in ordered)
-                gbuff.Validate();
+            // Per-buff guard: a throwing buff (typically another mod's patch on an engine getter)
+            // must not abort validation of every buff after it and keep the buff window from opening.
+            foreach (var gbuff in ordered) {
+                try {
+                    gbuff.Validate();
+                } catch (Exception ex) {
+                    Main.Error(ex, $"validating {gbuff.Name}");
+                }
+            }
             foreach (var gbuff in BuffList)
                 gbuff.OnUpdate?.Invoke();
 
@@ -976,6 +983,15 @@ namespace BuffIt2TheLimit {
         public void AddActivatable(UnitEntityData dude, ActivatableAbility activatable, int charIndex, Category category, ItemEntity sourceItem = null) {
             var blueprint = activatable.Blueprint;
             var key = new BuffKey(blueprint.AssetGuid);
+
+            // Another mod's patch on the resource logic (e.g. a "Limitless Performance" feat) can make
+            // IsAvailable throw on every call. Such a toggle can't be validated or activated — drop it here.
+            try {
+                _ = activatable.IsAvailable;
+            } catch (Exception ex) {
+                Main.Log($"Skipping activatable {blueprint.Name} for {dude.CharacterName}: IsAvailable throws ({ex.GetType().Name}), likely another mod's patch");
+                return;
+            }
 
             BuffSourceType sourceType;
             if (category == Category.Song) sourceType = BuffSourceType.Song;

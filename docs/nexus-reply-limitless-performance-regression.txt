@@ -1,0 +1,5 @@
+Sorry about that, and thanks for the quick log! Version 1.21.5 tried to keep the performance usable, but your Limitless Performance mod also patches the availability check, and that check throws as well. Because of that the buff window could not open.
+
+Version 1.21.6 fixes this. The buff window opens again, and performances whose availability check throws are skipped, which is the same behavior as before 1.21.5. A single broken buff can no longer stop the window from opening. The error itself comes from the Limitless Performance mod, so with that feat active those performances can't be automated by Buff It 2 The Limit. That would need a fix in the other mod.
+
+Glad the banning approach works for assigning the performances!
