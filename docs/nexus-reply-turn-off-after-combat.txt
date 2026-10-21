@@ -1,0 +1,7 @@
+Not annoying at all, good idea. Added in 1.22.0:
+
+Every song and toggle (now including auras like domain and wizard auras) has two options in its detail panel:
+- "Turn off after: N rounds" (the existing round limit)
+- "Turn off when combat ends" (new)
+
+You can use either or both; whichever comes first turns it off. It only switches off toggles the mod turned on itself, so anything you start by hand is left alone.

@@ -303,8 +303,7 @@ namespace BuffIt2TheLimit {
         // IsOn is permanently false, so switching it off means switching off whichever
         // per-weapon fact is actually running — which need not be the preferred one, since the
         // player may have picked a different weapon by hand.
-        // The fury branch is defensive: round limits are only offered for non-Toggle categories
-        // and the fury parent scans as Category.Toggle, so DeactivateAfterRounds stays 0 today.
+        // The fury parent scans as Category.Toggle, which offers turn-off limits since 1.22.0.
         internal static IEnumerable<ActivatableAbility> ResolveDeactivationTargets(UnitEntityData caster, ActivatableAbility candidate) {
             if (candidate?.ConversionsProvider is ShiftersFury)
                 return GetFuryWeapons(caster).Where(w => w.IsOn);
@@ -499,7 +498,7 @@ namespace BuffIt2TheLimit {
                             switch (mountResult) {
                                 case MountResult.Mounted:
                                     Main.Verbose($"Activatable {actBuff.Name}: mounted {caster.CharacterName} on {mount.CharacterName}");
-                                    if (actBuff.DeactivateAfterRounds > 0)
+                                    if (actBuff.HasTurnOffRule)
                                         GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                                     break;
                                 case MountResult.NoCandidate:
@@ -517,7 +516,7 @@ namespace BuffIt2TheLimit {
                         target.IsOn = true;
                         if (!target.IsStarted)
                             target.TryStart();
-                        if (actBuff.DeactivateAfterRounds > 0)
+                        if (actBuff.HasTurnOffRule)
                             GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                     } catch (Exception ex) {
                         Main.Error(ex, $"activating {actBuff.Name}");
@@ -838,17 +837,17 @@ namespace BuffIt2TheLimit {
                 }
             }
 
-            // Phase 0a: Round limits for toggles that are already running at combat start.
+            // Phase 0a: Round / combat-end limits for toggles that are already running at combat start.
             // Validation counts them as satisfied, so they never reach the activation loop
             // below and would get no countdown: a song started by hand, or one whose countdown
             // was dropped by an area change. A countdown still going from our own activation
             // (song outlived a short combat gap) is kept, not restarted.
-            foreach (var actBuff in combatStartBuffs.Where(b => b.IsActivatable && b.DeactivateAfterRounds > 0)) {
+            foreach (var actBuff in combatStartBuffs.Where(b => b.IsActivatable && b.HasTurnOffRule)) {
                 foreach (var provider in actBuff.AlreadyOnQueue) {
                     var activatable = provider.ActivatableSource ?? actBuff.ActivatableSource;
                     if (activatable == null || provider.who == null) continue;
                     if (GlobalBubbleBuffer.RoundLimitWatcher?.TrackIfUntracked(provider.who, activatable.Blueprint.AssetGuid) == true)
-                        Main.Log($"[CSD] Phase0 '{actBuff.Name}' already on for {provider.who.CharacterName} — round limit ({actBuff.DeactivateAfterRounds}) starts now");
+                        Main.Log($"[CSD] Phase0 '{actBuff.Name}' already on for {provider.who.CharacterName} — turn-off tracking starts now (rounds={actBuff.DeactivateAfterRounds}, afterCombat={actBuff.DeactivateAfterCombat})");
                 }
             }
 
@@ -917,7 +916,7 @@ namespace BuffIt2TheLimit {
                                 case MountResult.Mounted:
                                     Main.Log($"[CSD] Phase0 mounted {caster.CharacterName} on {mount.CharacterName} ('{actBuff.Name}')");
                                     activatablesActivated++;
-                                    if (actBuff.DeactivateAfterRounds > 0)
+                                    if (actBuff.HasTurnOffRule)
                                         GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                                     break;
                                 case MountResult.NoCandidate:
@@ -937,7 +936,7 @@ namespace BuffIt2TheLimit {
                         if (!target.IsStarted)
                             target.TryStart();
                         activatablesActivated++;
-                        if (actBuff.DeactivateAfterRounds > 0)
+                        if (actBuff.HasTurnOffRule)
                             GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                     } catch (Exception ex) {
                         Main.Error(ex, $"combat start: activating {actBuff.Name}");

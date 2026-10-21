@@ -141,6 +141,8 @@ namespace BuffIt2TheLimit {
         public bool CastOnCombatStart;
         [JsonProperty]
         public int DeactivateAfterRounds;
+        [JsonProperty]
+        public bool DeactivateAfterCombat;
     }
 
 

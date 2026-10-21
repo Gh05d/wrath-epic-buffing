@@ -728,6 +728,7 @@ namespace BuffIt2TheLimit {
                 save.UseExtendRod = buff.UseExtendRod;
                 save.CastOnCombatStart = buff.CastOnCombatStart;
                 save.DeactivateAfterRounds = buff.DeactivateAfterRounds;
+                save.DeactivateAfterCombat = buff.DeactivateAfterCombat;
             }
 
 

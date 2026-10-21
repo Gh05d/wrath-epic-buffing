@@ -2257,6 +2257,26 @@ namespace BuffIt2TheLimit {
             roundLimitPlus.Rect().sizeDelta = new Vector2(30, 30);
             var roundLimitPlusBtn = roundLimitPlus.GetComponent<OwlcatButton>();
 
+            // Unit suffix ("rounds")
+            var (roundLimitSuffixObj, roundLimitSuffixRect) = UIHelpers.Create("Suffix", roundLimitObj.transform);
+            roundLimitSuffixRect.sizeDelta = new Vector2(70, 32);
+            var roundLimitSuffix = roundLimitSuffixObj.AddComponent<TextMeshProUGUI>();
+            roundLimitSuffix.text = "deactivate.rounds.suffix".i8();
+            roundLimitSuffix.fontSize = 16;
+            roundLimitSuffix.color = new Color(0.2f, 0.15f, 0.1f, 1f);
+            roundLimitSuffix.alignment = TextAlignmentOptions.MidlineLeft;
+            roundLimitSuffix.enableWordWrapping = false;
+
+            // Turn off when combat ends — below the round limit; both can be set, whichever comes first wins
+            var deactivateAfterCombatObj = MakeSourceToggle("deactivate.after.combat".i8());
+            deactivateAfterCombatObj.transform.SetParent(prioSideObj.transform, false);
+            var deactivateAfterCombatToggle = deactivateAfterCombatObj.GetComponentInChildren<ToggleWorkaround>();
+
+            deactivateAfterCombatToggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                if (b != null) { b.DeactivateAfterCombat = val; if (b.SavedState != null) b.SavedState.DeactivateAfterCombat = val; state.Save(); }
+            });
+
             roundLimitMinusBtn.OnLeftClick.AddListener(() => {
                 var b = view.Selected;
                 if (b == null || b.DeactivateAfterRounds <= 0) return;
@@ -2474,6 +2494,7 @@ namespace BuffIt2TheLimit {
                 useExtendRodToggle.isOn = buff.UseExtendRod;
                 useCombatStartToggle.isOn = buff.CastOnCombatStart;
                 roundLimitValueText.text = buff.DeactivateAfterRounds == 0 ? "\u221E" : buff.DeactivateAfterRounds.ToString();
+                deactivateAfterCombatToggle.isOn = buff.DeactivateAfterCombat;
 
                 bool isEquipmentCategory = CurrentCategory.Value == Category.Equipment;
                 int sourceCount = (hasSpellProviders ? 1 : 0) + (hasScrollProviders ? 1 : 0) + (hasPotionProviders ? 1 : 0) + (hasEquipmentProviders ? 1 : 0);
@@ -2483,7 +2504,8 @@ namespace BuffIt2TheLimit {
                 toggleSideObj.SetActive(hasSourceControls);
                 prioLabelObj.SetActive(hasSourceControls);
                 useExtendRodObj.SetActive(hasSourceControls);
-                roundLimitObj.SetActive(buff.IsActivatable && buff.Category != Category.Toggle);
+                roundLimitObj.SetActive(buff.IsActivatable);
+                deactivateAfterCombatObj.SetActive(buff.IsActivatable);
 
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
@@ -4410,6 +4432,12 @@ namespace BuffIt2TheLimit {
                 } catch (Exception ex) {
                     Main.Error(ex, "HandlePartyCombatStateChanged: combat start");
                 }
+            } else {
+                try {
+                    GlobalBubbleBuffer.RoundLimitWatcher?.OnCombatEnded();
+                } catch (Exception ex) {
+                    Main.Error(ex, "HandlePartyCombatStateChanged: combat end");
+                }
             }
         }
     }
@@ -4462,7 +4490,7 @@ namespace BuffIt2TheLimit {
                     b.IsActivatable && b.ActivatableSource?.Blueprint.AssetGuid == guid);
                 var provider = buff?.CasterQueue.FirstOrDefault(p => p.who?.UniqueId == unitId);
 
-                if (buff == null || provider == null || buff.DeactivateAfterRounds <= 0 || timePassed < 0) {
+                if (buff == null || provider == null || !buff.HasTurnOffRule || timePassed < 0) {
                     toRemove.Add(kvp.Key);
                     continue;
                 }
@@ -4479,6 +4507,7 @@ namespace BuffIt2TheLimit {
                     continue;
                 }
 
+                if (buff.DeactivateAfterRounds <= 0) continue; // combat-end only: OnCombatEnded handles it
                 double limitSeconds = buff.DeactivateAfterRounds * SecondsPerRound;
                 if (timePassed >= limitSeconds) {
                     Main.Log($"Round limit reached for {buff.Name} on {provider.who.CharacterName}: {timePassed:F1}s elapsed (limit={buff.DeactivateAfterRounds} rounds = {limitSeconds:F0}s), deactivating");
@@ -4486,6 +4515,36 @@ namespace BuffIt2TheLimit {
                         target.IsOn = false;
                     toRemove.Add(kvp.Key);
                 }
+            }
+
+            foreach (var key in toRemove) {
+                activationTimes.Remove(key);
+            }
+        }
+
+        // "Turn off when combat ends": switch off every toggle we turned on (or adopted in
+        // Phase 0a) whose buff has the flag. Countdowns of round-limit-only toggles keep running.
+        public void OnCombatEnded() {
+            if (activationTimes.Count == 0) return;
+            var buffs = GlobalBubbleBuffer.Instance?.SpellbookController?.state?.BuffList;
+            if (buffs == null) return;
+
+            var toRemove = new List<(string, BlueprintGuid)>();
+            foreach (var (unitId, guid) in activationTimes.Keys) {
+                var buff = buffs.FirstOrDefault(b =>
+                    b.IsActivatable && b.ActivatableSource?.Blueprint.AssetGuid == guid);
+                if (buff == null || !buff.DeactivateAfterCombat) continue;
+                var provider = buff.CasterQueue.FirstOrDefault(p => p.who?.UniqueId == unitId);
+                if (provider != null) {
+                    var src = provider.ActivatableSource ?? buff.ActivatableSource;
+                    var running = BuffExecutor.ResolveDeactivationTargets(provider.who, src).ToList();
+                    if (running.Count > 0) {
+                        Main.Log($"Combat ended: turning off {buff.Name} on {provider.who.CharacterName}");
+                        foreach (var target in running)
+                            target.IsOn = false;
+                    }
+                }
+                toRemove.Add((unitId, guid));
             }
 
             foreach (var key in toRemove) {

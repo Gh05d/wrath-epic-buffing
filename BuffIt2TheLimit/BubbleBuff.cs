@@ -201,6 +201,9 @@ namespace BuffIt2TheLimit {
         public bool UseExtendRod;
         public bool CastOnCombatStart;
         public int DeactivateAfterRounds;
+        public bool DeactivateAfterCombat;
+        // Either limit makes the RoundLimitHandler track activations of this toggle.
+        public bool HasTurnOffRule => DeactivateAfterRounds > 0 || DeactivateAfterCombat;
         public bool IsActivatable;
         public bool IsSong => IsActivatable && Category == Category.Song;
         public Kingmaker.UnitLogic.ActivatableAbilities.ActivatableAbility ActivatableSource;
@@ -272,6 +275,7 @@ namespace BuffIt2TheLimit {
             UseExtendRod = state.UseExtendRod;
             CastOnCombatStart = state.CastOnCombatStart;
             DeactivateAfterRounds = state.DeactivateAfterRounds;
+            DeactivateAfterCombat = state.DeactivateAfterCombat;
             SetHidden(HideReason.Blacklisted, state.Blacklisted);
             foreach (var caster in CasterQueue) {
                 if (state.Casters.TryGetValue(caster.Key, out var casterState)) {
