@@ -35,7 +35,7 @@ Version files (generic rule → parent §Release Process): `BuffIt2TheLimit/Buff
 
 - `docs/` ist gitignored, aber Specs/Pläne/Nexus-Assets darunter sind getrackt (historisch force-added) — **jeder** `git add` unter `docs/` braucht `-f`, auch für bereits getrackte Dateien (git verweigert sonst mit „paths are ignored").
 - `.superpowers/sdd/progress.md` (SDD-Ledger) überlebt Feature-Runs: vor Vertrauen die Commit-SHAs gegen `git log` prüfen — ein stale Ledger des Vorgänger-Features behauptet sonst „alle Tasks complete". Bei neuem Plan: Header neu schreiben.
-- Nexus-Antwort-Entwürfe nach `docs/nexus-reply-<topic>.txt` schreiben (`git add -f`), nicht nur ins Scratchpad — das überlebt Compaction nicht zuverlässig, und wiederkehrende Reports brauchen die Vorlage erneut.
+- Nexus-Antwort-Entwürfe nach `docs/nexus-reply-<topic>.txt` schreiben (`git add -f`), nicht nur ins Scratchpad — das überlebt Compaction nicht zuverlässig, und wiederkehrende Reports brauchen die Vorlage erneut. Sprache = Sprache des Melders (chinesischer Report → chinesische Antwort); Release Notes bleiben Englisch.
 - `CHANGELOG.md` ist Upstream-Relikt (BubbleBuffs 5.1.x), wird nicht gepflegt; Release Notes nur in GitHub Releases.
 
 ## Localization
