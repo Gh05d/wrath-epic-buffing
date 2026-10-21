@@ -19,6 +19,10 @@ namespace BuffIt2TheLimit {
         private RuleCastSpell Cast(CastTask task, List<EngineCastingHandler> handlers) {
             EngineCastingHandler handler = null;
             try {
+                // A spellbook spell whose slot is spent gets it back from a Pearl of Power — or is not cast:
+                // RuleCastSpell does not check slots, so firing it anyway would be a free cast.
+                if (!PearlsOfPower.EnsureSlotForCast(task)) return null;
+
                 // Subscribe to the RuleCastSpell event that will be executed by the trigger
                 handler = new EngineCastingHandler(task, true);
                 handlers.Add(handler);

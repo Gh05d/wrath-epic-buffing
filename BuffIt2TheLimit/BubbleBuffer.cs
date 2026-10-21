@@ -368,6 +368,7 @@ namespace BuffIt2TheLimit {
             var (p, pRect) = UIHelpers.Create($"bi2tl-portrait", groupRect);
 
             portrait.GameObject = p;
+            portrait.Height = height;
             portrait.Image = p.AddComponent<Image>();
             p.MakeComponent<LayoutElement>(l => {
                 l.preferredWidth = width;
@@ -893,6 +894,22 @@ namespace BuffIt2TheLimit {
             }
 
             {
+                var (toggle, label) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-pearls-enabled".i8());
+                toggle.isOn = state.SavedState.PearlsEnabled;
+                toggle.onValueChanged.AddListener(enabled => {
+                    state.SavedState.PearlsEnabled = enabled;
+                    state.InputDirty = true;
+                    state.Save(true);
+                });
+                label.raycastTarget = true;
+                TooltipHelper.SetTooltip(label, new TooltipTemplateSimple(
+                    "setting-pearls-enabled".i8(),
+                    "setting-pearls-enabled-tooltip".i8()));
+            }
+            // (No "lower-level slots" switch any more: each spell's pearls are picked one by one in the pearl
+            // strip under its casters, higher-level ones included.)
+
+            {
                 var (toggle, _) = MakeSettingsToggle(togglePrefab, scrollContent, "setting-songs-enabled".i8());
                 toggle.isOn = state.SavedState.SongsEnabled;
                 toggle.onValueChanged.AddListener(enabled => {
@@ -1404,6 +1421,7 @@ namespace BuffIt2TheLimit {
             }
 
             var spellInfoSection = MakeSection("spell-info-section", 1.2f, 40);
+            // 110 is the floor; UpdateDetailsView grows it to the taller of its two columns (FitSourceControls)
             var sourceControlsSection = MakeSection("source-controls-section", 0.5f, 110);
             var castersSection = MakeSection("casters-section", 3f, 60);
             var targetsSection = MakeSection("targets-section", 3f, 60);
@@ -2093,7 +2111,7 @@ namespace BuffIt2TheLimit {
             prioVLG.childControlWidth = true;
             prioVLG.spacing = 4;
 
-            // Right side — toggles (right 45%)
+            // Right side (right 45%) — the Pearl of Power boxes. The source toggles live on the left.
             var (toggleSideObj, toggleSideRect) = UIHelpers.Create("toggle-side", sourceControlObj.transform);
             toggleSideRect.anchorMin = new Vector2(0.55f, 0);
             toggleSideRect.anchorMax = new Vector2(1, 1);
@@ -2104,8 +2122,38 @@ namespace BuffIt2TheLimit {
             toggleVLG.childForceExpandWidth = true;
             toggleVLG.childControlHeight = true;
             toggleVLG.childControlWidth = true;
-            toggleVLG.spacing = 2;
+            // Same spacing as the left column, plus an empty first row as tall as its "Source priority"
+            // line: every box on the right then sits level with a box on the left.
+            toggleVLG.spacing = prioVLG.spacing;
             toggleVLG.childAlignment = TextAnchor.UpperRight;
+            var (toggleSpacerObj, _) = UIHelpers.Create("prio-row-spacer", toggleSideObj.transform);
+            var toggleSpacerLE = toggleSpacerObj.AddComponent<LayoutElement>();
+            toggleSpacerLE.minHeight = 24;          // = the prio label's LayoutElement below
+            toggleSpacerLE.preferredHeight = 24;
+            toggleSpacerLE.layoutPriority = 2;
+
+            // The section's height follows its taller column: on a buff that also has scrolls, potions and
+            // equipment the left column holds seven rows, and a toggle outside the section silently ignores
+            // clicks (gotchas-ui.md). Never below the original 110.
+            var sourceControlsLE = sourceControlsSection.GetComponent<LayoutElement>();
+            void FitSourceControls() {
+                try {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(prioSideRect);
+                    float needed = LayoutUtility.GetPreferredHeight(prioSideRect);
+                    if (toggleSideObj.activeSelf) {
+                        LayoutRebuilder.ForceRebuildLayoutImmediate(toggleSideRect);
+                        needed = Mathf.Max(needed, LayoutUtility.GetPreferredHeight(toggleSideRect));
+                    }
+                    if (needed < 1f) return;   // layout not computed yet (window still hidden): keep the height
+                    float height = Mathf.Max(110f, needed + 4f);   // + the columns' 2px top and bottom offsets
+                    if (sourceControlsLE != null && Mathf.Abs(sourceControlsLE.minHeight - height) > 0.5f) {
+                        sourceControlsLE.minHeight = height;
+                        sourceControlsLE.preferredHeight = height;
+                    }
+                } catch (Exception ex) {
+                    Main.Error(ex, "fitting the source controls section");
+                }
+            }
 
             float srcToggleScale = 0.7f;
             GameObject MakeSourceToggle(string label) {
@@ -2205,6 +2253,89 @@ namespace BuffIt2TheLimit {
                 if (b != null) { b.CastOnCombatStart = val; if (b.SavedState != null) b.SavedState.CastOnCombatStart = val; state.Save(); }
             });
 
+            // Source toggles — left side, below combat start (the right column is for the pearl boxes)
+            useSpellsObj.transform.SetParent(prioSideObj.transform, false);
+            useScrollsObj.transform.SetParent(prioSideObj.transform, false);
+            usePotionsObj.transform.SetParent(prioSideObj.transform, false);
+            useEquipmentObj.transform.SetParent(prioSideObj.transform, false);
+
+            // Pearls of Power toggle — right column, second row (order fixed below).
+            // Off = this buff plans and casts exactly as the mod did before pearls existed.
+            var usePearlsObj = MakeSourceToggle("use.pearls".i8());
+            var usePearlsToggle = usePearlsObj.GetComponentInChildren<ToggleWorkaround>();
+            var usePearlsLabel = usePearlsObj.GetComponentInChildren<TextMeshProUGUI>();
+            usePearlsLabel.raycastTarget = true;
+            TooltipHelper.SetTooltip(usePearlsLabel, new TooltipTemplateSimple("use.pearls".i8(), "use.pearls-tooltip".i8()));
+
+            usePearlsToggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                var s = state.SavedState;
+                // Value-diff guard: UpdateDetailsView rebinds isOn programmatically, which fires this too
+                if (b == null || b.UsesPearls(s) == val) return;
+                if (s.PearlsGlobal) {
+                    s.GlobalUsePearls = val;            // one setting for every spell
+                } else {
+                    b.UsePearls = val;
+                    if (b.SavedState != null) b.SavedState.UsePearls = val;
+                }
+                state.Save();
+                // Re-plan so the casting counts and the pearl rows under the casters follow at once
+                state.Recalculate(true);
+            });
+
+            // "Pearls' settings applied globally" — right column, third row. On: the two pearl boxes become one
+            // setting for every spell, starting from this spell's pair. Off: every spell is back on its own
+            // pair, which stayed untouched meanwhile — i.e. exactly the per-spell behaviour.
+            var pearlsGlobalObj = MakeSourceToggle("use.pearls-global".i8());
+            var pearlsGlobalToggle = pearlsGlobalObj.GetComponentInChildren<ToggleWorkaround>();
+            var pearlsGlobalLabel = pearlsGlobalObj.GetComponentInChildren<TextMeshProUGUI>();
+            pearlsGlobalLabel.raycastTarget = true;
+            TooltipHelper.SetTooltip(pearlsGlobalLabel, new TooltipTemplateSimple("use.pearls-global".i8(), "use.pearls-global-tooltip".i8()));
+
+            pearlsGlobalToggle.onValueChanged.AddListener(val => {
+                var s = state.SavedState;
+                if (s.PearlsGlobal == val) return;
+                s.PearlsGlobal = val;
+                var b = view.Selected;
+                if (val && b != null) {
+                    s.GlobalUsePearls = b.UsePearls;
+                    s.GlobalUseEquippedPearls = b.UseEquippedPearls;
+                    s.GlobalPearlKinds = new HashSet<string>(b.PearlKinds ?? new HashSet<string>());
+                    s.GlobalEquippedPearlKinds = new HashSet<string>(b.EquippedPearlKinds ?? new HashSet<string>());
+                }
+                state.Save();
+                state.Recalculate(true);
+            });
+
+            // "Allow equipped pearls' usage" — right column, first row. With pearl mode on, a caster may also use
+            // the pearls in their own quick slots, after the inventory ones.
+            var useEquippedPearlsObj = MakeSourceToggle("use.pearls-equipped".i8());
+            var useEquippedPearlsToggle = useEquippedPearlsObj.GetComponentInChildren<ToggleWorkaround>();
+
+            // Right column, top to bottom: spacer (level with "Source priority"), equipped, use pearls, global —
+            // so the three pearl boxes sit level with Extend Rod / Combat Start / Use Spells on the left.
+            toggleSpacerObj.transform.SetSiblingIndex(0);
+            useEquippedPearlsObj.transform.SetSiblingIndex(1);
+            usePearlsObj.transform.SetSiblingIndex(2);
+            pearlsGlobalObj.transform.SetSiblingIndex(3);
+            var useEquippedPearlsLabel = useEquippedPearlsObj.GetComponentInChildren<TextMeshProUGUI>();
+            useEquippedPearlsLabel.raycastTarget = true;
+            TooltipHelper.SetTooltip(useEquippedPearlsLabel, new TooltipTemplateSimple("use.pearls-equipped".i8(), "use.pearls-equipped-tooltip".i8()));
+
+            useEquippedPearlsToggle.onValueChanged.AddListener(val => {
+                var b = view.Selected;
+                var s = state.SavedState;
+                if (b == null || b.UsesEquippedPearls(s) == val) return;
+                if (s.PearlsGlobal) {
+                    s.GlobalUseEquippedPearls = val;    // one setting for every spell
+                } else {
+                    b.UseEquippedPearls = val;
+                    if (b.SavedState != null) b.SavedState.UseEquippedPearls = val;
+                }
+                state.Save();
+                state.Recalculate(true);
+            });
+
             // Round Limit spinner — on left side, below combat start toggle
             var (roundLimitObj, roundLimitRect) = UIHelpers.Create("RoundLimitSpinner", prioSideObj.transform);
             var roundLimitLE = roundLimitObj.AddComponent<LayoutElement>();
@@ -2279,7 +2410,8 @@ namespace BuffIt2TheLimit {
             // Scrollable since v1.21.1: with a ToyBox-enlarged party (and scrolls/potions making
             // nearly everyone a provider) the row overflowed the details panel on both sides and the
             // outer casters' expand buttons were unreachable. Vertical bleed keeps the "12/12"
-            // labels hanging below the portraits out of the mask.
+            // labels hanging below the portraits out of the mask. (The Pearl of Power strip is not
+            // in this scroller: it is a sibling under it, see PearlShelf.Attach.)
             var (castersScroll, castersViewport, casterScrollRect) = MakeHorizontalScroller("CastersScroll", castersSection.transform, verticalBleed: 40f);
             castersScroll.offsetMin = new Vector2(0, 4);
             castersScroll.offsetMax = new Vector2(0, -4);
@@ -2324,6 +2456,18 @@ namespace BuffIt2TheLimit {
             selfCastInfoObj.SetActive(false);
             selfCastInfoObj.transform.SetAsLastSibling();
 
+            // Pearl of Power strip under the caster row (after SelfCastInfo, so it is the last sibling and gets
+            // the clicks). A click on a pane picks / un-picks that pearl kind for the selected spell.
+            view.pearlShelf = PearlShelf.Attach(castersSection.transform, (kind, fromQuickSlot) => {
+                var b = view.Selected;
+                if (b == null) return;
+                var picked = b.PickedPearls(state.SavedState, fromQuickSlot);
+                if (!picked.Remove(kind)) picked.Add(kind);
+                state.Save();
+                // Re-plan: casting counts and the strip's colours follow at once
+                state.Recalculate(true);
+            });
+
             for (int i = 0; i < totalCasters; i++) {
                 var portrait = CreatePortrait(groupHeight, castersRect, true, true, view.casterPortraits, casterPopout);
                 view.casterPortraits[i] = portrait;
@@ -2336,6 +2480,8 @@ namespace BuffIt2TheLimit {
                 portrait.Text.gameObject.transform.parent.gameObject.SetActive(true);
                 portrait.Text.text = "12/12";
                 int casterIndex = i;
+                // Several casters: a click on a portrait shows that caster's pearls in the strip below
+                portrait.Button.OnLeftClick.AddListener(() => view.SelectPearlCaster(casterIndex));
 
                 portrait.Expand?.OnLeftClick.AddListener(() => {
                     if (portrait.State) {
@@ -2429,6 +2575,7 @@ namespace BuffIt2TheLimit {
 
                 if (!hasBuff) {
                     sourceControlObj.SetActive(false);
+                    view.pearlShelf?.Hide();
                     return;
                 }
 
@@ -2480,10 +2627,34 @@ namespace BuffIt2TheLimit {
                 bool hasSourceControls = !isEquipmentCategory && (sourceCount > 1 || hasSpellProviders);
                 sourceControlObj.SetActive(true); // Always show — contains combat start toggle
                 // Hide source-specific controls when they don't apply (songs, equipment-only)
-                toggleSideObj.SetActive(hasSourceControls);
                 prioLabelObj.SetActive(hasSourceControls);
                 useExtendRodObj.SetActive(hasSourceControls);
+                // The source toggles sit in the left column now (no longer under toggleSideObj), so they are
+                // hidden with the other source-specific controls directly
+                if (!hasSourceControls) {
+                    useSpellsObj.SetActive(false);
+                    useScrollsObj.SetActive(false);
+                    usePotionsObj.SetActive(false);
+                    useEquipmentObj.SetActive(false);
+                }
+                // Pearls only refill spellbook slots, and only while the master switch is on; the right column
+                // holds nothing else
+                bool showPearls = hasSourceControls && hasSpellProviders && state.SavedState.PearlsEnabled;
+                toggleSideObj.SetActive(showPearls);
+                usePearlsObj.SetActive(showPearls);
+                useEquippedPearlsObj.SetActive(showPearls);
+                pearlsGlobalObj.SetActive(showPearls);
+                if (showPearls) {
+                    var s = state.SavedState;
+                    // Global box first: the two below read the global pair while it is on
+                    pearlsGlobalToggle.isOn = s.PearlsGlobal;
+                    usePearlsToggle.isOn = buff.UsesPearls(s);
+                    useEquippedPearlsToggle.isOn = buff.UsesEquippedPearls(s);
+                    // Only meaningful on top of "Use Pearls of Power"
+                    useEquippedPearlsToggle.interactable = buff.UsesPearls(s);
+                }
                 roundLimitObj.SetActive(buff.IsActivatable && buff.Category != Category.Toggle);
+                FitSourceControls();
 
 
                 prioOverrideText.text = $"{"setting-source-priority".i8()}: {GetPriorityText(buff.SourcePriorityOverride)}";
@@ -3542,6 +3713,7 @@ namespace BuffIt2TheLimit {
         private static SpellbookWatcher SpellMemorizeHandler;
         private static HideBubbleButtonsWatcher ButtonHiderHandler;
         internal static RoundLimitHandler RoundLimitWatcher;
+        private static PearlStackMerger PearlMerger;
 
         public static void Install() {
 
@@ -3550,11 +3722,13 @@ namespace BuffIt2TheLimit {
             SpellMemorizeHandler = new();
             ButtonHiderHandler = new();
             RoundLimitWatcher = new();
+            PearlMerger = new();
             EventBus.Subscribe(Instance);
             EventBus.Subscribe(UiEventSubscriber);
             EventBus.Subscribe(SpellMemorizeHandler);
             EventBus.Subscribe(ButtonHiderHandler);
             EventBus.Subscribe(RoundLimitWatcher);
+            EventBus.Subscribe(PearlMerger);
 
         }
 
@@ -3569,6 +3743,7 @@ namespace BuffIt2TheLimit {
             EventBus.Unsubscribe(SpellMemorizeHandler);
             EventBus.Unsubscribe(ButtonHiderHandler);
             EventBus.Unsubscribe(RoundLimitWatcher);
+            if (PearlMerger != null) EventBus.Unsubscribe(PearlMerger);
         }
     }
 
@@ -3695,6 +3870,7 @@ namespace BuffIt2TheLimit {
         public Image SourceOverlay;
         public Image SourceOverlayBg;
         public bool State = false;
+        public float Height;
 
         public void ExpandOff() {
             SetExpanded(false);
@@ -3846,6 +4022,10 @@ namespace BuffIt2TheLimit {
         public int[] casterPortraitMap;
         public GameObject castersHolder;
         public ScrollRect castersScroll;
+        // Pearl of Power strip under the caster row, and whose pearls it shows (UniqueId; the first caster when
+        // unset or no longer casting the selected spell)
+        public PearlShelf pearlShelf;
+        public string pearlCasterId;
         public TextMeshProUGUI selfCastInfoLabel;
 
         public GameObject listPrefab;
@@ -4120,6 +4300,48 @@ namespace BuffIt2TheLimit {
             return string.Join("\n", lines);
         }
 
+        // A click on caster portrait #portraitIndex: show that caster's pearls in the strip.
+        internal void SelectPearlCaster(int portraitIndex) {
+            try {
+                if (!Get(out var buff) || casterPortraitMap == null || portraitIndex < 0 || portraitIndex >= casterPortraitMap.Length) return;
+                pearlCasterId = buff.CasterQueue[casterPortraitMap[portraitIndex]].who.UniqueId;
+                RefreshPearlShelf(buff);
+            } catch (Exception ex) {
+                Main.Error(ex, "[Pearls] choosing the caster for the pearl strip");
+            }
+        }
+
+        // The strip shows one caster's pearls: the chosen one if they still cast this spell from a spellbook,
+        // else the first such caster in the row. It hangs under that caster's "Sp:N" label.
+        private void RefreshPearlShelf(BubbleBuff buff) {
+            if (pearlShelf == null) return;
+            try {
+                var casters = (casterPortraitMap ?? new int[0])
+                    .Select((queueIndex, portraitIndex) => (who: buff.CasterQueue[queueIndex].who, portraitIndex))
+                    .Where(c => buff.CasterQueue.Any(p => p.who == c.who && SpellSlotLedger.Tracks(p)))
+                    .ToList();
+                if (casters.Count == 0) {
+                    pearlShelf.Hide();
+                    return;
+                }
+                var chosen = casters.FirstOrDefault(c => c.who.UniqueId == pearlCasterId);
+                if (chosen.who == null) chosen = casters[0];
+                pearlCasterId = chosen.who.UniqueId;
+
+                var portrait = casterPortraits[chosen.portraitIndex];
+                var label = portrait.Text;
+                float labelHeight = label != null && !string.IsNullOrEmpty(label.text)
+                    ? label.GetPreferredValues(label.text, portrait.Height * 0.75f, 0f).y
+                    : 0f;
+                // Portraits sit centred in the section; the label is centred a quarter-height under the portrait
+                float top = -(portrait.Height * 0.75f + labelHeight / 2f + 4f);
+                pearlShelf.Show(buff, chosen.who, casters.Count > 1, top, PearlShelf.ReadInventory());
+            } catch (Exception ex) {
+                pearlShelf.Hide();
+                Main.Error(ex, "[Pearls] pearl strip");
+            }
+        }
+
         private void UpdateCasterDetails(BubbleBuff buff) {
             var seen = new HashSet<string>();
             var distinctCasters = new List<int>();
@@ -4217,6 +4439,7 @@ namespace BuffIt2TheLimit {
             // resolves to anchoredPosition 0, i.e. still centred.
             if (castersScroll != null && distinctCasters.Count > 0)
                 castersScroll.horizontalNormalizedPosition = 0f;
+            RefreshPearlShelf(buff);
             addToAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested != Bubble.ConfigGroup.Count;
             removeFromAll.GetComponentInChildren<OwlcatButton>().Interactable = buff.Requested > 0;
         }

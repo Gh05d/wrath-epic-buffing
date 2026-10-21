@@ -76,6 +76,23 @@ namespace BuffIt2TheLimit {
         [System.ComponentModel.DefaultValue(true)]
         public bool ActivatablesEnabled = true;
         [JsonProperty]
+        [System.ComponentModel.DefaultValue(true)]
+        // Refill spent spell slots with Pearls of Power from the shared inventory (out of combat only)
+        public bool PearlsEnabled = true;
+        [JsonProperty]
+        // "Pearls' settings applied globally": on = the two pearl boxes below are one setting for every spell;
+        // off = each spell keeps its own boxes (SavedBuffState.UsePearls / UseEquippedPearls, untouched meanwhile).
+        public bool PearlsGlobal;
+        [JsonProperty]
+        public bool GlobalUsePearls;
+        [JsonProperty]
+        public bool GlobalUseEquippedPearls;
+        [JsonProperty]
+        // Pearl kinds (item blueprint ids) picked green while the global box rules: inventory / quick slot
+        public HashSet<string> GlobalPearlKinds = new();
+        [JsonProperty]
+        public HashSet<string> GlobalEquippedPearlKinds = new();
+        [JsonProperty]
         public bool SortByName;
         [JsonProperty]
         public Dictionary<BuffGroup, ShortcutBinding> ShortcutKeys = new();
@@ -137,6 +154,15 @@ namespace BuffIt2TheLimit {
         public bool UseEquipment = true;
         [JsonProperty]
         public bool UseExtendRod;
+        [JsonProperty]
+        public bool UsePearls;
+        [JsonProperty]
+        public bool UseEquippedPearls;
+        [JsonProperty]
+        // Pearl kinds (item blueprint ids) this spell may use, picked green under the caster
+        public HashSet<string> PearlKinds;
+        [JsonProperty]
+        public HashSet<string> EquippedPearlKinds;
         [JsonProperty]
         public bool CastOnCombatStart;
         [JsonProperty]

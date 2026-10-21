@@ -170,6 +170,15 @@ namespace BuffIt2TheLimit {
         public bool UsePotions = true;
         public bool UseEquipment = true;
         public bool UseExtendRod;
+        // Per-buff "Use Pearls of Power" box. Off (default) = the original planning and casting, untouched.
+        public bool UsePearls;
+        // Per-buff "Allow equipped pearls' usage" box: with pearl mode on, a caster may also use the pearls in
+        // their OWN quick slots (after the inventory ones), in combat too. Off by default.
+        public bool UseEquippedPearls;
+        // Pearl kinds (item blueprint ids) this spell may use — the panes clicked green under the caster.
+        // Empty by default: no pearl is used until the player picks it.
+        public HashSet<string> PearlKinds = new();
+        public HashSet<string> EquippedPearlKinds = new();
         public bool CastOnCombatStart;
         public int DeactivateAfterRounds;
         public bool IsActivatable;
@@ -241,6 +250,10 @@ namespace BuffIt2TheLimit {
             UsePotions = state.UsePotions;
             UseEquipment = state.UseEquipment;
             UseExtendRod = state.UseExtendRod;
+            UsePearls = state.UsePearls;
+            UseEquippedPearls = state.UseEquippedPearls;
+            PearlKinds = state.PearlKinds != null ? new HashSet<string>(state.PearlKinds) : new HashSet<string>();
+            EquippedPearlKinds = state.EquippedPearlKinds != null ? new HashSet<string>(state.EquippedPearlKinds) : new HashSet<string>();
             CastOnCombatStart = state.CastOnCombatStart;
             DeactivateAfterRounds = state.DeactivateAfterRounds;
             SetHidden(HideReason.Blacklisted, state.Blacklisted);
@@ -264,18 +277,28 @@ namespace BuffIt2TheLimit {
                 // For item-backed providers (Scroll/Potion/Equipment) the real inventory is
                 // already authoritative via BufferState.RefreshItemStock(); refunding here would
                 // re-add credits that were actually consumed by Inventory.Remove()/Charges--.
+                // Casts a Pearl of Power pays for were never charged to the credits.
                 if (!caster.IsItemSource) {
-                    caster.AddCredits(caster.spent);
+                    caster.AddCredits(caster.spent - caster.pearlSpent);
                 }
                 caster.spent = 0;
+                caster.pearlSpent = 0;
                 caster.MaxCap = caster.AvailableCreditsNoCap;
             }
             given.Clear();
 
             if (ActualCastQueue != null)
                 ActualCastQueue.Clear();
+            PlannedPearls.Clear();
 
         }
+
+        // The pearls the plan set aside per ActualCastQueue entry (by its index): (kind, from a quick slot).
+        // Execute hands them to the cast task, so casting uses exactly the pearls the plan counted.
+        internal readonly Dictionary<int, List<(string Kind, bool FromQuickSlot)>> PlannedPearls = new();
+
+        internal List<(string Kind, bool FromQuickSlot)> PlannedPearlsFor(int queueIndex) =>
+            PlannedPearls.TryGetValue(queueIndex, out var planned) ? planned : null;
 
         public bool CanTarget(UnitEntityData who) {
             foreach (var caster in CasterQueue) {
@@ -316,10 +339,15 @@ namespace BuffIt2TheLimit {
                 return;
             }
             var activePartyIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
+            var ledger = SpellSlotLedger.Current;
+            bool pearlMode = PearlMode(ledger);
+            var permit = pearlMode ? Permit(ledger.Settings) : null;
 
             foreach (var target in wanted) {
                 // Skip reserve characters — can't buff someone not in the active party
                 if (!activePartyIds.Contains(target)) continue;
+                // Second pearl pass of a Recalculate: targets the first pass planned are done
+                if (given.Contains(target)) continue;
 
                 for (int n = 0; n < CasterQueue.Count; n++) {
                     var caster = CasterQueue[n];
@@ -336,6 +364,19 @@ namespace BuffIt2TheLimit {
                     // Available Credit check incorporating Azata Zippy Magic
                     var numberOfSpellCastsByCaster = ActualCastQueue?.Where(x => x.Item2 == caster).Count() ?? 0;
                     var creditsNeeded = CreditsNeeded(caster.spell);
+
+                    // Pearl mode, spellbook spells: the slots actually free (plus Pearls of Power)
+                    // decide, the credits only carry the per-routine caps — see SpellSlotLedger.
+                    if (pearlMode && SpellSlotLedger.Tracks(caster)) {
+                        if (TryPlanSpellbookCast(ledger, permit, caster, target, creditsNeeded, numberOfSpellCastsByCaster % 2 == 1))
+                            break;
+                        // First pass, short of a same-level pearl only: a higher picked pearl can do it in the
+                        // second pass — leave the target for that instead of using up a scroll or potion now
+                        if (ledger.HigherPearlCouldServe(caster, permit))
+                            break;
+                        continue;
+                    }
+
                     var hasAvailableCredits = caster.AvailableCredits >= creditsNeeded || (caster.AvailableCredits < creditsNeeded && caster.AvailableCredits >= 0 && caster.AzataZippyMagic && numberOfSpellCastsByCaster % 2 == 1);
 
                     if (hasAvailableCredits) {
@@ -354,6 +395,8 @@ namespace BuffIt2TheLimit {
                             // Check for opposition school
                             caster.ChargeCredits(creditsNeeded);
                             caster.spent += creditsNeeded;
+                            // Bookkeeping only: buffs in pearl mode see the slots this cast will take
+                            ledger?.Consume(caster);
                         }
                         given.Add(target);
 
@@ -366,10 +409,64 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        // Pearl mode: this buff's "Use Pearls of Power" box is ticked and the master switch in the settings
+        // is on. Only then does the buff plan against the real slots and refill them with pearls; otherwise
+        // it runs the original credit planning and casting, exactly as before the pearl feature.
+        internal bool PearlMode(SpellSlotLedger ledger) => ledger != null && ledger.Enabled && UsesPearls(ledger.Settings);
+
+        // The two pearl boxes as they apply right now: the global pair while "Pearls' settings applied globally"
+        // is on, this buff's own pair otherwise (kept untouched while the global pair rules).
+        internal bool UsesPearls(SavedBufferState s) => s != null && s.PearlsGlobal ? s.GlobalUsePearls : UsePearls;
+        internal bool UsesEquippedPearls(SavedBufferState s) => s != null && s.PearlsGlobal ? s.GlobalUseEquippedPearls : UseEquippedPearls;
+
+        // The live set of picked pearl kinds (global or this buff's own); the pearl strip edits it in place.
+        internal HashSet<string> PickedPearls(SavedBufferState s, bool fromQuickSlot) {
+            if (s != null && s.PearlsGlobal) {
+                return fromQuickSlot
+                    ? (s.GlobalEquippedPearlKinds ??= new HashSet<string>())
+                    : (s.GlobalPearlKinds ??= new HashSet<string>());
+            }
+            return fromQuickSlot ? (EquippedPearlKinds ??= new HashSet<string>()) : (PearlKinds ??= new HashSet<string>());
+        }
+
+        // What a routine may use, as a snapshot for its plan and its cast tasks.
+        internal PearlPermit Permit(SavedBufferState s, List<(string Kind, bool FromQuickSlot)> planned = null) =>
+            new PearlPermit(PickedPearls(s, false), PickedPearls(s, true), UsesEquippedPearls(s), planned);
+
+        // One planned cast of a spellbook spell for Validate: the per-routine caps come from the provider,
+        // the slot from the SpellSlotLedger — free slots first, Pearls of Power once the book has run dry.
+        // Casts a pearl pays for are not charged to the credits (pearlSpent keeps Invalidate's refund right).
+        private bool TryPlanSpellbookCast(SpellSlotLedger ledger, PearlPermit permit, BuffProvider caster, string target, int creditsNeeded, bool oddCast) {
+            // Azata Zippy Magic: every second cast of a caster is the free echo of the one before it —
+            // no cap, no slot (the cast handler hands the echo its own slot back).
+            bool echo = caster.AzataZippyMagic && oddCast;
+            if (!echo && !caster.CapAllows(creditsNeeded)) return false;
+            if (!caster.CanTarget(target)) return false;
+
+            List<(string Kind, bool FromQuickSlot)> taken = null;
+            if (!echo) {
+                if (!ledger.TryReserve(this, caster, permit, out int pearlSlots, out taken)) return false;
+                int pearlCredits = Math.Min(creditsNeeded, pearlSlots);
+                caster.ChargeCredits(creditsNeeded - pearlCredits);
+                caster.spent += creditsNeeded;
+                caster.pearlSpent += pearlCredits;
+            }
+            given.Add(target);
+            ActualCastQueue ??= new();
+            ActualCastQueue.Add((target, caster));
+            if (taken != null && taken.Count > 0)
+                PlannedPearls[ActualCastQueue.Count - 1] = taken;
+            return true;
+        }
+
         private void ValidateMass() {
             if (wanted.Count == 0) return;
+            if (given.Count > 0) return;   // second pearl pass: the one mass cast is already planned
 
             var activePartyIds = new HashSet<string>(Bubble.Group.Select(u => u.UniqueId));
+            var ledger = SpellSlotLedger.Current;
+            bool pearlMode = PearlMode(ledger);
+            var permit = pearlMode ? Permit(ledger.Settings) : null;
 
             // Azata Zippy Magic is disabled for IsMass spells in EngineCastingHandler,
             // so no Zippy credit adjustment needed here.
@@ -389,8 +486,15 @@ namespace BuffIt2TheLimit {
                 if (caster.SourceType == BuffSourceType.Equipment && !UseEquipment) continue;
 
                 var creditsNeeded = CreditsNeeded(caster.spell);
-                if (caster.AvailableCredits < creditsNeeded) continue;
-                if (!caster.SlottedSpell.IsAvailable) continue;
+                // Pearl mode, spellbook spells: caps from the credits, the slot (or a Pearl of Power)
+                // from the ledger
+                bool slotTracked = pearlMode && SpellSlotLedger.Tracks(caster);
+                if (slotTracked) {
+                    if (!caster.CapAllows(creditsNeeded)) continue;
+                } else {
+                    if (caster.AvailableCredits < creditsNeeded) continue;
+                    if (!caster.SlottedSpell.IsAvailable) continue;
+                }
 
                 // Find a wanted target this caster can reach (game distributes to all allies)
                 string validTarget = null;
@@ -403,12 +507,25 @@ namespace BuffIt2TheLimit {
                 }
                 if (validTarget == null) continue;
 
-                caster.ChargeCredits(creditsNeeded);
+                int pearlSlots = 0;
+                List<(string Kind, bool FromQuickSlot)> taken = null;
+                if (slotTracked && !ledger.TryReserve(this, caster, permit, out pearlSlots, out taken)) {
+                    // First pass, short of a same-level pearl only: wait for the second pass and its higher
+                    // pearls rather than fall through to a scroll or potion now
+                    if (ledger.HigherPearlCouldServe(caster, permit)) return;
+                    continue;
+                }
+                if (!slotTracked) ledger?.Consume(caster);   // bookkeeping for buffs in pearl mode
+                int pearlCredits = Math.Min(creditsNeeded, pearlSlots);
+                caster.ChargeCredits(creditsNeeded - pearlCredits);
                 caster.spent += creditsNeeded;
+                caster.pearlSpent += pearlCredits;
 
                 if (ActualCastQueue == null)
                     ActualCastQueue = new();
                 ActualCastQueue.Add((validTarget, caster));
+                if (taken != null && taken.Count > 0)
+                    PlannedPearls[ActualCastQueue.Count - 1] = taken;
 
                 // Mark all wanted targets in the active party as given
                 foreach (var target in wanted) {
@@ -448,9 +565,16 @@ namespace BuffIt2TheLimit {
             if (caster.spell == null && caster.SourceType != BuffSourceType.Song) return "spell=null";
 
             int creditsNeeded = caster.spell != null ? CreditsNeeded(caster.spell) : 1;
-            if (caster.AvailableCredits < creditsNeeded) return $"credits {caster.AvailableCredits} < needed {creditsNeeded}";
+            var ledger = SpellSlotLedger.Current;
+            if (PearlMode(ledger) && SpellSlotLedger.Tracks(caster)) {
+                if (!caster.CapAllows(creditsNeeded)) return $"cast cap reached ({caster.spent} planned)";
+                var slotReason = ledger.Explain(caster, Permit(ledger.Settings));
+                if (slotReason != null) return slotReason;
+            } else {
+                if (caster.AvailableCredits < creditsNeeded) return $"credits {caster.AvailableCredits} < needed {creditsNeeded}";
 
-            if (caster.SlottedSpell != null && !caster.SlottedSpell.IsAvailable) return "SlottedSpell not available";
+                if (caster.SlottedSpell != null && !caster.SlottedSpell.IsAvailable) return "SlottedSpell not available";
+            }
 
             foreach (var t in wanted) {
                 if (!activePartyIds.Contains(t)) continue;
@@ -649,6 +773,8 @@ namespace BuffIt2TheLimit {
         public Spellbook book;
         private IReactiveProperty<int> credits;
         public int spent;
+        // Part of `spent` that Pearls of Power pay for: never charged to the credits, so never refunded.
+        internal int pearlSpent;
         public int clamp;
         public int SlotsPerCast = 1;
         public AbilityData spell;
@@ -698,6 +824,14 @@ namespace BuffIt2TheLimit {
             }
         }
         public int AvailableCreditsNoCap => Banned ? 0 : ClampCredits(ClampValue, credits.Value, spent);
+
+        // The per-routine limits alone (ban, self-only clamp, custom cap), without the credits: for spellbook
+        // spells the SpellSlotLedger decides whether a slot is there.
+        internal bool CapAllows(int needed) {
+            if (Banned) return false;
+            int cap = Math.Min(ClampValue, ClampForCap);
+            return cap == int.MaxValue || cap - spent >= needed;
+        }
 
 
         public AbilityData SlottedSpell => baseSpell ?? spell;

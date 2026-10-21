@@ -202,6 +202,9 @@ namespace BuffIt2TheLimit {
 
             int applied = tasks.Count(t => t.ActuallyFired);
             var messageString = $"{title} {"log.applied".i8()} {applied}/{attempted} ({"log.skipped".i8()} {skipped})";
+            int pearlsUsed = tasks.Sum(t => t.PearlsUsed);
+            if (pearlsUsed > 0)
+                messageString += $", {"log.pearls-used".i8()}: {pearlsUsed}";
             Main.Verbose(messageString);
 
             try {
@@ -548,6 +551,10 @@ namespace BuffIt2TheLimit {
                 try {
                     if (buff.IsActivatable) continue; // Activatables handled in Phase 0
 
+                    // Pearl mode (buff box + master switch): planned against the real slots, refilled
+                    // from Pearls of Power at cast time. Otherwise everything below runs as before.
+                    bool pearlMode = buff.PearlMode(SpellSlotLedger.Current);
+
                     int thisBuffGood = 0;
                     int thisBuffSkip = 0;
                     var thisBuffSourceCounts = new Dictionary<BuffSourceType, int>();
@@ -555,7 +562,9 @@ namespace BuffIt2TheLimit {
                     TooltipTemplateBuffer.BuffResult badResult = null;
 
                     // Null when Validate() found no castable provider for any wanted target
+                    int queueIndex = -1;   // position in ActualCastQueue, for the pearls planned per entry
                     foreach (var (target, caster) in buff.ActualCastQueue ?? Enumerable.Empty<(string, BuffProvider)>()) {
+                        queueIndex++;
                         var forTarget = unitBuffs[target];
 
                         // For mass spells, check if ANY wanted target is missing the buff.
@@ -582,7 +591,12 @@ namespace BuffIt2TheLimit {
                         attemptedCasts++;
 
                         AbilityData spellToCast;
-                        if (!caster.SlottedSpell.IsAvailable) {
+                        // Pearl mode: spellbook spells were planned against the slots actually free
+                        // (SpellSlotLedger); a planned cast that finds its slot spent gets it back from a
+                        // Pearl of Power right before it is cast (PearlsOfPower.EnsureSlotForCast), so no
+                        // snapshot check for those here.
+                        bool pearlTask = pearlMode && SpellSlotLedger.Tracks(caster);
+                        if (!pearlTask && !caster.SlottedSpell.IsAvailable) {
                             if (badResult == null)
                                 badResult = tooltip.AddBad(buff);
                             badResult.messages.Add($"  [{caster.who.CharacterName}] => [{Bubble.GroupById[target].CharacterName}], {"noslot".i8()}");
@@ -675,6 +689,9 @@ namespace BuffIt2TheLimit {
                             ReservoirCLBuff = caster.SourceType == BuffSourceType.Spell && caster.ReservoirCLBuff,
                             AzataZippyMagic = caster.SourceType == BuffSourceType.Spell && caster.AzataZippyMagic,
                             IsDuplicateSpellApplied = IsDuplicateSpellApplied,
+                            EchoOf = IsDuplicateSpellApplied ? priorSpellTasks.LastOrDefault() : null,
+                            UsePearls = pearlTask,
+                            Pearls = pearlTask ? buff.Permit(State.SavedState, buff.PlannedPearlsFor(queueIndex)) : null,
                             SelfCastOnly = caster.SelfCastOnly,
                             SourceType = caster.SourceType,
                             SourceItem = caster.SourceItem,
@@ -955,7 +972,12 @@ namespace BuffIt2TheLimit {
 
             foreach (var buff in combatStartBuffs.Where(b => !b.IsActivatable && b.Fulfilled > 0)) {
                 try {
+                    // In combat no pearl is ever used (inventory items are out-of-combat only), but a buff
+                    // in pearl mode keeps its honest slot check: no cast fires without a slot behind it.
+                    bool pearlMode = buff.PearlMode(SpellSlotLedger.Current);
+                    int queueIndex = -1;   // position in ActualCastQueue, for the pearls planned per entry
                     foreach (var (target, caster) in buff.ActualCastQueue) {
+                        queueIndex++;
                         var forTarget = unitBuffs[target];
 
                         if (buff.IsMass) {
@@ -981,6 +1003,9 @@ namespace BuffIt2TheLimit {
 
                         var task = new CastTask {
                             SpellToCast = spellToCast,
+                            SlottedSpell = caster.SlottedSpell,
+                            UsePearls = pearlMode && SpellSlotLedger.Tracks(caster),
+                            Pearls = pearlMode && SpellSlotLedger.Tracks(caster) ? buff.Permit(State.SavedState, buff.PlannedPearlsFor(queueIndex)) : null,
                             PowerfulChange = caster.SourceType == BuffSourceType.Spell && caster.PowerfulChange,
                             ShareTransmutation = caster.SourceType == BuffSourceType.Spell && caster.ShareTransmutation,
                             ReservoirCLBuff = caster.SourceType == BuffSourceType.Spell && caster.ReservoirCLBuff,
@@ -1068,6 +1093,17 @@ namespace BuffIt2TheLimit {
         // is just an attempt counter and overstates results when commands get dropped
         // (e.g. animation-speed mods truncate UnitCommands before the rule triggers).
         public bool ActuallyFired;
+
+        // Pearls of Power used to refill this cast's spent slot (PearlsOfPower.EnsureSlotForCast).
+        public int PearlsUsed;
+        // Set by EnsureSlotForCast when the cast was dropped because its slot was gone and no pearl could
+        // refill it. A Zippy Magic echo (EchoOf) of such a cast is dropped too instead of firing for free.
+        public bool SkippedNoSlot;
+        public CastTask EchoOf;
+        // The buff is in pearl mode and this is a spellbook spell. False = cast exactly as the original mod.
+        public bool UsePearls;
+        // The pearls this cast may use (green kinds; quick-slot ones only if allowed). Null = none.
+        internal PearlPermit Pearls;
 
         public Retentions Retentions {
             get {

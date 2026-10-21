@@ -631,6 +631,10 @@ namespace BuffIt2TheLimit {
 
             foreach (var gbuff in ordered)
                 gbuff.Invalidate();
+            // Fresh slot bookkeeping (and Pearl of Power stock) for this validation pass
+            // First pass: every spell may only take Pearls of Power of its own level
+            var ledger = new SpellSlotLedger(SavedState) { ExactLevelOnly = true };
+            SpellSlotLedger.Current = ledger;
             // Per-buff guard: a throwing buff (typically another mod's patch on an engine getter)
             // must not abort validation of every buff after it and keep the buff window from opening.
             foreach (var gbuff in ordered) {
@@ -638,6 +642,17 @@ namespace BuffIt2TheLimit {
                     gbuff.Validate();
                 } catch (Exception ex) {
                     Main.Error(ex, $"validating {gbuff.Name}");
+                }
+            }
+            // Second pass, buffs in pearl mode still short of targets: the higher-level pearls that are left.
+            // Validate skips the targets the first pass planned.
+            ledger.ExactLevelOnly = false;
+            foreach (var gbuff in ordered) {
+                if (gbuff.IsActivatable || gbuff.Fulfilled >= gbuff.Requested || !gbuff.PearlMode(ledger)) continue;
+                try {
+                    gbuff.Validate();
+                } catch (Exception ex) {
+                    Main.Error(ex, $"validating {gbuff.Name} (higher-level pearls)");
                 }
             }
             foreach (var gbuff in BuffList)
@@ -721,6 +736,10 @@ namespace BuffIt2TheLimit {
                 save.UsePotions = buff.UsePotions;
                 save.UseEquipment = buff.UseEquipment;
                 save.UseExtendRod = buff.UseExtendRod;
+                save.UsePearls = buff.UsePearls;
+                save.UseEquippedPearls = buff.UseEquippedPearls;
+                save.PearlKinds = buff.PearlKinds != null ? new HashSet<string>(buff.PearlKinds) : null;
+                save.EquippedPearlKinds = buff.EquippedPearlKinds != null ? new HashSet<string>(buff.EquippedPearlKinds) : null;
                 save.CastOnCombatStart = buff.CastOnCombatStart;
                 save.DeactivateAfterRounds = buff.DeactivateAfterRounds;
             }

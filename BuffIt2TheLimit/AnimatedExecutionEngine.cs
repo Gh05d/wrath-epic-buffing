@@ -27,7 +27,9 @@ namespace BuffIt2TheLimit {
                     return null;
                 }
 
-                // Spells: use animated command (real AbilityData from spellbook)
+                // Spells: use animated command (real AbilityData from spellbook).
+                // A spent slot is refilled from a Pearl of Power first; without one the cast is skipped.
+                if (!PearlsOfPower.EnsureSlotForCast(task)) return null;
                 handler = new EngineCastingHandler(task);
                 handlers.Add(handler);
                 EventBus.Subscribe(handler);
