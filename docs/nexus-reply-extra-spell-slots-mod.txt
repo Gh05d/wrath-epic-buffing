@@ -1,0 +1,9 @@
+Buff It 每个法术等级能施放几次，是从游戏的 Spellbook.GetSpellsPerDay(level) 读的（自发施法者和秘术师）。预备施法者则看已准备的法术位。
+
+所以关键在于你的模组改的是哪里：
+- 如果它给 GetSpellsPerDay 打了 Harmony Postfix，或者用游戏自带的加法术位机制（AddSpellsPerDay 组件 / UnitPartExtraSpellsPerDay），Buff It 会自动读到。
+- 如果它只改了 m_SpontaneousSlots 或 GetSpontaneousSlots，游戏里确实能多放，但 Buff It 读的那个每日上限没变，所以看不到。
+
+建议把修改放到 GetSpellsPerDay 的 Postfix 里（在返回值上加次数），这样游戏和 Buff It 都会认。改完后重新打开 Buff It 窗口让它重新扫描。
+
+如果还是不行，告诉我是哪个职业/法术书，以及你的模组 patch 了哪个方法，我再看看。
