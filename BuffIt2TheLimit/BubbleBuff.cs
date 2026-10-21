@@ -24,12 +24,39 @@ namespace BuffIt2TheLimit {
         public readonly bool Archmage;
 
         public BuffKey(AbilityData ability, bool archmage) {
-            Guid = ability.Blueprint.AssetGuid.m_Guid;
+            Guid = SpellGuid(ability);
             if (ability.IsMetamagicked())
                 MetamagicMask = ability.MetamagicData.MetamagicMask;
             else
                 MetamagicMask = 0;
             Archmage = archmage;
+        }
+
+        private BuffKey(Guid guid, Metamagic metamagicMask, bool archmage) {
+            Guid = guid;
+            MetamagicMask = metamagicMask;
+            Archmage = archmage;
+        }
+
+        // Magic Deceiver fusions share template blueprints (MagicHackDefaultSlot1-10), one per fusion
+        // slot and identical across casters. Keying by the template merged two Deceivers' slot-1
+        // fusions into one buff, so identify a fusion by what it is made of instead.
+        public static Guid SpellGuid(AbilityData ability) {
+            var hack = ability.MagicHackData;
+            if (hack == null)
+                return ability.Blueprint.AssetGuid.m_Guid;
+            var parts = $"MagicHack|{hack.Spell1?.AssetGuid}|{hack.Spell2?.AssetGuid}|{hack.DeliverBlueprint?.AssetGuid}";
+            using (var md5 = System.Security.Cryptography.MD5.Create()) {
+                return new Guid(md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(parts)));
+            }
+        }
+
+        // Key a fused spell had before 1.21.7 (template blueprint), for migrating saved configs.
+        public static BuffKey? LegacyFusionKey(AbilityData ability, bool archmage) {
+            if (ability.MagicHackData == null)
+                return null;
+            var key = new BuffKey(ability, archmage);
+            return new BuffKey(ability.Blueprint.AssetGuid.m_Guid, key.MetamagicMask, archmage);
         }
 
         public BuffKey(BlueprintGuid blueprintGuid) {
@@ -64,6 +91,7 @@ namespace BuffIt2TheLimit {
         public bool IsMass;
 
         public readonly BuffKey Key;
+        public readonly BuffKey? LegacyKey;
 
         public HideReason HiddenBecause;
 
@@ -141,6 +169,7 @@ namespace BuffIt2TheLimit {
             this.Spell = spell;
             this.NameLower = spell.Name.ToLower();
             this.Key = new BuffKey(spell, archmageArmor);
+            this.LegacyKey = BuffKey.LegacyFusionKey(spell, archmageArmor);
 
             if (Spell.IsMetamagicked()) {
                 Metamagics = spell.GetMetamagicks().ToArray();

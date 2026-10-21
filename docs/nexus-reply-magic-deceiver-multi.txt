@@ -1,0 +1,5 @@
+Thanks for the kind words and the precise report!
+
+You found a real bug. Fused spells don't have their own blueprints: the game puts every fusion on one of ten shared template slots, and those slots are the same for every Magic Deceiver. The mod used that template as the buff's identity, so Deceiver B's fusion in slot 1 was merged into Deceiver A's slot-1 fusion, and whoever came first in the party order decided which one you saw. That's also why swapping portraits scrambled A's setup.
+
+Fixed in 1.21.7: a fused spell is now identified by the two spells it's made of, so each Deceiver's fusions show up separately (and two Deceivers with the same fusion share one entry, like any other spell). Your existing fusion settings carry over automatically.

@@ -536,6 +536,11 @@ namespace BuffIt2TheLimit {
                 try {
                     if (SavedState.Buffs.TryGetValue(buff.Key, out var fromSave)) {
                         buff.InitialiseFromSave(fromSave);
+                    } else if (buff.LegacyKey is BuffKey legacy && SavedState.Buffs.TryGetValue(legacy, out fromSave)) {
+                        // Fused spell saved under its template-slot key (before 1.21.7): move it over.
+                        SavedState.Buffs.Remove(legacy);
+                        SavedState.Buffs[buff.Key] = fromSave;
+                        buff.InitialiseFromSave(fromSave);
                     }
                 } catch (Exception ex) {
                     Main.Error(ex, $"restoring saved config for {buff.Name}");
@@ -910,7 +915,8 @@ namespace BuffIt2TheLimit {
                 bool isAbilityCategory = category == Category.Ability;
                 bool isClassAbility = isAbilityCategory && sourceItem == null;
 
-                if (!SpellsWithBeneficialBuffs.TryGetValue(spell.Blueprint.AssetGuid.m_Guid, out var abilityEffect)) {
+                // key.Guid, not the blueprint guid: fused spells share template blueprints
+                if (!SpellsWithBeneficialBuffs.TryGetValue(key.Guid, out var abilityEffect)) {
                     IEnumerable<IBeneficialEffect> beneficial;
                     var absenceChecked = new HashSet<Guid>();
                     if (spell.MagicHackData != null) {
@@ -929,8 +935,8 @@ namespace BuffIt2TheLimit {
                         absenceChecked = spell.Blueprint.GetAbsenceCheckedFacts();
                     }
                     abilityEffect = new AbilityCombinedEffects(beneficial, absenceChecked);
-                    SpellsWithBeneficialBuffs[spell.Blueprint.AssetGuid.m_Guid] = abilityEffect;
-                    SpellNames[spell.Blueprint.AssetGuid.m_Guid] = spell.Name;
+                    SpellsWithBeneficialBuffs[key.Guid] = abilityEffect;
+                    SpellNames[key.Guid] = spell.Name;
                 }
 
                 if (abilityEffect.Empty) {
