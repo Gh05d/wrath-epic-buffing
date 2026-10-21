@@ -1,0 +1,3 @@
+Good catch, and your guess was right. To decide whether a buff is already on someone, the mod looks at the buffs the spell applies, and one match was enough to skip it. For a fusion that means Bless from Bless + Mage Armor made Bless + Shield look "already applied".
+
+Fixed in 1.21.8: a fused spell now only counts as already applied when both of its parts are on the target. So Bless + Shield is still cast when only Bless is there, and you can turn "Ignore Existing Buffs" back off.

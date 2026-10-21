@@ -35,7 +35,16 @@ namespace BuffIt2TheLimit {
         // Applied buffs the ability re-grants only when absent (also checked via HasFact Not:true).
         // Unreliable presence markers — see AbilityCombinedEffects ctor and IsPresent.
         private HashSet<Guid> SelfGatedBuffs;
+        // Magic Deceiver fusion: the component spells' own effects. Two fusions can share a
+        // component (Bless + Mage Armor, Bless + Shield), so one shared buff on the target must
+        // not count as "present" — see IsPresent.
+        private List<AbilityCombinedEffects> FusionComponents;
         public PetType? PetType = null;
+
+        internal void SetFusionComponents(IEnumerable<AbilityCombinedEffects> components) {
+            var nonEmpty = components.Where(c => !c.Empty).ToList();
+            FusionComponents = nonEmpty.Count > 1 ? nonEmpty : null;
+        }
 
         public IEnumerable<(string name, Guid guid)> All {
             get {
@@ -106,6 +115,10 @@ namespace BuffIt2TheLimit {
 
 
         internal bool IsPresent(UnitBuffData unitBuffData, HashSet<Guid> ignoreForOverwriteCheck) {
+            // A fusion is present only when every buffing component is; otherwise recasting adds the missing one.
+            if (FusionComponents != null)
+                return FusionComponents.All(c => c.IsPresent(unitBuffData, ignoreForOverwriteCheck));
+
             if (AppliedPetBuffs != null) {
                 // GetPet returns null when the pet is dead, dismissed, or not summoned
                 var pet = unitBuffData.Unit.GetPet(PetType.Value);
