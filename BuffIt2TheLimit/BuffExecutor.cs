@@ -6,6 +6,7 @@ using Kingmaker.Blueprints.Items.Weapons;
 using Kingmaker.Controllers;
 using Kingmaker.EntitySystem;
 using Kingmaker.EntitySystem.Entities;
+using Kingmaker.PubSubSystem;
 using Kingmaker.RuleSystem;
 using Kingmaker.RuleSystem.Rules.Abilities;
 using Kingmaker.UI.Models.Log.CombatLog_ThreadSystem;
@@ -854,10 +855,22 @@ namespace BuffIt2TheLimit {
             // Phase 0: Activate activatable abilities marked for combat start
             int activatablesActivated = ActivateCombatStartToggles(combatStartBuffs.Where(b => b.IsActivatable && b.Fulfilled > 0), "Phase0");
 
-            // Toggles that were not available at this instant get a few more tries (see RetryCombatStartToggles).
-            var pendingToggles = combatStartBuffs.Where(b => b.IsActivatable && b.Fulfilled < b.Requested).ToList();
-            if (pendingToggles.Count > 0)
-                BubbleBuffGlobalController.Instance.StartCoroutine(RetryCombatStartToggles(pendingToggles));
+            // Combat-only toggles (Inquisitor Bane) of a party member who is not in combat yet: the
+            // party event fires before a unit whose attack is still running (a charge) joins, see
+            // LateJoinToggleHandler. Activate them when that unit joins instead.
+            var lateJoin = GlobalBubbleBuffer.LateJoinWatcher;
+            lateJoin?.Clear();
+            foreach (var actBuff in combatStartBuffs.Where(b => b.IsActivatable)) {
+                foreach (var provider in actBuff.CasterQueue) {
+                    var source = provider.ActivatableSource ?? actBuff.ActivatableSource;
+                    var unit = provider.who;
+                    if (source == null || unit == null || provider.Banned) continue;
+                    if (!source.Blueprint.OnlyInCombat || unit.IsInCombat || !Bubble.GroupById.ContainsKey(unit.UniqueId)) continue;
+                    if (actBuff.Category != Category.Song && !actBuff.UnitWants(unit)) continue;
+                    lateJoin?.Watch(unit, actBuff, this);
+                    Main.Log($"[CSD] '{actBuff.Name}' waits for {unit.CharacterName} to join combat (combat-only toggle)");
+                }
+            }
 
             // Phase 1: Cast spells/abilities marked for combat start
             TargetWrapper[] targets = Bubble.Group.Select(u => new TargetWrapper(u)).ToArray();
@@ -955,7 +968,7 @@ namespace BuffIt2TheLimit {
         }
 
         // Switches on the given combat-start toggles. Returns how many were activated.
-        private int ActivateCombatStartToggles(IEnumerable<BubbleBuff> buffs, string tag) {
+        internal int ActivateCombatStartToggles(IEnumerable<BubbleBuff> buffs, string tag) {
             int activatablesActivated = 0;
             foreach (var actBuff in buffs
                 .Reverse()
@@ -1048,36 +1061,42 @@ namespace BuffIt2TheLimit {
             }
             return activatablesActivated;
         }
+    }
 
-        // A combat-start toggle can be unavailable at the exact moment combat begins and become
-        // available a moment later: Inquisitor Bane (OnlyInCombat) was rejected as "not available"
-        // when the party charged into combat, but activated fine when walking in (Nexus report
-        // 2026-10-28; resources were unlimited). Phase 0 runs once, so re-validate the pending
-        // toggles a few times during the first round and activate what has become available.
-        private IEnumerator RetryCombatStartToggles(List<BubbleBuff> pending) {
-            const int attempts = 4;
-            const float interval = 1.5f;
-            for (int i = 1; i <= attempts && pending.Count > 0; i++) {
-                yield return new WaitForSeconds(interval);
-                if (!Game.Instance.Player.IsInCombat) yield break;
-                try {
-                    foreach (var buff in pending) buff.ValidateActivatable();
-                    int activated = ActivateCombatStartToggles(pending.Where(b => b.Fulfilled > 0), $"Retry{i}");
-                    if (activated > 0) Main.Log($"[CSD] Retry{i} activated {activated} toggle(s)");
-                    pending.RemoveAll(b => b.Fulfilled >= b.Requested);
-                } catch (Exception ex) {
-                    Main.Error(ex, "[CSD] retry combat-start toggles");
-                    yield break;
-                }
+    // UnitEntityData.JoinCombat returns early in real time while the unit's standard command has
+    // acted but not finished (IL: Commands.Standard IsActed && !IsFinished, unless a later attack
+    // of a full attack). A charge hits exactly that: the rest of the party joins, the party combat
+    // event fires and ExecuteCombatStart runs, and the charger joins only after the attack ends.
+    // OnlyInCombat toggles (Inquisitor Bane) are unavailable until then, so they wait here for the
+    // unit's own HandleUnitJoinCombat (Nexus report 2026-10-28, reproduced in-game).
+    internal class LateJoinToggleHandler : IUnitCombatHandler {
+        private readonly Dictionary<string, List<BubbleBuff>> pending = new();
+        private BuffExecutor executor;
+
+        public void Watch(UnitEntityData unit, BubbleBuff buff, BuffExecutor executor) {
+            this.executor = executor;
+            if (!pending.TryGetValue(unit.UniqueId, out var buffs)) {
+                buffs = new List<BubbleBuff>();
+                pending[unit.UniqueId] = buffs;
             }
-            foreach (var buff in pending) {
-                foreach (var c in buff.CasterQueue) {
-                    var reason = buff.DiagnoseCaster(c);
-                    if (reason != "ok" && reason != "already on")
-                        Main.Log($"[CSD] Retry gave up on '{buff.Name}' {buff.FormatCaster(c)} → {reason}");
-                }
+            if (!buffs.Contains(buff)) buffs.Add(buff);
+        }
+
+        public void Clear() => pending.Clear();
+
+        public void HandleUnitJoinCombat(UnitEntityData unit) {
+            if (unit == null || !pending.TryGetValue(unit.UniqueId, out var buffs)) return;
+            pending.Remove(unit.UniqueId);
+            try {
+                foreach (var buff in buffs) buff.ValidateActivatable();
+                int activated = executor?.ActivateCombatStartToggles(buffs.Where(b => b.Fulfilled > 0), "LateJoin") ?? 0;
+                Main.Log($"[CSD] LateJoin {unit.CharacterName} joined combat — activated {activated} toggle(s)");
+            } catch (Exception ex) {
+                Main.Error(ex, "[CSD] late-join combat-start toggles");
             }
         }
+
+        public void HandleUnitLeaveCombat(UnitEntityData unit) { }
     }
     //castTask.Retentions.Any
     public class CastTask {

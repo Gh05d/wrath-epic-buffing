@@ -3564,6 +3564,7 @@ namespace BuffIt2TheLimit {
         private static SpellbookWatcher SpellMemorizeHandler;
         private static HideBubbleButtonsWatcher ButtonHiderHandler;
         internal static RoundLimitHandler RoundLimitWatcher;
+        internal static LateJoinToggleHandler LateJoinWatcher;
 
         public static void Install() {
 
@@ -3572,11 +3573,13 @@ namespace BuffIt2TheLimit {
             SpellMemorizeHandler = new();
             ButtonHiderHandler = new();
             RoundLimitWatcher = new();
+            LateJoinWatcher = new();
             EventBus.Subscribe(Instance);
             EventBus.Subscribe(UiEventSubscriber);
             EventBus.Subscribe(SpellMemorizeHandler);
             EventBus.Subscribe(ButtonHiderHandler);
             EventBus.Subscribe(RoundLimitWatcher);
+            EventBus.Subscribe(LateJoinWatcher);
 
         }
 
@@ -3591,6 +3594,7 @@ namespace BuffIt2TheLimit {
             EventBus.Unsubscribe(SpellMemorizeHandler);
             EventBus.Unsubscribe(ButtonHiderHandler);
             EventBus.Unsubscribe(RoundLimitWatcher);
+            EventBus.Unsubscribe(LateJoinWatcher);
         }
     }
 
@@ -4435,6 +4439,7 @@ namespace BuffIt2TheLimit {
             } else {
                 try {
                     GlobalBubbleBuffer.RoundLimitWatcher?.OnCombatEnded();
+                    GlobalBubbleBuffer.LateJoinWatcher?.Clear();
                 } catch (Exception ex) {
                     Main.Error(ex, "HandlePartyCombatStateChanged: combat end");
                 }
