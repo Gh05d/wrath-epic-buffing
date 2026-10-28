@@ -1,0 +1,7 @@
+Thanks a lot for the logs, they made this easy to pin down!
+
+When you charge in, the game reports Bane as "not available" at the exact moment combat starts, and the mod only tried once. When you walk in, it's available right away, which is why it worked there. The next version re-checks combat-start toggles a few times during the first round, so Bane gets switched on as soon as the game allows it.
+
+Your other combat-start buffs were fine: all six spells were cast in both fights, charging only affected Bane.
+
+About ignoring resources: I'd rather keep that out of Buff It 2 The Limit. The mod is meant to work within the game's rules, and Toybox already does this well, so I'd stick with Toybox for that.

@@ -465,7 +465,12 @@ namespace BuffIt2TheLimit {
                 if (Category != Category.Song && !UnitWants(caster.who)) return $"caster '{caster.who?.CharacterName}' not in wanted set";
                 if (BuffExecutor.IsEffectivelyOn(caster.who, src)) return "already on";
                 if (caster.Banned) return "banned";
-                if (!src.IsAvailable) return "not available (resources/restrictions)";
+                if (!src.IsAvailable) {
+                    if (!src.IsAvailableByResources) return "not available (no resources)";
+                    if (src.Blueprint.OnlyInCombat && !caster.who.IsInCombat) return "not available (combat-only, unit not in combat yet)";
+                    if (src.TemporarilyDisabled) return "not available (temporarily disabled)";
+                    return "not available (restrictions)";
+                }
                 return "ok";
             }
 

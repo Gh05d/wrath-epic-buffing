@@ -852,97 +852,12 @@ namespace BuffIt2TheLimit {
             }
 
             // Phase 0: Activate activatable abilities marked for combat start
-            int activatablesActivated = 0;
-            foreach (var actBuff in combatStartBuffs
-                .Where(b => b.IsActivatable && b.Fulfilled > 0)
-                .Reverse()
-                .OrderBy(b => b.ActivatableSource?.ConversionsProvider is ShiftersFury ? 2
-                           : b.ActivatableSource?.ConversionsProvider != null ? 1 : 0)) {
-                if (actBuff.ActualCastQueue == null || actBuff.ActualCastQueue.Count == 0) {
-                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' (no eligible caster)");
-                    continue;
-                }
-                foreach (var (_, provider) in actBuff.ActualCastQueue) {
-                    try {
-                        var activatable = provider.ActivatableSource ?? actBuff.ActivatableSource;
-                        if (activatable == null) {
-                            Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' (null source)");
-                            continue;
-                        }
+            int activatablesActivated = ActivateCombatStartToggles(combatStartBuffs.Where(b => b.IsActivatable && b.Fulfilled > 0), "Phase0");
 
-                        var caster = provider.who;
-                        if (caster == null) {
-                            Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' (provider has no unit)");
-                            continue;
-                        }
-
-                        if (IsEffectivelyOn(caster, activatable)) {
-                            Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (already on)");
-                            continue;
-                        }
-
-                        var group = activatable.Blueprint.Group;
-                        // Per-group cap is dynamic: Aeon's mythic gaze (Lv6/Lv10), Master of Many
-                        // Styles, and other IncreaseActivatableAbilityGroupSize content raise it above
-                        // the default of 1. Count live on-state activatables in the group against
-                        // UnitPartActivatableAbility.GetGroupSize instead of capping at one-per-group,
-                        // so a caster who may hold several performances gets all of them on. The count
-                        // is live (IsEffectivelyOn reads IsOn, which we set synchronously below), so it
-                        // already reflects abilities activated earlier in this pass. Group.None = no cap.
-                        if (group != ActivatableAbilityGroup.None) {
-                            int cap = caster.Get<UnitPartActivatableAbility>()?.GetGroupSize(group) ?? 1;
-                            int activeInGroup = caster.ActivatableAbilities.RawFacts
-                                .Count(a => a.Blueprint.Group == group && IsEffectivelyOn(caster, a));
-                            if (activeInGroup >= cap) {
-                                Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (group {group} cap reached {activeInGroup}/{cap})");
-                                continue;
-                            }
-                        }
-
-                        var target = ResolveActivationTarget(caster, activatable);
-                        if (target == null) {
-                            Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (no activation target: no conversions available)");
-                            continue;
-                        }
-
-                        if (!target.IsAvailable) {
-                            Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (not available: resources/restrictions)");
-                            continue;
-                        }
-
-                        var mountResult = TryMountTargeted(caster, target, out var mount);
-                        if (mountResult != MountResult.NotTargeted) {
-                            switch (mountResult) {
-                                case MountResult.Mounted:
-                                    Main.Log($"[CSD] Phase0 mounted {caster.CharacterName} on {mount.CharacterName} ('{actBuff.Name}')");
-                                    activatablesActivated++;
-                                    if (actBuff.HasTurnOffRule)
-                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
-                                    break;
-                                case MountResult.NoCandidate:
-                                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (no suitable mount: needs their own conscious pet of larger size in the party)");
-                                    break;
-                                case MountResult.Ambiguous:
-                                    Main.Log($"[CSD] Phase0 skip '{actBuff.Name}' on {caster.CharacterName} (several suitable mounts — pick a preferred mount in the caster popout or saddle up manually)");
-                                    break;
-                            }
-                            continue;
-                        }
-
-                        string targetLabel = ReferenceEquals(target, activatable) ? actBuff.Name : $"{actBuff.Name} → {target.Blueprint.Name}";
-                        Main.Log($"[CSD] Phase0 activate '{targetLabel}' on {caster.CharacterName}");
-                        ClearConflictingFuryWeapons(caster, target);
-                        target.IsOn = true;
-                        if (!target.IsStarted)
-                            target.TryStart();
-                        activatablesActivated++;
-                        if (actBuff.HasTurnOffRule)
-                            GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
-                    } catch (Exception ex) {
-                        Main.Error(ex, $"combat start: activating {actBuff.Name}");
-                    }
-                }
-            }
+            // Toggles that were not available at this instant get a few more tries (see RetryCombatStartToggles).
+            var pendingToggles = combatStartBuffs.Where(b => b.IsActivatable && b.Fulfilled < b.Requested).ToList();
+            if (pendingToggles.Count > 0)
+                BubbleBuffGlobalController.Instance.StartCoroutine(RetryCombatStartToggles(pendingToggles));
 
             // Phase 1: Cast spells/abilities marked for combat start
             TargetWrapper[] targets = Bubble.Group.Select(u => new TargetWrapper(u)).ToArray();
@@ -1036,6 +951,131 @@ namespace BuffIt2TheLimit {
                 var message = new CombatLogMessage(messageString, Color.blue, PrefixIcon.RightArrow);
                 var messageLog = LogThreadService.Instance.m_Logs[LogChannelType.Common].First(x => x is MessageLogThread);
                 messageLog.AddMessage(message);
+            }
+        }
+
+        // Switches on the given combat-start toggles. Returns how many were activated.
+        private int ActivateCombatStartToggles(IEnumerable<BubbleBuff> buffs, string tag) {
+            int activatablesActivated = 0;
+            foreach (var actBuff in buffs
+                .Reverse()
+                .OrderBy(b => b.ActivatableSource?.ConversionsProvider is ShiftersFury ? 2
+                           : b.ActivatableSource?.ConversionsProvider != null ? 1 : 0)) {
+                if (actBuff.ActualCastQueue == null || actBuff.ActualCastQueue.Count == 0) {
+                    Main.Log($"[CSD] {tag} skip '{actBuff.Name}' (no eligible caster)");
+                    continue;
+                }
+                foreach (var (_, provider) in actBuff.ActualCastQueue) {
+                    try {
+                        var activatable = provider.ActivatableSource ?? actBuff.ActivatableSource;
+                        if (activatable == null) {
+                            Main.Log($"[CSD] {tag} skip '{actBuff.Name}' (null source)");
+                            continue;
+                        }
+
+                        var caster = provider.who;
+                        if (caster == null) {
+                            Main.Log($"[CSD] {tag} skip '{actBuff.Name}' (provider has no unit)");
+                            continue;
+                        }
+
+                        if (IsEffectivelyOn(caster, activatable)) {
+                            Main.Log($"[CSD] {tag} skip '{actBuff.Name}' on {caster.CharacterName} (already on)");
+                            continue;
+                        }
+
+                        var group = activatable.Blueprint.Group;
+                        // Per-group cap is dynamic: Aeon's mythic gaze (Lv6/Lv10), Master of Many
+                        // Styles, and other IncreaseActivatableAbilityGroupSize content raise it above
+                        // the default of 1. Count live on-state activatables in the group against
+                        // UnitPartActivatableAbility.GetGroupSize instead of capping at one-per-group,
+                        // so a caster who may hold several performances gets all of them on. The count
+                        // is live (IsEffectivelyOn reads IsOn, which we set synchronously below), so it
+                        // already reflects abilities activated earlier in this pass. Group.None = no cap.
+                        if (group != ActivatableAbilityGroup.None) {
+                            int cap = caster.Get<UnitPartActivatableAbility>()?.GetGroupSize(group) ?? 1;
+                            int activeInGroup = caster.ActivatableAbilities.RawFacts
+                                .Count(a => a.Blueprint.Group == group && IsEffectivelyOn(caster, a));
+                            if (activeInGroup >= cap) {
+                                Main.Log($"[CSD] {tag} skip '{actBuff.Name}' on {caster.CharacterName} (group {group} cap reached {activeInGroup}/{cap})");
+                                continue;
+                            }
+                        }
+
+                        var target = ResolveActivationTarget(caster, activatable);
+                        if (target == null) {
+                            Main.Log($"[CSD] {tag} skip '{actBuff.Name}' on {caster.CharacterName} (no activation target: no conversions available)");
+                            continue;
+                        }
+
+                        if (!target.IsAvailable) {
+                            Main.Log($"[CSD] {tag} skip '{actBuff.Name}' on {caster.CharacterName} (not available: resources/restrictions)");
+                            continue;
+                        }
+
+                        var mountResult = TryMountTargeted(caster, target, out var mount);
+                        if (mountResult != MountResult.NotTargeted) {
+                            switch (mountResult) {
+                                case MountResult.Mounted:
+                                    Main.Log($"[CSD] {tag} mounted {caster.CharacterName} on {mount.CharacterName} ('{actBuff.Name}')");
+                                    activatablesActivated++;
+                                    if (actBuff.HasTurnOffRule)
+                                        GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
+                                    break;
+                                case MountResult.NoCandidate:
+                                    Main.Log($"[CSD] {tag} skip '{actBuff.Name}' on {caster.CharacterName} (no suitable mount: needs their own conscious pet of larger size in the party)");
+                                    break;
+                                case MountResult.Ambiguous:
+                                    Main.Log($"[CSD] {tag} skip '{actBuff.Name}' on {caster.CharacterName} (several suitable mounts — pick a preferred mount in the caster popout or saddle up manually)");
+                                    break;
+                            }
+                            continue;
+                        }
+
+                        string targetLabel = ReferenceEquals(target, activatable) ? actBuff.Name : $"{actBuff.Name} → {target.Blueprint.Name}";
+                        Main.Log($"[CSD] {tag} activate '{targetLabel}' on {caster.CharacterName}");
+                        ClearConflictingFuryWeapons(caster, target);
+                        target.IsOn = true;
+                        if (!target.IsStarted)
+                            target.TryStart();
+                        activatablesActivated++;
+                        if (actBuff.HasTurnOffRule)
+                            GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
+                    } catch (Exception ex) {
+                        Main.Error(ex, $"combat start: activating {actBuff.Name}");
+                    }
+                }
+            }
+            return activatablesActivated;
+        }
+
+        // A combat-start toggle can be unavailable at the exact moment combat begins and become
+        // available a moment later: Inquisitor Bane (OnlyInCombat) was rejected as "not available"
+        // when the party charged into combat, but activated fine when walking in (Nexus report
+        // 2026-10-28; resources were unlimited). Phase 0 runs once, so re-validate the pending
+        // toggles a few times during the first round and activate what has become available.
+        private IEnumerator RetryCombatStartToggles(List<BubbleBuff> pending) {
+            const int attempts = 4;
+            const float interval = 1.5f;
+            for (int i = 1; i <= attempts && pending.Count > 0; i++) {
+                yield return new WaitForSeconds(interval);
+                if (!Game.Instance.Player.IsInCombat) yield break;
+                try {
+                    foreach (var buff in pending) buff.ValidateActivatable();
+                    int activated = ActivateCombatStartToggles(pending.Where(b => b.Fulfilled > 0), $"Retry{i}");
+                    if (activated > 0) Main.Log($"[CSD] Retry{i} activated {activated} toggle(s)");
+                    pending.RemoveAll(b => b.Fulfilled >= b.Requested);
+                } catch (Exception ex) {
+                    Main.Error(ex, "[CSD] retry combat-start toggles");
+                    yield break;
+                }
+            }
+            foreach (var buff in pending) {
+                foreach (var c in buff.CasterQueue) {
+                    var reason = buff.DiagnoseCaster(c);
+                    if (reason != "ok" && reason != "already on")
+                        Main.Log($"[CSD] Retry gave up on '{buff.Name}' {buff.FormatCaster(c)} → {reason}");
+                }
             }
         }
     }
