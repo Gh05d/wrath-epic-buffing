@@ -1,6 +1,6 @@
 Thanks a lot for the logs, they made this easy to pin down!
 
-When a character charges, the game only counts them as "in combat" once the charge attack has finished, a moment after the rest of the party. Bane can only be switched on in combat, and the mod tried exactly at combat start, so it missed the charger. The next version switches Bane on the moment the charging character joins the fight.
+When a character charges, the game only counts them as "in combat" once the charge attack has finished, a moment after the rest of the party. Bane can only be switched on in combat, and the mod tried exactly at combat start, so it missed the charger. Version 1.22.1 (out now) switches Bane on the moment the charging character joins the fight.
 
 Your other combat-start buffs were fine: all six spells were cast in both fights, charging only affected Bane.
 
