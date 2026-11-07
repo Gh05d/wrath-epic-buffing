@@ -18,6 +18,7 @@ using Kingmaker.UnitLogic.Abilities.Components;
 using Kingmaker.UnitLogic.Abilities.Components.TargetCheckers;
 using Kingmaker.UnitLogic.Parts;
 using Kingmaker.UnitLogic.Buffs.Blueprints;
+using Kingmaker.UnitLogic.Commands;
 using Kingmaker.Utility;
 using System;
 using System.Collections;
@@ -514,9 +515,8 @@ namespace BuffIt2TheLimit {
 
                         Main.Verbose($"Activating: {actBuff.Name} on {caster.CharacterName}");
                         ClearConflictingFuryWeapons(caster, target);
-                        target.IsOn = true;
-                        if (!target.IsStarted)
-                            target.TryStart();
+                        if (!StartWithoutCommand(target))
+                            Main.Log($"Activatable {actBuff.Name}: started via the game's activation command on {caster.CharacterName} (uses an action)");
                         if (actBuff.HasTurnOffRule)
                             GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                     } catch (Exception ex) {
@@ -967,6 +967,24 @@ namespace BuffIt2TheLimit {
             }
         }
 
+        // Switches a toggle on without the action cost of a manual click. The IsOn setter
+        // (ActivatableAbility.OnDidTurnOn) queues a UnitActivateAbility command for
+        // ActivateWithUnitCommand toggles (Bane, swift-action songs, Aeon gaze) unless the
+        // ability is already started; that command ran later and ate the unit's swift/move
+        // action although the toggle was long on. Starting first makes the setter return early.
+        // TryStart still spends the resource (OnStart → SpendResource). If it cannot start
+        // (group full, command cooldown), the setter's command is the fallback, as before.
+        // Returns false when that fallback command was queued.
+        internal static bool StartWithoutCommand(ActivatableAbility target) {
+            target.TryStart();
+            target.IsOn = true;
+            if (target.IsStarted)
+                return true;
+            target.TryStart();
+            return target.IsStarted
+                && !target.Owner.Unit.Commands.Raw.Any(c => c is UnitActivateAbility a && a.Ability == target);
+        }
+
         // Switches on the given combat-start toggles. Returns how many were activated.
         internal int ActivateCombatStartToggles(IEnumerable<BubbleBuff> buffs, string tag) {
             int activatablesActivated = 0;
@@ -1048,9 +1066,8 @@ namespace BuffIt2TheLimit {
                         string targetLabel = ReferenceEquals(target, activatable) ? actBuff.Name : $"{actBuff.Name} → {target.Blueprint.Name}";
                         Main.Log($"[CSD] {tag} activate '{targetLabel}' on {caster.CharacterName}");
                         ClearConflictingFuryWeapons(caster, target);
-                        target.IsOn = true;
-                        if (!target.IsStarted)
-                            target.TryStart();
+                        bool free = StartWithoutCommand(target);
+                        Main.Log($"[CSD] {tag} '{targetLabel}' started={target.IsStarted} free={free}");
                         activatablesActivated++;
                         if (actBuff.HasTurnOffRule)
                             GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);

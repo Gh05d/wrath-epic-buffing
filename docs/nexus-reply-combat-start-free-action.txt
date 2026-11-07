@@ -1,0 +1,5 @@
+Good catch, and it turned out to be a bug rather than a missing option.
+
+On combat start the mod switches the toggle on instantly, but the game additionally queued its normal activation command, which then used up your swift (or move) action on your first turn without doing anything. Version 1.22.2 (out now) fixes that: toggles the mod switches on (Bane, performances, Aeon gaze etc.) no longer use an action, neither on combat start nor from the buff button.
+
+Resources (rounds of performance, rounds of bane) are still spent as usual. Spells cast on combat start already didn't use your actions, so toggles now work the same way.
