@@ -1,0 +1,5 @@
+Thanks for testing it right away, and sorry about that. You're right, 1.22.2 broke it: toggles the mod switched on showed as active in the hotbar and used up their rounds, but the effect itself was never applied.
+
+Version 1.22.3 (out now) fixes it. The mod now switches toggles on the same way the game does internally when it starts an ability without an action, so the effect is applied and your swift/move action stays free. I tested it in combat this time: Bane was active with its buff, one round of Bane was spent, and no action was used.
+
+If you toggled something off and on by hand in 1.22.2 to make it work, nothing else needs fixing; just update.
