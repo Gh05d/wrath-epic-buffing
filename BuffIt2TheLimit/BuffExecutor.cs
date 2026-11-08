@@ -4,6 +4,7 @@ using Kingmaker.Blueprints;
 using Kingmaker.Blueprints.Classes;
 using Kingmaker.Blueprints.Items.Weapons;
 using Kingmaker.Controllers;
+using Kingmaker.ElementsSystem;
 using Kingmaker.EntitySystem;
 using Kingmaker.EntitySystem.Entities;
 using Kingmaker.PubSubSystem;
@@ -516,7 +517,7 @@ namespace BuffIt2TheLimit {
                         Main.Verbose($"Activating: {actBuff.Name} on {caster.CharacterName}");
                         ClearConflictingFuryWeapons(caster, target);
                         if (!StartWithoutCommand(target))
-                            Main.Log($"Activatable {actBuff.Name}: started via the game's activation command on {caster.CharacterName} (uses an action)");
+                            Main.Log($"Activatable {actBuff.Name}: could not start directly on {caster.CharacterName} (group full or cooldown), left to the game's activation command");
                         if (actBuff.HasTurnOffRule)
                             GlobalBubbleBuffer.RoundLimitWatcher?.TrackActivation(caster, activatable.Blueprint.AssetGuid);
                     } catch (Exception ex) {
@@ -967,22 +968,29 @@ namespace BuffIt2TheLimit {
             }
         }
 
-        // Switches a toggle on without the action cost of a manual click. The IsOn setter
+        // Switches a toggle on without the action cost of a manual click. A plain IsOn = true
         // (ActivatableAbility.OnDidTurnOn) queues a UnitActivateAbility command for
-        // ActivateWithUnitCommand toggles (Bane, swift-action songs, Aeon gaze) unless the
-        // ability is already started; that command ran later and ate the unit's swift/move
-        // action although the toggle was long on. Starting first makes the setter return early.
-        // TryStart still spends the resource (OnStart → SpendResource). If it cannot start
-        // (group full, command cooldown), the setter's command is the fallback, as before.
-        // Returns false when that fallback command was queued.
+        // ActivateWithUnitCommand toggles (Bane, swift-action songs, Aeon gaze); with the old
+        // IsOn-then-TryStart the toggle ran at once and that command still ate the unit's
+        // swift/move action later. OnDidTurnOn starts the toggle directly instead when the
+        // StartImmediately context names it — the engine's own path (UnitPartRider.Mount).
+        // TryStart then runs with IsOn already true, so ReapplyBuff applies the buff (it returns
+        // early while !IsOn: 1.22.2 called TryStart first and left the toggle on without effect)
+        // and OnStart spends the resource. If it cannot start now (group full, command cooldown),
+        // queue the game's activation command as the fallback, which costs the action.
+        // Returns true when the toggle runs without a command.
         internal static bool StartWithoutCommand(ActivatableAbility target) {
-            target.TryStart();
-            target.IsOn = true;
+            using (ContextData<ActivatableAbility.StartImmediately>.Request().Setup(target)) {
+                target.IsOn = true;
+            }
             if (target.IsStarted)
                 return true;
-            target.TryStart();
-            return target.IsStarted
-                && !target.Owner.Unit.Commands.Raw.Any(c => c is UnitActivateAbility a && a.Ability == target);
+            if (target.IsOn && target.Blueprint.ActivateWithUnitCommand) {
+                var unit = target.Owner.Unit;
+                if (!unit.Commands.Contains(c => c is UnitActivateAbility a && a.Ability == target))
+                    unit.Commands.Run(new UnitActivateAbility(target));
+            }
+            return false;
         }
 
         // Switches on the given combat-start toggles. Returns how many were activated.
